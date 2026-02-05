@@ -1,0 +1,188 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/api/auth/equipos",
+      "regex": "^/api/auth/equipos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/equipos(?:/)?$"
+    },
+    {
+      "page": "/api/auth/login",
+      "regex": "^/api/auth/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/login(?:/)?$"
+    },
+    {
+      "page": "/api/auth/registro",
+      "regex": "^/api/auth/registro(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/registro(?:/)?$"
+    },
+    {
+      "page": "/api/auth/unirse",
+      "regex": "^/api/auth/unirse(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/unirse(?:/)?$"
+    },
+    {
+      "page": "/api/onboarding/altura",
+      "regex": "^/api/onboarding/altura(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/onboarding/altura(?:/)?$"
+    },
+    {
+      "page": "/api/onboarding/edad",
+      "regex": "^/api/onboarding/edad(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/onboarding/edad(?:/)?$"
+    },
+    {
+      "page": "/api/onboarding/final",
+      "regex": "^/api/onboarding/final(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/onboarding/final(?:/)?$"
+    },
+    {
+      "page": "/api/onboarding/genero",
+      "regex": "^/api/onboarding/genero(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/onboarding/genero(?:/)?$"
+    },
+    {
+      "page": "/api/onboarding/nombre",
+      "regex": "^/api/onboarding/nombre(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/onboarding/nombre(?:/)?$"
+    },
+    {
+      "page": "/api/onboarding/peso",
+      "regex": "^/api/onboarding/peso(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/onboarding/peso(?:/)?$"
+    },
+    {
+      "page": "/equipos",
+      "regex": "^/equipos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/equipos(?:/)?$"
+    },
+    {
+      "page": "/favicon.ico",
+      "regex": "^/favicon\\.ico(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
+    },
+    {
+      "page": "/onboarding/altura",
+      "regex": "^/onboarding/altura(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/onboarding/altura(?:/)?$"
+    },
+    {
+      "page": "/onboarding/edad",
+      "regex": "^/onboarding/edad(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/onboarding/edad(?:/)?$"
+    },
+    {
+      "page": "/onboarding/final",
+      "regex": "^/onboarding/final(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/onboarding/final(?:/)?$"
+    },
+    {
+      "page": "/onboarding/genero",
+      "regex": "^/onboarding/genero(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/onboarding/genero(?:/)?$"
+    },
+    {
+      "page": "/onboarding/nombre",
+      "regex": "^/onboarding/nombre(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/onboarding/nombre(?:/)?$"
+    },
+    {
+      "page": "/onboarding/peso",
+      "regex": "^/onboarding/peso(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/onboarding/peso(?:/)?$"
+    },
+    {
+      "page": "/registro",
+      "regex": "^/registro(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/registro(?:/)?$"
+    },
+    {
+      "page": "/unirse",
+      "regex": "^/unirse(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/unirse(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

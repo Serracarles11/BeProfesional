@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/onboarding/layout,_N_T_/onboarding/genero/layout,_N_T_/onboarding/genero/page,_N_T_/onboarding/genero"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/onboarding/genero/__PAGE__",
+    "/onboarding/genero",
+    "/onboarding",
+    "/_index",
+    "/_head"
+  ]
+}
