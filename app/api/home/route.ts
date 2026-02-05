@@ -1,44 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
 
-type EquipoListItem = {
+type EquipoActivo = {
   id: string
   nombre: string
-  club: string | null
   categoria: string | null
   temporada: string | null
-  rol: string
 }
 
 type HomeApiResponse = {
   ok: boolean
   error?: string
-  usuario?: {
-    id: string
-    nombre: string
-    email: string | null
-  }
-  equipo: {
-    id: string
-    nombre: string
-    club: string | null
-    categoria: string | null
-    temporada: string | null
-  } | null
-  rolUsuario: string | null
-  proximoEntreno: {
-    id: string
-    fecha: string
-    lugar: string | null
-  } | null
-  proximoPartido: {
-    id: string
-    fechaHora: string
-    rival: string | null
-    lugar: string | null
-  } | null
+  equipo: EquipoActivo | null
   kpis: {
-    winrate: number
+    winRate: number
     pointsPerGame: number
     goals: number
     conceded: number
@@ -47,10 +22,20 @@ type HomeApiResponse = {
   playerStats: Array<{
     id: string
     nombre: string
+    posicion: string
     rating: number
-    passAcc: number
     goals: number
     assists: number
+    passAccuracy: number
+  }>
+  schedule: Array<{
+    id: string
+    tipo: 'Entrenamiento' | 'Partido'
+    titulo: string
+    fecha: string
+    hora: string
+    lugar: string
+    rival?: string | null
   }>
   standings: Array<{
     pos: number
@@ -68,57 +53,132 @@ type HomeApiResponse = {
     away: string
     homeScore: number
     awayScore: number
+    estado: string
   }>
-  recentForm: Array<{
-    match: number
-    value: number
-  }>
-  equiposDelUsuario: EquipoListItem[]
 }
 
-function defaultPayload(): Omit<HomeApiResponse, 'ok' | 'usuario'> {
-  return {
-    equipo: null,
-    rolUsuario: null,
-    proximoEntreno: null,
-    proximoPartido: null,
-    kpis: {
-      winrate: 64,
-      pointsPerGame: 2.1,
-      goals: 22,
-      conceded: 11,
-      possession: 58,
+type MembershipRow = {
+  rol: string | null
+  equipo: {
+    id: string
+    nombre: string
+    categoria: string | null
+    temporada: string | null
+  } | {
+    id: string
+    nombre: string
+    categoria: string | null
+    temporada: string | null
+  }[] | null
+}
+
+const EMPTY_PAYLOAD: Omit<HomeApiResponse, 'ok'> = {
+  error: undefined,
+  equipo: null,
+  kpis: {
+    winRate: 0,
+    pointsPerGame: 0,
+    goals: 0,
+    conceded: 0,
+    possession: 0,
+  },
+  playerStats: [],
+  schedule: [],
+  standings: [],
+  scores: [],
+}
+
+const MOCK_PAYLOAD: Omit<HomeApiResponse, 'ok' | 'equipo'> = {
+  error: undefined,
+  kpis: {
+    winRate: 68,
+    pointsPerGame: 2.3,
+    goals: 21,
+    conceded: 9,
+    possession: 57,
+  },
+  playerStats: [
+    {
+      id: 'player-1',
+      nombre: 'Alex Medina',
+      posicion: 'MC',
+      rating: 7.9,
+      goals: 6,
+      assists: 4,
+      passAccuracy: 88,
     },
-    playerStats: [
-      {
-        id: 'mock-1',
-        nombre: 'Tu mejor jugador',
-        rating: 7.8,
-        passAcc: 86,
-        goals: 7,
-        assists: 5,
-      },
-    ],
-    standings: [
-      { pos: 1, team: 'City', p: 8, w: 6, d: 1, l: 1, gd: 10, pts: 19 },
-      { pos: 2, team: 'United', p: 8, w: 5, d: 2, l: 1, gd: 8, pts: 17 },
-      { pos: 3, team: 'Liverpool', p: 8, w: 5, d: 1, l: 2, gd: 7, pts: 16 },
-      { pos: 4, team: 'Arsenal', p: 8, w: 4, d: 2, l: 2, gd: 5, pts: 14 },
-    ],
-    scores: [
-      { id: 'score-1', home: 'United', away: 'Wolves', homeScore: 3, awayScore: 1 },
-      { id: 'score-2', home: 'Arsenal', away: 'Chelsea', homeScore: 2, awayScore: 2 },
-      { id: 'score-3', home: 'Liverpool', away: 'Brighton', homeScore: 2, awayScore: 1 },
-    ],
-    recentForm: [
-      { match: 1, value: 2 },
-      { match: 2, value: 3 },
-      { match: 3, value: 2 },
-      { match: 4, value: 1 },
-      { match: 5, value: 2 },
-      { match: 6, value: 3 },
-    ],
-    equiposDelUsuario: [],
+    {
+      id: 'player-2',
+      nombre: 'Dani Lopez',
+      posicion: 'DC',
+      rating: 7.4,
+      goals: 8,
+      assists: 2,
+      passAccuracy: 74,
+    },
+    {
+      id: 'player-3',
+      nombre: 'Sofia Ruiz',
+      posicion: 'LD',
+      rating: 7.2,
+      goals: 1,
+      assists: 5,
+      passAccuracy: 83,
+    },
+  ],
+  schedule: [
+    {
+      id: 'schedule-1',
+      tipo: 'Entrenamiento',
+      titulo: 'Sesion tactica',
+      fecha: '2026-02-07',
+      hora: '18:30',
+      lugar: 'Campo Norte',
+    },
+    {
+      id: 'schedule-2',
+      tipo: 'Partido',
+      titulo: 'Liga vs Atletico',
+      fecha: '2026-02-10',
+      hora: '19:00',
+      lugar: 'Estadio Central',
+      rival: 'Atletico',
+    },
+    {
+      id: 'schedule-3',
+      tipo: 'Entrenamiento',
+      titulo: 'Trabajo fisico',
+      fecha: '2026-02-12',
+      hora: '17:45',
+      lugar: 'Gimnasio Club',
+    },
+  ],
+  standings: [
+    { pos: 1, team: 'City', p: 12, w: 9, d: 2, l: 1, gd: 14, pts: 29 },
+    { pos: 2, team: 'United', p: 12, w: 8, d: 2, l: 2, gd: 10, pts: 26 },
+    { pos: 3, team: 'Liverpool', p: 12, w: 7, d: 3, l: 2, gd: 8, pts: 24 },
+    { pos: 4, team: 'Arsenal', p: 12, w: 6, d: 3, l: 3, gd: 5, pts: 21 },
+  ],
+  scores: [
+    { id: 'score-1', home: 'United', away: 'Wolves', homeScore: 3, awayScore: 1, estado: 'FT' },
+    { id: 'score-2', home: 'Arsenal', away: 'Chelsea', homeScore: 2, awayScore: 2, estado: 'FT' },
+    { id: 'score-3', home: 'Liverpool', away: 'Brighton', homeScore: 2, awayScore: 1, estado: 'FT' },
+  ],
+}
+
+function normalizeEquipo(row: MembershipRow): EquipoActivo | null {
+  const rawEquipo = row.equipo
+  const equipo = Array.isArray(rawEquipo) ? rawEquipo[0] : rawEquipo
+
+  if (!equipo?.id) {
+    return null
+  }
+
+  return {
+    id: equipo.id,
+    nombre: equipo.nombre,
+    categoria: equipo.categoria,
+    temporada: equipo.temporada,
   }
 }
 
@@ -132,181 +192,57 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json(
-        { ok: false, error: 'No autorizado' },
-        { status: 401 }
-      )
+      return NextResponse.json({ ok: false, error: 'No autorizado', ...EMPTY_PAYLOAD }, { status: 401 })
     }
 
-    const payload = defaultPayload()
-
-    const { data: profile } = await supabase
-      .from('perfiles')
-      .select('nombre')
-      .eq('id', user.id)
-      .maybeSingle()
-
-    const { data: memberships, error: membershipsError } = await supabase
+    const { data: memberships, error: membershipError } = await supabase
       .from('miembros_equipo')
-      .select(
-        'rol, equipo_id, equipo:equipos(id, nombre, club, categoria, temporada)'
-      )
+      .select('rol, equipo:equipos(id, nombre, categoria, temporada)')
       .eq('usuario_id', user.id)
 
-    if (membershipsError) {
+    if (membershipError) {
       return NextResponse.json(
-        { ok: false, error: 'No se pudieron obtener los equipos del usuario.' },
+        { ok: false, error: 'No se pudieron obtener los equipos del usuario.', ...EMPTY_PAYLOAD },
         { status: 500 }
       )
     }
 
-    const equiposDelUsuario: EquipoListItem[] = (memberships ?? [])
-      .map((row) => {
-        const rawEquipo = row.equipo as
-          | {
-              id: string
-              nombre: string
-              club: string | null
-              categoria: string | null
-              temporada: string | null
-            }
-          | {
-              id: string
-              nombre: string
-              club: string | null
-              categoria: string | null
-              temporada: string | null
-            }[]
-          | null
+    const equipos = (memberships ?? [])
+      .map((row) => normalizeEquipo(row as MembershipRow))
+      .filter((equipo): equipo is EquipoActivo => equipo !== null)
 
-        const equipo = Array.isArray(rawEquipo) ? rawEquipo[0] : rawEquipo
-
-        if (!equipo?.id) {
-          return null
-        }
-
-        return {
-          id: equipo.id,
-          nombre: equipo.nombre,
-          club: equipo.club,
-          categoria: equipo.categoria,
-          temporada: equipo.temporada,
-          rol: row.rol ?? 'jugador',
-        }
-      })
-      .filter((value): value is EquipoListItem => value !== null)
-
-    payload.equiposDelUsuario = equiposDelUsuario
-
-    if (equiposDelUsuario.length === 0) {
+    if (equipos.length === 0) {
       const emptyResponse: HomeApiResponse = {
         ok: true,
-        usuario: {
-          id: user.id,
-          nombre: profile?.nombre ?? user.email?.split('@')[0] ?? 'Usuario',
-          email: user.email ?? null,
-        },
-        ...payload,
+        ...EMPTY_PAYLOAD,
       }
 
       return NextResponse.json(emptyResponse)
     }
 
     const requestedTeamId = new URL(request.url).searchParams.get('equipo')
+    const selectedTeam = requestedTeamId
+      ? equipos.find((team) => team.id === requestedTeamId)
+      : equipos[0]
 
-    const selectedFromMembership = requestedTeamId
-      ? equiposDelUsuario.find((team) => team.id === requestedTeamId)
-      : equiposDelUsuario[0]
-
-    if (requestedTeamId && !selectedFromMembership) {
+    if (requestedTeamId && !selectedTeam) {
       return NextResponse.json(
-        { ok: false, error: 'No perteneces al equipo solicitado.' },
-        { status: 401 }
+        { ok: false, error: 'No perteneces al equipo solicitado.', ...EMPTY_PAYLOAD },
+        { status: 403 }
       )
-    }
-
-    const selectedTeam = selectedFromMembership ?? equiposDelUsuario[0]
-
-    const { data: equipoRow, error: equipoError } = await supabase
-      .from('equipos')
-      .select('id, nombre, club, categoria, temporada')
-      .eq('id', selectedTeam.id)
-      .single()
-
-    if (equipoError || !equipoRow) {
-      return NextResponse.json(
-        { ok: false, error: 'No se pudo obtener el equipo seleccionado.' },
-        { status: 500 }
-      )
-    }
-
-    const { data: rolRow } = await supabase
-      .from('miembros_equipo')
-      .select('rol')
-      .eq('usuario_id', user.id)
-      .eq('equipo_id', selectedTeam.id)
-      .maybeSingle()
-
-    payload.equipo = {
-      id: equipoRow.id,
-      nombre: equipoRow.nombre,
-      club: equipoRow.club,
-      categoria: equipoRow.categoria,
-      temporada: equipoRow.temporada,
-    }
-    payload.rolUsuario = rolRow?.rol ?? selectedTeam.rol
-
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    const { data: entrenos } = await supabase
-      .from('entrenamientos_equipo')
-      .select('id, fecha, lugar')
-      .eq('equipo_id', selectedTeam.id)
-      .gte('fecha', today.toISOString().slice(0, 10))
-      .order('fecha', { ascending: true })
-      .limit(1)
-
-    if (entrenos?.[0]) {
-      payload.proximoEntreno = {
-        id: String(entrenos[0].id),
-        fecha: String(entrenos[0].fecha),
-        lugar: entrenos[0].lugar ? String(entrenos[0].lugar) : null,
-      }
-    }
-
-    const { data: partidos } = await supabase
-      .from('partidos')
-      .select('id, fecha_hora, rival, lugar')
-      .eq('equipo_id', selectedTeam.id)
-      .gte('fecha_hora', new Date().toISOString())
-      .order('fecha_hora', { ascending: true })
-      .limit(1)
-
-    if (partidos?.[0]) {
-      payload.proximoPartido = {
-        id: String(partidos[0].id),
-        fechaHora: String(partidos[0].fecha_hora),
-        rival: partidos[0].rival ? String(partidos[0].rival) : null,
-        lugar: partidos[0].lugar ? String(partidos[0].lugar) : null,
-      }
     }
 
     const response: HomeApiResponse = {
       ok: true,
-      usuario: {
-        id: user.id,
-        nombre: profile?.nombre ?? user.email?.split('@')[0] ?? 'Usuario',
-        email: user.email ?? null,
-      },
-      ...payload,
+      equipo: selectedTeam ?? null,
+      ...MOCK_PAYLOAD,
     }
 
     return NextResponse.json(response)
   } catch (error) {
     console.error('Error en GET /api/home:', error)
     return NextResponse.json(
-      { ok: false, error: 'Error interno del servidor.' },
+      { ok: false, error: 'Error interno del servidor.', ...EMPTY_PAYLOAD },
       { status: 500 }
     )
   }

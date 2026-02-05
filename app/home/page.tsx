@@ -1,405 +1,540 @@
 ﻿'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  ArrowRight,
   Calendar,
-  ChevronDown,
-  Swords,
+  ChevronRight,
+  Dumbbell,
+  Home,
+  MessageSquare,
+  Settings,
   Trophy,
   Users,
-  type LucideIcon,
 } from 'lucide-react'
 
-type Team = {
+type EquipoActivo = {
   id: string
   nombre: string
-  club?: string | null
-  categoria?: string | null
-  temporada?: string | null
-  logo_url?: string | null
+  categoria: string | null
+  temporada: string | null
 }
 
-type EquiposResponse = {
+type HomeApiResponse = {
   ok: boolean
-  equipos?: Team[]
   error?: string
+  equipo: EquipoActivo | null
+  kpis: {
+    winRate: number
+    pointsPerGame: number
+    goals: number
+    conceded: number
+    possession: number
+  }
+  playerStats: Array<{
+    id: string
+    nombre: string
+    posicion: string
+    rating: number
+    goals: number
+    assists: number
+    passAccuracy: number
+  }>
+  schedule: Array<{
+    id: string
+    tipo: 'Entrenamiento' | 'Partido'
+    titulo: string
+    fecha: string
+    hora: string
+    lugar: string
+    rival?: string | null
+  }>
+  standings: Array<{
+    pos: number
+    team: string
+    p: number
+    w: number
+    d: number
+    l: number
+    gd: number
+    pts: number
+  }>
+  scores: Array<{
+    id: string
+    home: string
+    away: string
+    homeScore: number
+    awayScore: number
+    estado: string
+  }>
 }
 
-type QuickAction = {
+type StatusState = 'loading' | 'ready' | 'error'
+
+type ScheduleRow = {
   id: string
-  title: string
-  description: string
-  href: string
-  icon: LucideIcon
-  accent: string
+  tipo: string
+  titulo: string
+  fechaLabel: string
+  hora: string
+  lugar: string
+  pillClass: string
+  detailLine: string
 }
 
-const QUICK_ACTIONS: QuickAction[] = [
-  {
-    id: 'entrenamientos',
-    title: 'Entrenamientos',
-    description: 'Planifica las sesiones y controla el rendimiento.',
-    href: '/entrenamientos',
-    icon: Calendar,
-    accent: 'from-emerald-400 to-teal-500',
-  },
-  {
-    id: 'partidos',
-    title: 'Partidos',
-    description: 'Gestiona convocatorias, resultados y rivales.',
-    href: '/partidos',
-    icon: Swords,
-    accent: 'from-rose-400 to-orange-500',
-  },
-  {
-    id: 'jugadores',
-    title: 'Jugadores',
-    description: 'Revisa la plantilla y el estado del equipo.',
-    href: '/jugadores',
-    icon: Users,
-    accent: 'from-indigo-500 to-violet-600',
-  },
+type StandingRow = {
+  id: string
+  pos: number
+  team: string
+  record: string
+  pts: number
+  badgeClass: string
+}
+
+type ScoreRow = {
+  id: string
+  home: string
+  away: string
+  scoreLabel: string
+  estado: string
+}
+
+const NAV_ITEMS = [
+  { id: 'home', label: 'Home', icon: Home, active: true },
+  { id: 'team', label: 'Equipo', icon: Users, active: false },
+  { id: 'training', label: 'Entrenos', icon: Dumbbell, active: false },
+  { id: 'matches', label: 'Partidos', icon: Trophy, active: false },
+  { id: 'chat', label: 'Chat', icon: MessageSquare, active: false },
+  { id: 'settings', label: 'Ajustes', icon: Settings, active: false },
 ]
 
-function TeamSelect({
-  teams,
-  value,
-  onChange,
+const EMPTY_KPIS = {
+  winRate: 0,
+  pointsPerGame: 0,
+  goals: 0,
+  conceded: 0,
+  possession: 0,
+}
+
+function DashboardCard({
+  title,
+  children,
 }: {
-  teams: Team[]
-  value: string
-  onChange: (value: string) => void
+  title: string
+  children: React.ReactNode
 }) {
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-semibold text-gray-700">Selecciona equipo</label>
-      <div className="relative">
-        <select
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="input-premium appearance-none pr-10"
+    <section className="dashboard-card shadow-soft rounded-3xl p-5 md:p-6">
+      <header className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white/70 px-3 py-1 text-xs font-medium text-gray-700"
         >
-          {teams.map((team) => (
-            <option key={team.id} value={team.id}>
-              {team.nombre}
-            </option>
-          ))}
-        </select>
-        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          Details
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </header>
+      {children}
+    </section>
+  )
+}
+
+function Sidebar() {
+  return (
+    <aside className="sidebar-glass sticky top-6 hidden h-fit w-20 flex-col items-center gap-4 rounded-3xl p-4 md:flex">
+      {NAV_ITEMS.map((item) => {
+        const Icon = item.icon
+        return (
+          <button
+            key={item.id}
+            type="button"
+            className={`flex h-12 w-12 items-center justify-center rounded-2xl transition ${
+              item.active
+                ? 'bg-gray-900 text-white shadow-soft'
+                : 'bg-white/80 text-gray-500 hover:bg-white'
+            }`}
+            title={item.label}
+          >
+            <Icon className="h-5 w-5" />
+          </button>
+        )
+      })}
+    </aside>
+  )
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="dashboard-bg min-h-screen p-4 md:p-8">
+      <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-[84px_1fr]">
+        <div className="hidden md:block" />
+        <div className="space-y-4">
+          <div className="dashboard-card h-24 animate-pulse rounded-3xl" />
+          <div className="grid gap-4 xl:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="dashboard-card h-64 animate-pulse rounded-3xl" />
+            ))}
+          </div>
+          <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
+            {Array.from({ length: 2 }).map((_, index) => (
+              <div key={index} className="dashboard-card h-72 animate-pulse rounded-3xl" />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
 }
 
-function QuickAccessCard({
-  title,
-  description,
-  icon: Icon,
-  accent,
-  onClick,
-  disabled,
-}: {
-  title: string
-  description: string
-  icon: LucideIcon
-  accent: string
-  onClick: () => void
-  disabled: boolean
-}) {
+function DashboardError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`dashboard-card shadow-soft rounded-3xl p-5 text-left transition md:p-6 ${
-        disabled ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
-      }`}
-    >
-      <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${accent} text-white shadow-soft`}>
-        <Icon className="h-5 w-5" />
+    <div className="dashboard-bg min-h-screen p-4 md:p-8">
+      <div className="mx-auto max-w-xl">
+        <div className="dashboard-card rounded-3xl p-6 text-center">
+          <p className="text-base font-medium text-red-600">{message}</p>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="mt-4 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white"
+          >
+            Reintentar
+          </button>
+        </div>
       </div>
-      <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
-      <p className="mt-1 text-sm text-gray-500">{description}</p>
-      <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-indigo-600">
-        Abrir
-        <ArrowRight className="h-4 w-4" />
-      </span>
-    </button>
+    </div>
   )
+}
+
+function EmptyState({ onCreate, onJoin }: { onCreate: () => void; onJoin: () => void }) {
+  return (
+    <div className="dashboard-bg min-h-screen p-4 md:p-8">
+      <div className="mx-auto max-w-2xl">
+        <div className="dashboard-card rounded-3xl p-8 text-center md:p-10">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-soft">
+            <Trophy className="h-6 w-6" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-800">Aun no tienes equipos</h1>
+          <p className="mt-2 text-sm text-gray-500">
+            Crea tu primer equipo o unete con un codigo de invitacion para activar el dashboard.
+          </p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={onCreate}
+              className="rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 font-semibold text-white shadow-soft"
+            >
+              Crear equipo
+            </button>
+            <button
+              type="button"
+              onClick={onJoin}
+              className="rounded-2xl border border-gray-300 bg-white px-4 py-3 font-semibold text-gray-700"
+            >
+              Unirme con codigo
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function formatDateLabel(date: string) {
+  const parsed = new Date(date)
+  return parsed.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })
+}
+
+function buildScheduleRows(items: HomeApiResponse['schedule']): ScheduleRow[] {
+  return items.map((item) => ({
+    id: item.id,
+    tipo: item.tipo,
+    titulo: item.titulo,
+    fechaLabel: formatDateLabel(item.fecha),
+    hora: item.hora,
+    lugar: item.lugar,
+    pillClass:
+      item.tipo === 'Partido'
+        ? 'bg-indigo-100 text-indigo-700'
+        : 'bg-emerald-100 text-emerald-700',
+    detailLine: item.rival
+      ? `${item.hora} · ${item.lugar} · vs ${item.rival}`
+      : `${item.hora} · ${item.lugar}`,
+  }))
+}
+
+function buildStandingRows(items: HomeApiResponse['standings']): StandingRow[] {
+  return items.map((row) => {
+    const badgeClass =
+      row.pos === 1
+        ? 'pos-1'
+        : row.pos === 2
+        ? 'pos-2'
+        : row.pos === 3
+        ? 'pos-3'
+        : 'bg-gray-200 text-gray-700'
+
+    return {
+      id: `${row.team}-${row.pos}`,
+      pos: row.pos,
+      team: row.team,
+      record: `${row.w}-${row.d}-${row.l}`,
+      pts: row.pts,
+      badgeClass,
+    }
+  })
+}
+
+function buildScoreRows(items: HomeApiResponse['scores']): ScoreRow[] {
+  return items.map((score) => ({
+    id: score.id,
+    home: score.home,
+    away: score.away,
+    scoreLabel: `${score.homeScore} - ${score.awayScore}`,
+    estado: score.estado,
+  }))
 }
 
 export default function HomePage() {
   const router = useRouter()
-  const [teams, setTeams] = useState<Team[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [selectedTeamId, setSelectedTeamId] = useState('')
+  const searchParams = useSearchParams()
+  const equipoId = searchParams.get('equipo')
 
-  const loadTeams = useCallback(async () => {
-    setLoading(true)
+  const [payload, setPayload] = useState<HomeApiResponse | null>(null)
+  const [status, setStatus] = useState<StatusState>('loading')
+  const [error, setError] = useState('')
+
+  const loadData = useCallback(async () => {
+    setStatus('loading')
     setError('')
 
     try {
-      const response = await fetch('/api/auth/equipos', { method: 'GET', cache: 'no-store' })
-      const data = (await response.json()) as EquiposResponse
+      const query = equipoId ? `?equipo=${encodeURIComponent(equipoId)}` : ''
+      const response = await fetch(`/api/home${query}`, { cache: 'no-store' })
+
+      if (response.status === 401) {
+        router.push('/login')
+        return
+      }
+
+      const data = (await response.json()) as HomeApiResponse
 
       if (!response.ok || !data.ok) {
-        if (response.status === 401) {
-          setError('No autorizado. Inicia sesion para continuar.')
-        } else {
-          setError(data.error || 'No se pudieron cargar tus equipos.')
-        }
-        setTeams([])
-        setSelectedTeamId('')
+        setStatus('error')
+        setError(data.error || 'No se pudo cargar el dashboard.')
         return
       }
 
-      const nextTeams = Array.isArray(data.equipos) ? data.equipos : []
-      setTeams(nextTeams)
-
-      if (!nextTeams.length) {
-        setSelectedTeamId('')
-        return
-      }
-
-      const urlParam =
-        typeof window !== 'undefined'
-          ? new URLSearchParams(window.location.search).get('equipo')
-          : null
-
-      if (urlParam && nextTeams.some((team) => team.id === urlParam)) {
-        setSelectedTeamId(urlParam)
-        return
-      }
-
-      setSelectedTeamId(nextTeams[0].id)
+      setPayload(data)
+      setStatus('ready')
     } catch {
-      setError('Error de conexion. Intenta nuevamente.')
-      setTeams([])
-      setSelectedTeamId('')
-    } finally {
-      setLoading(false)
+      setStatus('error')
+      setError('Error de conexion.')
     }
-  }, [])
+  }, [equipoId, router])
 
   useEffect(() => {
-    void loadTeams()
-  }, [loadTeams])
+    let active = true
 
-  const selectedTeam = useMemo(() => {
-    return teams.find((team) => team.id === selectedTeamId) || null
-  }, [teams, selectedTeamId])
-
-  const quickActions = useMemo(() => {
-    if (!selectedTeamId) return QUICK_ACTIONS
-
-    return QUICK_ACTIONS.map((action) => ({
-      ...action,
-      href: `${action.href}?equipo=${encodeURIComponent(selectedTeamId)}`,
-    }))
-  }, [selectedTeamId])
-
-  const handleTeamChange = (value: string) => {
-    setSelectedTeamId(value)
-
-    const params =
-      typeof window !== 'undefined'
-        ? new URLSearchParams(window.location.search)
-        : new URLSearchParams()
-
-    if (value) {
-      params.set('equipo', value)
-    } else {
-      params.delete('equipo')
+    const run = async () => {
+      await loadData()
     }
 
-    const query = params.toString()
-    router.replace(query ? `/home?${query}` : '/home')
+    if (active) {
+      void run()
+    }
+
+    return () => {
+      active = false
+    }
+  }, [loadData])
+
+  const headerSubtitle = useMemo(() => {
+    if (!payload?.equipo) return ''
+    const parts = [payload.equipo.categoria, payload.equipo.temporada].filter(Boolean)
+    return parts.length ? parts.join(' · ') : 'Resumen general del equipo'
+  }, [payload?.equipo])
+
+  const kpiItems = useMemo(() => {
+    const kpis = payload?.kpis ?? EMPTY_KPIS
+
+    return [
+      { label: 'Win rate', value: `${kpis.winRate}%` },
+      { label: 'Points / game', value: kpis.pointsPerGame.toFixed(1) },
+      { label: 'Goals', value: kpis.goals.toString() },
+      { label: 'Conceded', value: kpis.conceded.toString() },
+      { label: 'Possession', value: `${kpis.possession}%` },
+    ]
+  }, [payload?.kpis])
+
+  const topPlayer = useMemo(() => {
+    const [primary] = payload?.playerStats ?? []
+    return primary || null
+  }, [payload?.playerStats])
+
+  const playerDisplay = useMemo(() => {
+    return {
+      nombre: topPlayer?.nombre ?? 'Sin datos',
+      posicion: topPlayer?.posicion ?? 'Posicion',
+      rating: topPlayer?.rating ?? 0,
+      passAccuracy: topPlayer?.passAccuracy ?? 0,
+      goals: topPlayer?.goals ?? 0,
+      assists: topPlayer?.assists ?? 0,
+    }
+  }, [topPlayer])
+
+  const scheduleRows = useMemo(() => buildScheduleRows(payload?.schedule ?? []), [payload?.schedule])
+  const standingsRows = useMemo(() => buildStandingRows(payload?.standings ?? []), [payload?.standings])
+  const scoreRows = useMemo(() => buildScoreRows(payload?.scores ?? []), [payload?.scores])
+
+  const todayLabel = useMemo(() => {
+    return new Date().toLocaleDateString('es-ES', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+    })
+  }, [])
+
+  if (status === 'loading') {
+    return <DashboardSkeleton />
   }
 
-  if (loading) {
-    return (
-      <div className="dashboard-bg min-h-screen p-4 md:p-8">
-        <div className="mx-auto max-w-5xl space-y-4">
-          <div className="dashboard-card h-24 animate-pulse rounded-3xl" />
-          <div className="dashboard-card h-44 animate-pulse rounded-3xl" />
-          <div className="grid gap-4 md:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="dashboard-card h-44 animate-pulse rounded-3xl" />
-            ))}
-          </div>
-          <div className="dashboard-card h-36 animate-pulse rounded-3xl" />
-        </div>
-      </div>
-    )
+  if (status === 'error') {
+    return <DashboardError message={error || 'No se pudo cargar el dashboard.'} onRetry={loadData} />
   }
 
-  if (error) {
-    return (
-      <div className="dashboard-bg min-h-screen p-4 md:p-8">
-        <div className="mx-auto max-w-2xl">
-          <div className="dashboard-card shadow-soft rounded-3xl border border-red-200 bg-red-50/70 p-6 text-center md:p-8">
-            <h1 className="text-xl font-semibold text-red-600">No se pudo cargar el dashboard</h1>
-            <p className="mt-2 text-sm text-red-500">{error}</p>
-            <button
-              type="button"
-              onClick={() => void loadTeams()}
-              className="mt-5 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 font-semibold text-white shadow-soft transition hover:opacity-95"
-            >
-              Reintentar
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (!teams.length) {
-    return (
-      <div className="dashboard-bg min-h-screen p-4 md:p-8">
-        <div className="mx-auto max-w-2xl">
-          <div className="dashboard-card shadow-soft-lg rounded-3xl p-8 text-center md:p-10">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-soft">
-              <Trophy className="h-8 w-8" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-800 md:text-3xl">Aun no tienes equipos</h1>
-            <p className="mt-2 text-sm text-gray-500">
-              Crea tu primer equipo y empieza a organizar entrenamientos, partidos y jugadores.
-            </p>
-            <button
-              type="button"
-              onClick={() => router.push('/crear-equipo')}
-              className="mt-6 inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 font-semibold text-white shadow-soft transition hover:opacity-95"
-            >
-              Crear equipo
-            </button>
-          </div>
-        </div>
-      </div>
-    )
+  if (!payload?.equipo) {
+    return <EmptyState onCreate={() => router.push('/crear-equipo')} onJoin={() => router.push('/unirse')} />
   }
 
   return (
     <div className="dashboard-bg min-h-screen p-4 md:p-8">
-      <div className="mx-auto max-w-5xl space-y-4">
-        <header className="dashboard-card shadow-soft-lg rounded-3xl p-6 md:p-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800 md:text-3xl">Home</h1>
-              <p className="mt-2 text-sm text-gray-500">Resumen del equipo</p>
-            </div>
-            <div className="flex items-center gap-3 rounded-2xl bg-white/70 px-4 py-3 text-sm text-gray-600">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-soft">
-                <Trophy className="h-5 w-5" />
-              </div>
+      <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-[84px_1fr]">
+        <Sidebar />
+
+        <div className="space-y-4">
+          <header className="dashboard-card shadow-soft rounded-3xl p-5 md:p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="font-semibold text-gray-800">{selectedTeam?.nombre}</p>
-                <p className="text-xs text-gray-500">Equipo activo</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Dashboard</p>
+                <h1 className="text-2xl font-bold text-gray-900">{payload.equipo.nombre}</h1>
+                <p className="mt-1 text-sm text-gray-500">{headerSubtitle}</p>
+              </div>
+              <div className="flex items-center gap-3 rounded-2xl bg-white/70 px-4 py-3 text-sm text-gray-600">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-soft">
+                  <Calendar className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-800">Hoy</p>
+                  <p className="text-xs text-gray-500 capitalize">{todayLabel}</p>
+                </div>
               </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        <section className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-          <div className="dashboard-card shadow-soft rounded-3xl p-6 md:p-8">
-            <div className="mb-6 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-soft">
-                <Users className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-800">Equipo principal</h2>
-                <p className="text-sm text-gray-500">Selecciona el equipo para continuar.</p>
-              </div>
-            </div>
-
-            <TeamSelect teams={teams} value={selectedTeamId} onChange={handleTeamChange} />
-
-            {selectedTeam && (
-              <div className="mt-5 rounded-2xl border border-indigo-100 bg-white/70 p-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-400 to-violet-500 text-white shadow-soft">
-                    {selectedTeam.logo_url ? (
-                      <img
-                        src={selectedTeam.logo_url}
-                        alt={selectedTeam.nombre}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-lg font-bold">
-                        {selectedTeam.nombre.charAt(0).toUpperCase()}
-                      </span>
-                    )}
+          <section className="grid gap-4 xl:grid-cols-[1.1fr_1fr_1fr]">
+            <DashboardCard title="Team KPIs">
+              <div className="space-y-2">
+                {kpiItems.map((item) => (
+                  <div
+                    key={item.label}
+                    className="kpi-pill flex items-center justify-between rounded-2xl bg-white/80 px-3 py-2 text-sm"
+                  >
+                    <span className="text-gray-500">{item.label}</span>
+                    <span className="font-semibold text-gray-800">{item.value}</span>
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">{selectedTeam.nombre}</p>
-                    <p className="text-xs text-gray-500">
-                      {selectedTeam.club || 'Sin club'} - {selectedTeam.categoria || 'Sin categoria'} -{' '}
-                      {selectedTeam.temporada || 'Sin temporada'}
-                    </p>
+                ))}
+              </div>
+            </DashboardCard>
+
+            <DashboardCard title="Player Stats">
+              <div className="space-y-4">
+                <div className="rounded-2xl bg-white/80 p-4">
+                  <p className="text-xs uppercase text-gray-400">Jugador destacado</p>
+                  <p className="text-lg font-bold text-gray-800">{playerDisplay.nombre}</p>
+                  <p className="text-sm text-gray-500">{playerDisplay.posicion}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-2xl bg-white/80 p-3">
+                    <p className="text-xs text-gray-400">Rating</p>
+                    <p className="text-lg font-semibold text-gray-800">{playerDisplay.rating}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/80 p-3">
+                    <p className="text-xs text-gray-400">Pass Acc</p>
+                    <p className="text-lg font-semibold text-gray-800">{playerDisplay.passAccuracy}%</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/80 p-3">
+                    <p className="text-xs text-gray-400">Goals</p>
+                    <p className="text-lg font-semibold text-gray-800">{playerDisplay.goals}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/80 p-3">
+                    <p className="text-xs text-gray-400">Assists</p>
+                    <p className="text-lg font-semibold text-gray-800">{playerDisplay.assists}</p>
                   </div>
                 </div>
               </div>
-            )}
+            </DashboardCard>
 
-            <button
-              type="button"
-              onClick={() => router.push(`/equipos?equipo=${encodeURIComponent(selectedTeamId)}`)}
-              disabled={!selectedTeamId}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 font-semibold text-white shadow-soft transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Ir al equipo
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="dashboard-card shadow-soft rounded-3xl p-6 md:p-8">
-            <div className="mb-6 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-soft">
-                <Users className="h-5 w-5" />
+            <DashboardCard title="Schedule">
+              <div className="space-y-3">
+                {scheduleRows.map((item) => (
+                  <div key={item.id} className="event-card rounded-2xl bg-white/80 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`rounded-full px-2 py-1 text-xs font-semibold ${item.pillClass}`}>
+                        {item.tipo}
+                      </span>
+                      <span className="text-xs font-semibold text-gray-500">{item.fechaLabel}</span>
+                    </div>
+                    <p className="mt-2 text-sm font-semibold text-gray-800">{item.titulo}</p>
+                    <p className="text-xs text-gray-500">{item.detailLine}</p>
+                  </div>
+                ))}
               </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-800">Codigos de invitacion</h2>
-                <p className="text-sm text-gray-500">Invita jugadores o crea un nuevo equipo.</p>
+            </DashboardCard>
+          </section>
+
+          <section className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
+            <DashboardCard title="League Standings">
+              <div className="space-y-2 text-sm">
+                {standingsRows.map((row) => (
+                  <div
+                    key={row.id}
+                    className="grid grid-cols-[32px_1fr_60px_36px] items-center gap-2 rounded-2xl bg-white/80 px-3 py-2"
+                  >
+                    <span
+                      className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white ${row.badgeClass}`}
+                    >
+                      {row.pos}
+                    </span>
+                    <span className="truncate font-medium text-gray-800">{row.team}</span>
+                    <span className="text-xs text-gray-500">{row.record}</span>
+                    <span className="text-right font-semibold text-gray-800">{row.pts}</span>
+                  </div>
+                ))}
               </div>
-            </div>
+            </DashboardCard>
 
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => router.push('/unirse')}
-                className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-              >
-                Ir a Unirse
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push('/crear-equipo')}
-                className="w-full rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-soft transition hover:opacity-95"
-              >
-                Crear equipo
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <section className="grid gap-4 md:grid-cols-3">
-          {quickActions.map((action) => (
-            <QuickAccessCard
-              key={action.id}
-              title={action.title}
-              description={action.description}
-              icon={action.icon}
-              accent={action.accent}
-              disabled={!selectedTeamId}
-              onClick={() => {
-                if (!selectedTeamId) return
-                router.push(action.href)
-              }}
-            />
-          ))}
-        </section>
+            <DashboardCard title="Scores">
+              <div className="space-y-2 text-sm">
+                {scoreRows.map((score) => (
+                  <div
+                    key={score.id}
+                    className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-2xl bg-white/80 px-3 py-2"
+                  >
+                    <span className="truncate text-right font-medium text-gray-700">{score.home}</span>
+                    <span className="rounded-full bg-gray-900 px-2 py-0.5 text-xs font-bold text-white">
+                      {score.scoreLabel}
+                    </span>
+                    <span className="truncate font-medium text-gray-700">{score.away}</span>
+                    <span className="col-span-3 text-center text-[11px] uppercase tracking-wide text-gray-400">
+                      {score.estado}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </DashboardCard>
+          </section>
+        </div>
       </div>
     </div>
   )

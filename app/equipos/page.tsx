@@ -206,7 +206,7 @@ export default function EquiposPage() {
                 key={equipo.id}
                 className="team-card animate-slide-up cursor-pointer"
                 style={{ animationDelay: `${0.1 + index * 0.05}s` }}
-                onClick={() => router.push(`/equipo/${equipo.id}`)}
+                onClick={() => router.push(`/home?equipo=${equipo.id}`)}
               >
                 <div className="flex items-center gap-4">
                   {/* Team logo/avatar */}
@@ -248,7 +248,14 @@ export default function EquiposPage() {
                   </div>
 
                   {/* Enter button */}
-                  <button className="px-4 py-2 md:px-6 md:py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-medium shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      router.push(`/home?equipo=${equipo.id}`)
+                    }}
+                    className="px-4 py-2 md:px-6 md:py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-medium shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] flex-shrink-0"
+                  >
                     Entrar
                   </button>
                 </div>
