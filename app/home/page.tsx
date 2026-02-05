@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Calendar,
@@ -295,7 +295,7 @@ function buildScoreRows(items: HomeApiResponse['scores']): ScoreRow[] {
   }))
 }
 
-export default function HomePage() {
+function HomeContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const equipoId = searchParams.get('equipo')
@@ -537,5 +537,13 @@ export default function HomePage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <HomeContent />
+    </Suspense>
   )
 }
