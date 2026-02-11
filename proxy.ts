@@ -74,14 +74,6 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/home', request.url))
   }
 
-  if (user && pathname === '/') {
-    return NextResponse.redirect(new URL('/home', request.url))
-  }
-
-  if (!user && !isPublicRoute(pathname) && isProtectedRoute(pathname)) {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
-
   return response
 }
 
