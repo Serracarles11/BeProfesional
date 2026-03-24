@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
 
+function safePath(value: string) {
+  return value.startsWith('/') ? value : '/equipos'
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -41,7 +45,7 @@ export async function POST(request: NextRequest) {
     // Verificar si el perfil esta completo
     const { data: perfil } = await supabase
       .from('perfiles')
-      .select('nombre, genero, edad, peso_kg, altura_cm, perfil_completo')
+      .select('nombre, genero, edad, peso_kg, altura_cm, perfil_completo, foto_url')
       .eq('id', data.user.id)
       .single()
 
@@ -69,6 +73,14 @@ export async function POST(request: NextRequest) {
     // Decidir redireccion
     const hasTeam = memberships && memberships.length > 0
     const redirectTo = hasTeam ? '/equipos' : '/unirse'
+
+    if (!perfil?.foto_url) {
+      const next = encodeURIComponent(safePath(redirectTo))
+      return NextResponse.json({
+        ok: true,
+        redirectTo: `/foto-perfil?next=${next}`,
+      })
+    }
 
     return NextResponse.json({ ok: true, redirectTo })
   } catch (err) {

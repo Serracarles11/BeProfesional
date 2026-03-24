@@ -1,0 +1,7 @@
+HTTP/1.1 302 
+Set-Cookie: JSESSIONID=A8EA5E36BA6962A8A07E358074D62F4F; Path=/Fed; Secure; HttpOnly
+Location: /Fed/NLogin
+Content-Length: 0
+Date: Fri, 27 Feb 2026 09:48:06 GMT
+Connection: close
+

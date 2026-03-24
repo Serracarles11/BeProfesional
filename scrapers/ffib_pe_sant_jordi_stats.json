@@ -1,0 +1,440 @@
+{
+  "generatedAt": "2026-02-26T08:32:41.060Z",
+  "team": "PE SANT JORDI",
+  "jornadaUrl": "https://www.ffib.es/Fed/NPcd/NFG_CmpJornada?cod_primaria=1000110&CodCompeticion=22536446&CodGrupo=22750685&CodTemporada=21&CodJornada=11&Sch_Codigo_Delegacion=1",
+  "matches": [
+    {
+      "codActa": "732057",
+      "matchUrl": "https://www.ffib.es/Fed/NPcd/NFG_CmpPartido?cod_primaria=1000110&CodActa=732057&cod_acta=732057",
+      "localTeam": "PE SANT JORDI",
+      "awayTeam": "SANTA GERTRUDIS",
+      "opponent": "SANTA GERTRUDIS",
+      "homeAway": "home",
+      "score": {
+        "home": 7,
+        "away": 0
+      },
+      "peSantJordi": {
+        "starters": [
+          {
+            "number": 25,
+            "name": "BONET PEREZ, IVAN"
+          },
+          {
+            "number": 2,
+            "name": "BENITEZ ARANDA, LUIS DANIEL"
+          },
+          {
+            "number": 4,
+            "name": "ROJO COLOMAR, NESTOR"
+          },
+          {
+            "number": 6,
+            "name": "FERRER ESCANDELL, PAU"
+          },
+          {
+            "number": 7,
+            "name": "REALES HARANA, DANIEL"
+          },
+          {
+            "number": 8,
+            "name": "LUNA RUIZ, ADRIAN"
+          },
+          {
+            "number": 11,
+            "name": "ALFENONI, GIANLUCA"
+          },
+          {
+            "number": 13,
+            "name": "LOPEZ LEDESMA, RINSON"
+          },
+          {
+            "number": 20,
+            "name": "NDAO, MOUNTAGA"
+          },
+          {
+            "number": 22,
+            "name": "LUZZI, ALESANDRO NICOLAS"
+          },
+          {
+            "number": 23,
+            "name": "CARELLA RUSSO, AGUSTIN"
+          }
+        ],
+        "bench": [
+          {
+            "number": 1,
+            "name": "VIDAL BONED, JORDI"
+          },
+          {
+            "number": 10,
+            "name": "PEREIRA DE SOUZA, DIEGO DELEON"
+          },
+          {
+            "number": 15,
+            "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO"
+          },
+          {
+            "number": 19,
+            "name": "GUALDRON MENDOZA, OSCAR ANDRES"
+          },
+          {
+            "number": 24,
+            "name": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN"
+          }
+        ],
+        "substitutions": [
+          {
+            "minute": 46,
+            "playerIn": {
+              "number": 10,
+              "name": "PEREIRA DE SOUZA, DIEGO DELEON"
+            },
+            "playerOut": {
+              "number": 20,
+              "name": "NDAO, MOUNTAGA"
+            }
+          },
+          {
+            "minute": 56,
+            "playerIn": {
+              "number": 15,
+              "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO"
+            },
+            "playerOut": {
+              "number": 4,
+              "name": "ROJO COLOMAR, NESTOR"
+            }
+          },
+          {
+            "minute": 56,
+            "playerIn": {
+              "number": 24,
+              "name": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN"
+            },
+            "playerOut": {
+              "number": 13,
+              "name": "LOPEZ LEDESMA, RINSON"
+            }
+          },
+          {
+            "minute": 66,
+            "playerIn": {
+              "number": 19,
+              "name": "GUALDRON MENDOZA, OSCAR ANDRES"
+            },
+            "playerOut": {
+              "number": 2,
+              "name": "BENITEZ ARANDA, LUIS DANIEL"
+            }
+          }
+        ],
+        "goals": [
+          {
+            "minute": 15,
+            "player": "REALES HARANA, DANIEL"
+          },
+          {
+            "minute": 19,
+            "player": "BENITEZ ARANDA, LUIS DANIEL"
+          },
+          {
+            "minute": 25,
+            "player": "ALFENONI, GIANLUCA"
+          },
+          {
+            "minute": 47,
+            "player": "LUNA RUIZ, ADRIAN"
+          },
+          {
+            "minute": 65,
+            "player": "ALFENONI, GIANLUCA"
+          },
+          {
+            "minute": 68,
+            "player": "GUALDRON MENDOZA, OSCAR ANDRES"
+          },
+          {
+            "minute": 72,
+            "player": "LUZZI, ALESANDRO NICOLAS"
+          }
+        ],
+        "cards": [],
+        "players": [
+          {
+            "number": 1,
+            "name": "VIDAL BONED, JORDI",
+            "starter": false,
+            "bench": true,
+            "inMinute": null,
+            "outMinute": null,
+            "goals": 0,
+            "cards": 0,
+            "events": [],
+            "minutesPlayed": null
+          },
+          {
+            "number": 2,
+            "name": "BENITEZ ARANDA, LUIS DANIEL",
+            "starter": true,
+            "bench": false,
+            "inMinute": 0,
+            "outMinute": 66,
+            "goals": 1,
+            "cards": 0,
+            "events": [
+              {
+                "type": "sub_out",
+                "minute": 66,
+                "for": "GUALDRON MENDOZA, OSCAR ANDRES"
+              },
+              {
+                "type": "goal",
+                "minute": 19
+              }
+            ],
+            "minutesPlayed": 66
+          },
+          {
+            "number": 4,
+            "name": "ROJO COLOMAR, NESTOR",
+            "starter": true,
+            "bench": false,
+            "inMinute": 0,
+            "outMinute": 56,
+            "goals": 0,
+            "cards": 0,
+            "events": [
+              {
+                "type": "sub_out",
+                "minute": 56,
+                "for": "ALMEIDA MARTINEZ, RICHARD EDUARDO"
+              }
+            ],
+            "minutesPlayed": 56
+          },
+          {
+            "number": 6,
+            "name": "FERRER ESCANDELL, PAU",
+            "starter": true,
+            "bench": false,
+            "inMinute": 0,
+            "outMinute": null,
+            "goals": 0,
+            "cards": 0,
+            "events": [],
+            "minutesPlayed": 90
+          },
+          {
+            "number": 7,
+            "name": "REALES HARANA, DANIEL",
+            "starter": true,
+            "bench": false,
+            "inMinute": 0,
+            "outMinute": null,
+            "goals": 1,
+            "cards": 0,
+            "events": [
+              {
+                "type": "goal",
+                "minute": 15
+              }
+            ],
+            "minutesPlayed": 90
+          },
+          {
+            "number": 8,
+            "name": "LUNA RUIZ, ADRIAN",
+            "starter": true,
+            "bench": false,
+            "inMinute": 0,
+            "outMinute": null,
+            "goals": 1,
+            "cards": 0,
+            "events": [
+              {
+                "type": "goal",
+                "minute": 47
+              }
+            ],
+            "minutesPlayed": 90
+          },
+          {
+            "number": 10,
+            "name": "PEREIRA DE SOUZA, DIEGO DELEON",
+            "starter": false,
+            "bench": true,
+            "inMinute": 46,
+            "outMinute": null,
+            "goals": 0,
+            "cards": 0,
+            "events": [
+              {
+                "type": "sub_in",
+                "minute": 46,
+                "for": "NDAO, MOUNTAGA"
+              }
+            ],
+            "minutesPlayed": 44
+          },
+          {
+            "number": 11,
+            "name": "ALFENONI, GIANLUCA",
+            "starter": true,
+            "bench": false,
+            "inMinute": 0,
+            "outMinute": null,
+            "goals": 2,
+            "cards": 0,
+            "events": [
+              {
+                "type": "goal",
+                "minute": 25
+              },
+              {
+                "type": "goal",
+                "minute": 65
+              }
+            ],
+            "minutesPlayed": 90
+          },
+          {
+            "number": 13,
+            "name": "LOPEZ LEDESMA, RINSON",
+            "starter": true,
+            "bench": false,
+            "inMinute": 0,
+            "outMinute": 56,
+            "goals": 0,
+            "cards": 0,
+            "events": [
+              {
+                "type": "sub_out",
+                "minute": 56,
+                "for": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN"
+              }
+            ],
+            "minutesPlayed": 56
+          },
+          {
+            "number": 15,
+            "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO",
+            "starter": false,
+            "bench": true,
+            "inMinute": 56,
+            "outMinute": null,
+            "goals": 0,
+            "cards": 0,
+            "events": [
+              {
+                "type": "sub_in",
+                "minute": 56,
+                "for": "ROJO COLOMAR, NESTOR"
+              }
+            ],
+            "minutesPlayed": 34
+          },
+          {
+            "number": 19,
+            "name": "GUALDRON MENDOZA, OSCAR ANDRES",
+            "starter": false,
+            "bench": true,
+            "inMinute": 66,
+            "outMinute": null,
+            "goals": 1,
+            "cards": 0,
+            "events": [
+              {
+                "type": "sub_in",
+                "minute": 66,
+                "for": "BENITEZ ARANDA, LUIS DANIEL"
+              },
+              {
+                "type": "goal",
+                "minute": 68
+              }
+            ],
+            "minutesPlayed": 24
+          },
+          {
+            "number": 20,
+            "name": "NDAO, MOUNTAGA",
+            "starter": true,
+            "bench": false,
+            "inMinute": 0,
+            "outMinute": 46,
+            "goals": 0,
+            "cards": 0,
+            "events": [
+              {
+                "type": "sub_out",
+                "minute": 46,
+                "for": "PEREIRA DE SOUZA, DIEGO DELEON"
+              }
+            ],
+            "minutesPlayed": 46
+          },
+          {
+            "number": 22,
+            "name": "LUZZI, ALESANDRO NICOLAS",
+            "starter": true,
+            "bench": false,
+            "inMinute": 0,
+            "outMinute": null,
+            "goals": 1,
+            "cards": 0,
+            "events": [
+              {
+                "type": "goal",
+                "minute": 72
+              }
+            ],
+            "minutesPlayed": 90
+          },
+          {
+            "number": 23,
+            "name": "CARELLA RUSSO, AGUSTIN",
+            "starter": true,
+            "bench": false,
+            "inMinute": 0,
+            "outMinute": null,
+            "goals": 0,
+            "cards": 0,
+            "events": [],
+            "minutesPlayed": 90
+          },
+          {
+            "number": 24,
+            "name": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN",
+            "starter": false,
+            "bench": true,
+            "inMinute": 56,
+            "outMinute": null,
+            "goals": 0,
+            "cards": 0,
+            "events": [
+              {
+                "type": "sub_in",
+                "minute": 56,
+                "for": "LOPEZ LEDESMA, RINSON"
+              }
+            ],
+            "minutesPlayed": 34
+          },
+          {
+            "number": 25,
+            "name": "BONET PEREZ, IVAN",
+            "starter": true,
+            "bench": false,
+            "inMinute": 0,
+            "outMinute": null,
+            "goals": 0,
+            "cards": 0,
+            "events": [],
+            "minutesPlayed": 90
+          }
+        ]
+      }
+    }
+  ]
+}

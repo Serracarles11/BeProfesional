@@ -1,12 +1,28 @@
-﻿export default function JugadoresPage() {
+import { Suspense } from 'react'
+import SquadPage from './SquadPage'
+
+function SquadFallback() {
   return (
-    <div className="dashboard-bg min-h-screen p-4 md:p-8">
-      <div className="mx-auto max-w-3xl">
-        <div className="dashboard-card shadow-soft-lg rounded-3xl p-6 md:p-8">
-          <h1 className="text-2xl font-bold text-gray-800 md:text-3xl">Jugadores</h1>
-          <p className="mt-2 text-sm text-gray-500">Esta seccion estara disponible pronto.</p>
+    <div className="min-h-screen bg-[#f7f9fe] px-4 py-6">
+      <div className="mx-auto max-w-[1700px] animate-pulse space-y-4">
+        <div className="h-16 rounded-2xl bg-[#dfe7f5]" />
+        <div className="grid gap-4 xl:grid-cols-[16rem_minmax(0,1fr)]">
+          <div className="h-[680px] rounded-2xl bg-[#dfe7f5]" />
+          <div className="space-y-4">
+            <div className="h-36 rounded-2xl bg-[#dfe7f5]" />
+            <div className="h-[430px] rounded-2xl bg-[#dfe7f5]" />
+            <div className="h-56 rounded-2xl bg-[#dfe7f5]" />
+          </div>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function JugadoresPage() {
+  return (
+    <Suspense fallback={<SquadFallback />}>
+      <SquadPage />
+    </Suspense>
   )
 }

@@ -1,0 +1,8 @@
+HTTP/1.1 302 
+Cache-Control: no-cache
+Pragma: no-cache
+Location: https://www.ffib.es/Fed/NPcd/NFG_CmpPartido?cod_primaria=1000110&CodActa=732057&cod_acta=732057
+Content-Length: 0
+Date: Fri, 27 Feb 2026 09:52:22 GMT
+Connection: close
+

@@ -1,0 +1,2732 @@
+{
+  "meta": {
+    "generatedAt": "2026-03-02T19:25:49.595Z",
+    "team": "PE SANT JORDI",
+    "fromJornada": 1,
+    "toJornada": 11,
+    "matchMinutes": 90,
+    "params": {
+      "cod_primaria": 1000110,
+      "CodCompeticion": 22536446,
+      "CodGrupo": 22750685,
+      "CodTemporada": 21,
+      "Sch_Codigo_Delegacion": 1,
+      "teamPage": "https://www.ffib.es/Fed/NPcd/NFG_VisEquipos?cod_primaria=1000109&Codigo_Equipo=131039"
+    },
+    "coverage": {
+      "full": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "legacy": [],
+      "scheduleOnly": [],
+      "warnings": []
+    },
+    "validation": {
+      "found732057": true,
+      "teams732057": true,
+      "score732057": {
+        "home": 7,
+        "away": 1
+      },
+      "warning": "Acta 732057: la fuente disponible devuelve 7-1 y no 7-0."
+    }
+  },
+  "matches": [
+    {
+      "jornada": 1,
+      "acta": "732006",
+      "url": "https://www.ffib.es/Fed/NPcd/NFG_CmpPartido?cod_primaria=1000110&CodActa=732006&cod_acta=732006",
+      "match": {
+        "homeTeam": "PE SANT JORDI",
+        "awayTeam": "SAN RAFAEL",
+        "score": {
+          "home": 0,
+          "away": 1
+        },
+        "santJordiSide": "home",
+        "opponent": "SAN RAFAEL"
+      },
+      "events": {
+        "goals": [],
+        "yellows": [
+          {
+            "minute": 22,
+            "player": "REALES HARANA, DANIEL"
+          },
+          {
+            "minute": 28,
+            "player": "LUNA RUIZ, ADRIAN"
+          },
+          {
+            "minute": 80,
+            "player": "ARGUELLO AREVALOS, ALVARO ADRIAN"
+          },
+          {
+            "minute": 81,
+            "player": "CARELLA RUSSO, AGUSTIN"
+          },
+          {
+            "minute": 86,
+            "player": "ALFENONI, GIANLUCA"
+          }
+        ],
+        "substitutions": [
+          {
+            "minute": 64,
+            "in": {
+              "number": 24,
+              "name": "MASCARE�A SANCHEZ, ESTEBAN DAMIAN"
+            },
+            "out": {
+              "number": 15,
+              "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO"
+            }
+          },
+          {
+            "minute": 75,
+            "in": {
+              "number": 13,
+              "name": "LOPEZ LEDESMA, RINSON"
+            },
+            "out": {
+              "number": 2,
+              "name": "BENITEZ ARANDA, LUIS DANIEL"
+            }
+          }
+        ]
+      },
+      "lineup": [
+        {
+          "number": 1,
+          "name": "RAMON DIAZ, HUGO",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 2,
+          "name": "BENITEZ ARANDA, LUIS DANIEL",
+          "role": "starter",
+          "from": 0,
+          "to": 75,
+          "minutesPlayed": 75,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 5,
+          "name": "ZAMORA CARRION, DOMINICK AITOR",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 6,
+          "name": "CASCO FERNANDEZ, JUAN MARTIN",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 7,
+          "name": "REALES HARANA, DANIEL",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 1
+        },
+        {
+          "number": 8,
+          "name": "LUNA RUIZ, ADRIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 1
+        },
+        {
+          "number": 11,
+          "name": "ALFENONI, GIANLUCA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 1
+        },
+        {
+          "number": 13,
+          "name": "LOPEZ LEDESMA, RINSON",
+          "role": "sub",
+          "from": 75,
+          "to": 90,
+          "minutesPlayed": 15,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 15,
+          "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO",
+          "role": "starter",
+          "from": 0,
+          "to": 64,
+          "minutesPlayed": 64,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 16,
+          "name": "ARGUELLO AREVALOS, ALVARO ADRIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 1
+        },
+        {
+          "number": 19,
+          "name": "GUALDRON MENDOZA, OSCAR ANDRES",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 20,
+          "name": "NDAO, MOUNTAGA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 22,
+          "name": "LUZZI, ALESANDRO NICOLAS",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 23,
+          "name": "CARELLA RUSSO, AGUSTIN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 1
+        },
+        {
+          "number": 24,
+          "name": "MASCARE�A SANCHEZ, ESTEBAN DAMIAN",
+          "role": "sub",
+          "from": 64,
+          "to": 90,
+          "minutesPlayed": 26,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 25,
+          "name": "BONET PEREZ, IVAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        }
+      ]
+    },
+    {
+      "jornada": 2,
+      "acta": "732012",
+      "url": "https://www.ffib.es/Fed/NPcd/NFG_CmpPartido?cod_primaria=1000110&CodActa=732012&cod_acta=732012",
+      "match": {
+        "homeTeam": "SANTA GERTRUDIS",
+        "awayTeam": "PE SANT JORDI",
+        "score": {
+          "home": 0,
+          "away": 7
+        },
+        "santJordiSide": "away",
+        "opponent": "SANTA GERTRUDIS"
+      },
+      "events": {
+        "goals": [
+          {
+            "minute": 15,
+            "player": "REALES HARANA, DANIEL"
+          },
+          {
+            "minute": 32,
+            "player": "BENITEZ ARANDA, LUIS DANIEL"
+          },
+          {
+            "minute": 34,
+            "player": "ALFENONI, GIANLUCA"
+          },
+          {
+            "minute": 37,
+            "player": "LUZZI, ALESANDRO NICOLAS"
+          },
+          {
+            "minute": 56,
+            "player": "GUALDRON MENDOZA, OSCAR ANDRES"
+          },
+          {
+            "minute": 85,
+            "player": "ALFENONI, GIANLUCA"
+          },
+          {
+            "minute": 90,
+            "player": "LUZZI, ALESANDRO NICOLAS"
+          }
+        ],
+        "yellows": [
+          {
+            "minute": 19,
+            "player": "REALES HARANA, DANIEL"
+          },
+          {
+            "minute": 30,
+            "player": "ALFENONI, GIANLUCA"
+          }
+        ],
+        "substitutions": [
+          {
+            "minute": 46,
+            "in": {
+              "number": 4,
+              "name": "ROJO COLOMAR, NESTOR"
+            },
+            "out": {
+              "number": 16,
+              "name": "ARGUELLO AREVALOS, ALVARO ADRIAN"
+            }
+          },
+          {
+            "minute": 46,
+            "in": {
+              "number": 1,
+              "name": "RAMON DIAZ, HUGO"
+            },
+            "out": {
+              "number": 25,
+              "name": "BONET PEREZ, IVAN"
+            }
+          },
+          {
+            "minute": 46,
+            "in": {
+              "number": 13,
+              "name": "LOPEZ LEDESMA, RINSON"
+            },
+            "out": {
+              "number": 2,
+              "name": "BENITEZ ARANDA, LUIS DANIEL"
+            }
+          },
+          {
+            "minute": 59,
+            "in": {
+              "number": 5,
+              "name": "ZAMORA CARRION, DOMINICK AITOR"
+            },
+            "out": {
+              "number": 15,
+              "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO"
+            }
+          },
+          {
+            "minute": 59,
+            "in": {
+              "number": 24,
+              "name": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN"
+            },
+            "out": {
+              "number": 23,
+              "name": "CARELLA RUSSO, AGUSTIN"
+            }
+          },
+          {
+            "minute": 69,
+            "in": {
+              "number": 30,
+              "name": "ASENSIO ESCANDELL, ANDRES"
+            },
+            "out": {
+              "number": 7,
+              "name": "REALES HARANA, DANIEL"
+            }
+          }
+        ]
+      },
+      "lineup": [
+        {
+          "number": 1,
+          "name": "RAMON DIAZ, HUGO",
+          "role": "sub",
+          "from": 46,
+          "to": 90,
+          "minutesPlayed": 44,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 2,
+          "name": "BENITEZ ARANDA, LUIS DANIEL",
+          "role": "starter",
+          "from": 0,
+          "to": 46,
+          "minutesPlayed": 46,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 4,
+          "name": "ROJO COLOMAR, NESTOR",
+          "role": "sub",
+          "from": 46,
+          "to": 90,
+          "minutesPlayed": 44,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 5,
+          "name": "ZAMORA CARRION, DOMINICK AITOR",
+          "role": "sub",
+          "from": 59,
+          "to": 90,
+          "minutesPlayed": 31,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 6,
+          "name": "CASCO FERNANDEZ, JUAN MARTIN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 7,
+          "name": "REALES HARANA, DANIEL",
+          "role": "starter",
+          "from": 0,
+          "to": 69,
+          "minutesPlayed": 69,
+          "goals": 1,
+          "yellows": 1
+        },
+        {
+          "number": 11,
+          "name": "ALFENONI, GIANLUCA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 2,
+          "yellows": 1
+        },
+        {
+          "number": 13,
+          "name": "LOPEZ LEDESMA, RINSON",
+          "role": "sub",
+          "from": 46,
+          "to": 90,
+          "minutesPlayed": 44,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 15,
+          "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO",
+          "role": "starter",
+          "from": 0,
+          "to": 59,
+          "minutesPlayed": 59,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 16,
+          "name": "ARGUELLO AREVALOS, ALVARO ADRIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 46,
+          "minutesPlayed": 46,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 19,
+          "name": "GUALDRON MENDOZA, OSCAR ANDRES",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 20,
+          "name": "NDAO, MOUNTAGA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 22,
+          "name": "LUZZI, ALESANDRO NICOLAS",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 2,
+          "yellows": 0
+        },
+        {
+          "number": 23,
+          "name": "CARELLA RUSSO, AGUSTIN",
+          "role": "starter",
+          "from": 0,
+          "to": 59,
+          "minutesPlayed": 59,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 24,
+          "name": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN",
+          "role": "sub",
+          "from": 59,
+          "to": 90,
+          "minutesPlayed": 31,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 25,
+          "name": "BONET PEREZ, IVAN",
+          "role": "starter",
+          "from": 0,
+          "to": 46,
+          "minutesPlayed": 46,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 30,
+          "name": "ASENSIO ESCANDELL, ANDRES",
+          "role": "sub",
+          "from": 69,
+          "to": 90,
+          "minutesPlayed": 21,
+          "goals": 0,
+          "yellows": 0
+        }
+      ]
+    },
+    {
+      "jornada": 3,
+      "acta": "732017",
+      "url": "https://www.ffib.es/Fed/NPcd/NFG_CmpPartido?cod_primaria=1000110&CodActa=732017&cod_acta=732017",
+      "match": {
+        "homeTeam": "PE SANT JORDI",
+        "awayTeam": "PEÑA DEPORTIVA B",
+        "score": {
+          "home": 3,
+          "away": 1
+        },
+        "santJordiSide": "home",
+        "opponent": "PEÑA DEPORTIVA B"
+      },
+      "events": {
+        "goals": [
+          {
+            "minute": 3,
+            "player": "CARELLA RUSSO, AGUSTIN"
+          },
+          {
+            "minute": 40,
+            "player": "LUZZI, ALESANDRO NICOLAS"
+          },
+          {
+            "minute": 62,
+            "player": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN"
+          }
+        ],
+        "yellows": [
+          {
+            "minute": 9,
+            "player": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN"
+          },
+          {
+            "minute": 80,
+            "player": "LUNA RUIZ, ADRIAN"
+          }
+        ],
+        "substitutions": [
+          {
+            "minute": 45,
+            "in": {
+              "number": 4,
+              "name": "ROJO COLOMAR, NESTOR"
+            },
+            "out": {
+              "number": 23,
+              "name": "CARELLA RUSSO, AGUSTIN"
+            }
+          },
+          {
+            "minute": 64,
+            "in": {
+              "number": 8,
+              "name": "LUNA RUIZ, ADRIAN"
+            },
+            "out": {
+              "number": 6,
+              "name": "CASCO FERNANDEZ, JUAN MARTIN"
+            }
+          },
+          {
+            "minute": 81,
+            "in": {
+              "number": 5,
+              "name": "ZAMORA CARRION, DOMINICK AITOR"
+            },
+            "out": {
+              "number": 7,
+              "name": "REALES HARANA, DANIEL"
+            }
+          },
+          {
+            "minute": 81,
+            "in": {
+              "number": 30,
+              "name": "ASENSIO ESCANDELL, ANDRES"
+            },
+            "out": {
+              "number": 16,
+              "name": "ARGUELLO AREVALOS, ALVARO ADRIAN"
+            }
+          }
+        ]
+      },
+      "lineup": [
+        {
+          "number": 1,
+          "name": "RAMON DIAZ, HUGO",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 4,
+          "name": "ROJO COLOMAR, NESTOR",
+          "role": "sub",
+          "from": 45,
+          "to": 90,
+          "minutesPlayed": 45,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 5,
+          "name": "ZAMORA CARRION, DOMINICK AITOR",
+          "role": "sub",
+          "from": 81,
+          "to": 90,
+          "minutesPlayed": 9,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 6,
+          "name": "CASCO FERNANDEZ, JUAN MARTIN",
+          "role": "starter",
+          "from": 0,
+          "to": 64,
+          "minutesPlayed": 64,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 7,
+          "name": "REALES HARANA, DANIEL",
+          "role": "starter",
+          "from": 0,
+          "to": 81,
+          "minutesPlayed": 81,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 8,
+          "name": "LUNA RUIZ, ADRIAN",
+          "role": "sub",
+          "from": 64,
+          "to": 90,
+          "minutesPlayed": 26,
+          "goals": 0,
+          "yellows": 1
+        },
+        {
+          "number": 11,
+          "name": "ALFENONI, GIANLUCA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 13,
+          "name": "LOPEZ LEDESMA, RINSON",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 16,
+          "name": "ARGUELLO AREVALOS, ALVARO ADRIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 81,
+          "minutesPlayed": 81,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 19,
+          "name": "GUALDRON MENDOZA, OSCAR ANDRES",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 20,
+          "name": "NDAO, MOUNTAGA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 22,
+          "name": "LUZZI, ALESANDRO NICOLAS",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 23,
+          "name": "CARELLA RUSSO, AGUSTIN",
+          "role": "starter",
+          "from": 0,
+          "to": 45,
+          "minutesPlayed": 45,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 24,
+          "name": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 1,
+          "yellows": 1
+        },
+        {
+          "number": 25,
+          "name": "BONET PEREZ, IVAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 30,
+          "name": "ASENSIO ESCANDELL, ANDRES",
+          "role": "sub",
+          "from": 81,
+          "to": 90,
+          "minutesPlayed": 9,
+          "goals": 0,
+          "yellows": 0
+        }
+      ]
+    },
+    {
+      "jornada": 4,
+      "acta": "732023",
+      "url": "https://www.ffib.es/Fed/NPcd/NFG_CmpPartido?cod_primaria=1000110&CodActa=732023&cod_acta=732023",
+      "match": {
+        "homeTeam": "FORMENTERA B",
+        "awayTeam": "PE SANT JORDI",
+        "score": {
+          "home": 0,
+          "away": 3
+        },
+        "santJordiSide": "away",
+        "opponent": "FORMENTERA B"
+      },
+      "events": {
+        "goals": [
+          {
+            "minute": 23,
+            "player": "LUZZI, ALESANDRO NICOLAS"
+          },
+          {
+            "minute": 49,
+            "player": "LUZZI, ALESANDRO NICOLAS"
+          },
+          {
+            "minute": 83,
+            "player": "ALFENONI, GIANLUCA"
+          }
+        ],
+        "yellows": [
+          {
+            "minute": 69,
+            "player": "CASCO FERNANDEZ, JUAN MARTIN"
+          }
+        ],
+        "substitutions": [
+          {
+            "minute": 76,
+            "in": {
+              "number": 8,
+              "name": "LUNA RUIZ, ADRIAN"
+            },
+            "out": {
+              "number": 19,
+              "name": "GUALDRON MENDOZA, OSCAR ANDRES"
+            }
+          }
+        ]
+      },
+      "lineup": [
+        {
+          "number": 1,
+          "name": "RAMON DIAZ, HUGO",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 4,
+          "name": "ROJO COLOMAR, NESTOR",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 5,
+          "name": "ZAMORA CARRION, DOMINICK AITOR",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 6,
+          "name": "CASCO FERNANDEZ, JUAN MARTIN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 1
+        },
+        {
+          "number": 7,
+          "name": "REALES HARANA, DANIEL",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 8,
+          "name": "LUNA RUIZ, ADRIAN",
+          "role": "sub",
+          "from": 76,
+          "to": 90,
+          "minutesPlayed": 14,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 11,
+          "name": "ALFENONI, GIANLUCA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 13,
+          "name": "LOPEZ LEDESMA, RINSON",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 15,
+          "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 16,
+          "name": "ARGUELLO AREVALOS, ALVARO ADRIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 19,
+          "name": "GUALDRON MENDOZA, OSCAR ANDRES",
+          "role": "starter",
+          "from": 0,
+          "to": 76,
+          "minutesPlayed": 76,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 20,
+          "name": "NDAO, MOUNTAGA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 22,
+          "name": "LUZZI, ALESANDRO NICOLAS",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 2,
+          "yellows": 0
+        },
+        {
+          "number": 24,
+          "name": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 25,
+          "name": "BONET PEREZ, IVAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        }
+      ]
+    },
+    {
+      "jornada": 5,
+      "acta": "732028",
+      "url": "https://www.ffib.es/Fed/NPcd/NFG_CmpPartido?cod_primaria=1000110&CodActa=732028&cod_acta=732028",
+      "match": {
+        "homeTeam": "PE SANT JORDI",
+        "awayTeam": "UD IBIZA B",
+        "score": {
+          "home": 1,
+          "away": 1
+        },
+        "santJordiSide": "home",
+        "opponent": "UD IBIZA B"
+      },
+      "events": {
+        "goals": [
+          {
+            "minute": 89,
+            "player": "ALFENONI, GIANLUCA"
+          }
+        ],
+        "yellows": [
+          {
+            "minute": 20,
+            "player": "NDAO, MOUNTAGA"
+          },
+          {
+            "minute": 22,
+            "player": "LOPEZ LEDESMA, RINSON"
+          },
+          {
+            "minute": 45,
+            "player": "LUZZI, ALESANDRO NICOLAS"
+          },
+          {
+            "minute": 85,
+            "player": "CARELLA RUSSO, AGUSTIN"
+          },
+          {
+            "minute": 89,
+            "player": "ALMEIDA MARTINEZ, RICHARD EDUARDO"
+          },
+          {
+            "minute": 90,
+            "player": "CARELLA RUSSO, AGUSTIN"
+          },
+          {
+            "minute": 91,
+            "player": "ALMEIDA MARTINEZ, RICHARD EDUARDO"
+          }
+        ],
+        "substitutions": [
+          {
+            "minute": 66,
+            "in": {
+              "number": 15,
+              "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO"
+            },
+            "out": {
+              "number": 4,
+              "name": "ROJO COLOMAR, NESTOR"
+            }
+          },
+          {
+            "minute": 78,
+            "in": {
+              "number": 8,
+              "name": "LUNA RUIZ, ADRIAN"
+            },
+            "out": {
+              "number": 6,
+              "name": "CASCO FERNANDEZ, JUAN MARTIN"
+            }
+          }
+        ]
+      },
+      "lineup": [
+        {
+          "number": 1,
+          "name": "RAMON DIAZ, HUGO",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 4,
+          "name": "ROJO COLOMAR, NESTOR",
+          "role": "starter",
+          "from": 0,
+          "to": 66,
+          "minutesPlayed": 66,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 5,
+          "name": "ZAMORA CARRION, DOMINICK AITOR",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 6,
+          "name": "CASCO FERNANDEZ, JUAN MARTIN",
+          "role": "starter",
+          "from": 0,
+          "to": 78,
+          "minutesPlayed": 78,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 7,
+          "name": "REALES HARANA, DANIEL",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 8,
+          "name": "LUNA RUIZ, ADRIAN",
+          "role": "sub",
+          "from": 78,
+          "to": 90,
+          "minutesPlayed": 12,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 10,
+          "name": "PEREIRA DE SOUZA, DIEGO DELEON",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 11,
+          "name": "ALFENONI, GIANLUCA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 13,
+          "name": "LOPEZ LEDESMA, RINSON",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 1
+        },
+        {
+          "number": 15,
+          "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO",
+          "role": "sub",
+          "from": 66,
+          "to": 90,
+          "minutesPlayed": 24,
+          "goals": 0,
+          "yellows": 2
+        },
+        {
+          "number": 19,
+          "name": "GUALDRON MENDOZA, OSCAR ANDRES",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 20,
+          "name": "NDAO, MOUNTAGA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 1
+        },
+        {
+          "number": 22,
+          "name": "LUZZI, ALESANDRO NICOLAS",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 1
+        },
+        {
+          "number": 23,
+          "name": "CARELLA RUSSO, AGUSTIN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 2
+        },
+        {
+          "number": 24,
+          "name": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 25,
+          "name": "BONET PEREZ, IVAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        }
+      ]
+    },
+    {
+      "jornada": 6,
+      "acta": "732034",
+      "url": "https://www.ffib.es/Fed/NPcd/NFG_CmpPartido?cod_primaria=1000110&CodActa=732034&cod_acta=732034",
+      "match": {
+        "homeTeam": "CDS SES PAÏSSES",
+        "awayTeam": "PE SANT JORDI",
+        "score": {
+          "home": 1,
+          "away": 5
+        },
+        "santJordiSide": "away",
+        "opponent": "CDS SES PAÏSSES"
+      },
+      "events": {
+        "goals": [
+          {
+            "minute": 13,
+            "player": "REALES HARANA, DANIEL"
+          },
+          {
+            "minute": 34,
+            "player": "ALFENONI, GIANLUCA"
+          },
+          {
+            "minute": 38,
+            "player": "GUALDRON MENDOZA, OSCAR ANDRES"
+          },
+          {
+            "minute": 58,
+            "player": "BARAHONA CARRIEL, MARCO ANTONIO"
+          },
+          {
+            "minute": 62,
+            "player": "GUALDRON MENDOZA, OSCAR ANDRES"
+          }
+        ],
+        "yellows": [],
+        "substitutions": [
+          {
+            "minute": 67,
+            "in": {
+              "number": 10,
+              "name": "PEREIRA DE SOUZA, DIEGO DELEON"
+            },
+            "out": {
+              "number": 19,
+              "name": "GUALDRON MENDOZA, OSCAR ANDRES"
+            }
+          },
+          {
+            "minute": 67,
+            "in": {
+              "number": 30,
+              "name": "ASENSIO ESCANDELL, ANDRES"
+            },
+            "out": {
+              "number": 20,
+              "name": "NDAO, MOUNTAGA"
+            }
+          },
+          {
+            "minute": 74,
+            "in": {
+              "number": 16,
+              "name": "TIANO GARCIA, THAI"
+            },
+            "out": {
+              "number": 8,
+              "name": "LUNA RUIZ, ADRIAN"
+            }
+          },
+          {
+            "minute": 74,
+            "in": {
+              "number": 2,
+              "name": "BENITEZ ARANDA, LUIS DANIEL"
+            },
+            "out": {
+              "number": 24,
+              "name": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN"
+            }
+          }
+        ]
+      },
+      "lineup": [
+        {
+          "number": 1,
+          "name": "RAMON DIAZ, HUGO",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 2,
+          "name": "BENITEZ ARANDA, LUIS DANIEL",
+          "role": "sub",
+          "from": 74,
+          "to": 90,
+          "minutesPlayed": 16,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 4,
+          "name": "ROJO COLOMAR, NESTOR",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 7,
+          "name": "REALES HARANA, DANIEL",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 8,
+          "name": "LUNA RUIZ, ADRIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 74,
+          "minutesPlayed": 74,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 10,
+          "name": "PEREIRA DE SOUZA, DIEGO DELEON",
+          "role": "sub",
+          "from": 67,
+          "to": 90,
+          "minutesPlayed": 23,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 11,
+          "name": "ALFENONI, GIANLUCA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 13,
+          "name": "LOPEZ LEDESMA, RINSON",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 15,
+          "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 16,
+          "name": "TIANO GARCIA, THAI",
+          "role": "sub",
+          "from": 74,
+          "to": 90,
+          "minutesPlayed": 16,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 19,
+          "name": "GUALDRON MENDOZA, OSCAR ANDRES",
+          "role": "starter",
+          "from": 0,
+          "to": 67,
+          "minutesPlayed": 67,
+          "goals": 2,
+          "yellows": 0
+        },
+        {
+          "number": 20,
+          "name": "NDAO, MOUNTAGA",
+          "role": "starter",
+          "from": 0,
+          "to": 67,
+          "minutesPlayed": 67,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 22,
+          "name": "LUZZI, ALESANDRO NICOLAS",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 24,
+          "name": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 74,
+          "minutesPlayed": 74,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 25,
+          "name": "BONET PEREZ, IVAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 30,
+          "name": "ASENSIO ESCANDELL, ANDRES",
+          "role": "sub",
+          "from": 67,
+          "to": 90,
+          "minutesPlayed": 23,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": null,
+          "name": "BARAHONA CARRIEL, MARCO ANTONIO",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 1,
+          "yellows": 0
+        }
+      ]
+    },
+    {
+      "jornada": 7,
+      "acta": "732039",
+      "url": "https://www.ffib.es/Fed/NPcd/NFG_CmpPartido?cod_primaria=1000110&CodActa=732039&cod_acta=732039",
+      "match": {
+        "homeTeam": "B. SAN AGUSTIN",
+        "awayTeam": "PE SANT JORDI",
+        "score": {
+          "home": 0,
+          "away": 5
+        },
+        "santJordiSide": "away",
+        "opponent": "B. SAN AGUSTIN"
+      },
+      "events": {
+        "goals": [
+          {
+            "minute": 34,
+            "player": "BONET PEREZ, IVAN"
+          },
+          {
+            "minute": 50,
+            "player": "LUZZI, ALESANDRO NICOLAS"
+          },
+          {
+            "minute": 72,
+            "player": "ALFENONI, GIANLUCA"
+          },
+          {
+            "minute": 75,
+            "player": "GUALDRON MENDOZA, OSCAR ANDRES"
+          },
+          {
+            "minute": 80,
+            "player": "LUZZI, ALESANDRO NICOLAS"
+          }
+        ],
+        "yellows": [
+          {
+            "minute": 43,
+            "player": "CARELLA RUSSO, AGUSTIN"
+          },
+          {
+            "minute": 47,
+            "player": "LUZZI, ALESANDRO NICOLAS"
+          },
+          {
+            "minute": 89,
+            "player": "LUZZI, ALESANDRO NICOLAS"
+          },
+          {
+            "minute": 89,
+            "player": "ALFENONI, GIANLUCA"
+          }
+        ],
+        "substitutions": [
+          {
+            "minute": 62,
+            "in": {
+              "number": 10,
+              "name": "PEREIRA DE SOUZA, DIEGO DELEON"
+            },
+            "out": {
+              "number": 30,
+              "name": "ASENSIO ESCANDELL, ANDRES"
+            }
+          },
+          {
+            "minute": 71,
+            "in": {
+              "number": 2,
+              "name": "BENITEZ ARANDA, LUIS DANIEL"
+            },
+            "out": {
+              "number": 8,
+              "name": "LUNA RUIZ, ADRIAN"
+            }
+          },
+          {
+            "minute": 77,
+            "in": {
+              "number": 16,
+              "name": "TIANO GARCIA, THAI"
+            },
+            "out": {
+              "number": 7,
+              "name": "REALES HARANA, DANIEL"
+            }
+          }
+        ]
+      },
+      "lineup": [
+        {
+          "number": 1,
+          "name": "RAMON DIAZ, HUGO",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 2,
+          "name": "BENITEZ ARANDA, LUIS DANIEL",
+          "role": "sub",
+          "from": 71,
+          "to": 90,
+          "minutesPlayed": 19,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 4,
+          "name": "ROJO COLOMAR, NESTOR",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 7,
+          "name": "REALES HARANA, DANIEL",
+          "role": "starter",
+          "from": 0,
+          "to": 77,
+          "minutesPlayed": 77,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 8,
+          "name": "LUNA RUIZ, ADRIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 71,
+          "minutesPlayed": 71,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 10,
+          "name": "PEREIRA DE SOUZA, DIEGO DELEON",
+          "role": "sub",
+          "from": 62,
+          "to": 90,
+          "minutesPlayed": 28,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 11,
+          "name": "ALFENONI, GIANLUCA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 1,
+          "yellows": 1
+        },
+        {
+          "number": 13,
+          "name": "LOPEZ LEDESMA, RINSON",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 15,
+          "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 16,
+          "name": "TIANO GARCIA, THAI",
+          "role": "sub",
+          "from": 77,
+          "to": 90,
+          "minutesPlayed": 13,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 19,
+          "name": "GUALDRON MENDOZA, OSCAR ANDRES",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 20,
+          "name": "NDAO, MOUNTAGA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 22,
+          "name": "LUZZI, ALESANDRO NICOLAS",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 2,
+          "yellows": 2
+        },
+        {
+          "number": 23,
+          "name": "CARELLA RUSSO, AGUSTIN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 1
+        },
+        {
+          "number": 25,
+          "name": "BONET PEREZ, IVAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 30,
+          "name": "ASENSIO ESCANDELL, ANDRES",
+          "role": "starter",
+          "from": 0,
+          "to": 62,
+          "minutesPlayed": 62,
+          "goals": 0,
+          "yellows": 0
+        }
+      ]
+    },
+    {
+      "jornada": 8,
+      "acta": "732044",
+      "url": "https://www.ffib.es/Fed/NPcd/NFG_CmpPartido?cod_primaria=1000110&CodActa=732044&cod_acta=732044",
+      "match": {
+        "homeTeam": "PE SANT JORDI",
+        "awayTeam": "LUCHADOR",
+        "score": {
+          "home": 1,
+          "away": 0
+        },
+        "santJordiSide": "home",
+        "opponent": "LUCHADOR"
+      },
+      "events": {
+        "goals": [
+          {
+            "minute": 78,
+            "player": "REALES HARANA, DANIEL"
+          }
+        ],
+        "yellows": [],
+        "substitutions": [
+          {
+            "minute": 66,
+            "in": {
+              "number": 8,
+              "name": "LUNA RUIZ, ADRIAN"
+            },
+            "out": {
+              "number": 19,
+              "name": "GUALDRON MENDOZA, OSCAR ANDRES"
+            }
+          },
+          {
+            "minute": 76,
+            "in": {
+              "number": 16,
+              "name": "ARGUELLO AREVALOS, ALVARO ADRIAN"
+            },
+            "out": {
+              "number": 24,
+              "name": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN"
+            }
+          },
+          {
+            "minute": 85,
+            "in": {
+              "number": 15,
+              "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO"
+            },
+            "out": {
+              "number": 7,
+              "name": "REALES HARANA, DANIEL"
+            }
+          }
+        ]
+      },
+      "lineup": [
+        {
+          "number": 1,
+          "name": "RAMON DIAZ, HUGO",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 2,
+          "name": "BENITEZ ARANDA, LUIS DANIEL",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 4,
+          "name": "ROJO COLOMAR, NESTOR",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 6,
+          "name": "TIANO GARCIA, THAI",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 7,
+          "name": "REALES HARANA, DANIEL",
+          "role": "starter",
+          "from": 0,
+          "to": 85,
+          "minutesPlayed": 85,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 8,
+          "name": "LUNA RUIZ, ADRIAN",
+          "role": "sub",
+          "from": 66,
+          "to": 90,
+          "minutesPlayed": 24,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 10,
+          "name": "PEREIRA DE SOUZA, DIEGO DELEON",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 11,
+          "name": "ALFENONI, GIANLUCA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 13,
+          "name": "LOPEZ LEDESMA, RINSON",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 15,
+          "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO",
+          "role": "sub",
+          "from": 85,
+          "to": 90,
+          "minutesPlayed": 5,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 16,
+          "name": "ARGUELLO AREVALOS, ALVARO ADRIAN",
+          "role": "sub",
+          "from": 76,
+          "to": 90,
+          "minutesPlayed": 14,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 19,
+          "name": "GUALDRON MENDOZA, OSCAR ANDRES",
+          "role": "starter",
+          "from": 0,
+          "to": 66,
+          "minutesPlayed": 66,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 20,
+          "name": "NDAO, MOUNTAGA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 23,
+          "name": "CARELLA RUSSO, AGUSTIN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 24,
+          "name": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 76,
+          "minutesPlayed": 76,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 25,
+          "name": "BONET PEREZ, IVAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        }
+      ]
+    },
+    {
+      "jornada": 9,
+      "acta": "732048",
+      "url": "https://www.ffib.es/Fed/NPcd/NFG_CmpPartido?cod_primaria=1000110&CodActa=732048&cod_acta=732048",
+      "match": {
+        "homeTeam": "SANT JOSEP",
+        "awayTeam": "PE SANT JORDI",
+        "score": {
+          "home": 0,
+          "away": 1
+        },
+        "santJordiSide": "away",
+        "opponent": "SANT JOSEP"
+      },
+      "events": {
+        "goals": [
+          {
+            "minute": 38,
+            "player": "REALES HARANA, DANIEL"
+          }
+        ],
+        "yellows": [],
+        "substitutions": [
+          {
+            "minute": 46,
+            "in": {
+              "number": 22,
+              "name": "LUZZI, ALESANDRO NICOLAS"
+            },
+            "out": {
+              "number": 20,
+              "name": "NDAO, MOUNTAGA"
+            }
+          },
+          {
+            "minute": 75,
+            "in": {
+              "number": 10,
+              "name": "PEREIRA DE SOUZA, DIEGO DELEON"
+            },
+            "out": {
+              "number": 2,
+              "name": "BENITEZ ARANDA, LUIS DANIEL"
+            }
+          },
+          {
+            "minute": 75,
+            "in": {
+              "number": 15,
+              "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO"
+            },
+            "out": {
+              "number": 16,
+              "name": "ARGUELLO AREVALOS, ALVARO ADRIAN"
+            }
+          },
+          {
+            "minute": 90,
+            "in": {
+              "number": 30,
+              "name": "ASENSIO ESCANDELL, ANDRES"
+            },
+            "out": {
+              "number": 8,
+              "name": "LUNA RUIZ, ADRIAN"
+            }
+          }
+        ]
+      },
+      "lineup": [
+        {
+          "number": 1,
+          "name": "RAMON DIAZ, HUGO",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 2,
+          "name": "BENITEZ ARANDA, LUIS DANIEL",
+          "role": "starter",
+          "from": 0,
+          "to": 75,
+          "minutesPlayed": 75,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 4,
+          "name": "ROJO COLOMAR, NESTOR",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 7,
+          "name": "REALES HARANA, DANIEL",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 8,
+          "name": "LUNA RUIZ, ADRIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 10,
+          "name": "PEREIRA DE SOUZA, DIEGO DELEON",
+          "role": "sub",
+          "from": 75,
+          "to": 90,
+          "minutesPlayed": 15,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 11,
+          "name": "ALFENONI, GIANLUCA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 13,
+          "name": "LOPEZ LEDESMA, RINSON",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 15,
+          "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO",
+          "role": "sub",
+          "from": 75,
+          "to": 90,
+          "minutesPlayed": 15,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 16,
+          "name": "ARGUELLO AREVALOS, ALVARO ADRIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 75,
+          "minutesPlayed": 75,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 20,
+          "name": "NDAO, MOUNTAGA",
+          "role": "starter",
+          "from": 0,
+          "to": 46,
+          "minutesPlayed": 46,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 22,
+          "name": "LUZZI, ALESANDRO NICOLAS",
+          "role": "sub",
+          "from": 46,
+          "to": 90,
+          "minutesPlayed": 44,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 23,
+          "name": "CARELLA RUSSO, AGUSTIN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 24,
+          "name": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 25,
+          "name": "BONET PEREZ, IVAN",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 30,
+          "name": "ASENSIO ESCANDELL, ANDRES",
+          "role": "sub",
+          "from": 90,
+          "to": 90,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        }
+      ]
+    },
+    {
+      "jornada": 10,
+      "acta": "732051",
+      "url": "https://www.ffib.es/Fed/NPcd/NFG_CmpPartido?cod_primaria=1000110&CodActa=732051&cod_acta=732051",
+      "match": {
+        "homeTeam": "SAN RAFAEL",
+        "awayTeam": "PE SANT JORDI",
+        "score": {
+          "home": 1,
+          "away": 3
+        },
+        "santJordiSide": "away",
+        "opponent": "SAN RAFAEL"
+      },
+      "events": {
+        "goals": [
+          {
+            "minute": 1,
+            "player": "ALFENONI, GIANLUCA"
+          },
+          {
+            "minute": 23,
+            "player": "REALES HARANA, DANIEL"
+          },
+          {
+            "minute": 49,
+            "player": "LUZZI, ALESANDRO NICOLAS"
+          }
+        ],
+        "yellows": [
+          {
+            "minute": 37,
+            "player": "CARELLA RUSSO, AGUSTIN"
+          },
+          {
+            "minute": 51,
+            "player": "LUZZI, ALESANDRO NICOLAS"
+          },
+          {
+            "minute": 80,
+            "player": "FERRER ESCANDELL, PAU"
+          }
+        ],
+        "substitutions": [
+          {
+            "minute": 70,
+            "in": {
+              "number": 6,
+              "name": "FERRER ESCANDELL, PAU"
+            },
+            "out": {
+              "number": 24,
+              "name": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN"
+            }
+          },
+          {
+            "minute": 81,
+            "in": {
+              "number": 10,
+              "name": "PEREIRA DE SOUZA, DIEGO DELEON"
+            },
+            "out": {
+              "number": 8,
+              "name": "LUNA RUIZ, ADRIAN"
+            }
+          },
+          {
+            "minute": 90,
+            "in": {
+              "number": 15,
+              "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO"
+            },
+            "out": {
+              "number": 2,
+              "name": "BENITEZ ARANDA, LUIS DANIEL"
+            }
+          }
+        ]
+      },
+      "lineup": [
+        {
+          "number": 1,
+          "name": "RAMON DIAZ, HUGO",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 2,
+          "name": "BENITEZ ARANDA, LUIS DANIEL",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 4,
+          "name": "ROJO COLOMAR, NESTOR",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 6,
+          "name": "FERRER ESCANDELL, PAU",
+          "role": "sub",
+          "from": 70,
+          "to": 90,
+          "minutesPlayed": 20,
+          "goals": 0,
+          "yellows": 1
+        },
+        {
+          "number": 7,
+          "name": "REALES HARANA, DANIEL",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 8,
+          "name": "LUNA RUIZ, ADRIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 81,
+          "minutesPlayed": 81,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 10,
+          "name": "PEREIRA DE SOUZA, DIEGO DELEON",
+          "role": "sub",
+          "from": 81,
+          "to": 90,
+          "minutesPlayed": 9,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 11,
+          "name": "ALFENONI, GIANLUCA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 13,
+          "name": "LOPEZ LEDESMA, RINSON",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 15,
+          "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO",
+          "role": "sub",
+          "from": 90,
+          "to": 90,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 16,
+          "name": "ARGUELLO AREVALOS, ALVARO ADRIAN",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 19,
+          "name": "GUALDRON MENDOZA, OSCAR ANDRES",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 20,
+          "name": "NDAO, MOUNTAGA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 22,
+          "name": "LUZZI, ALESANDRO NICOLAS",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 1,
+          "yellows": 1
+        },
+        {
+          "number": 23,
+          "name": "CARELLA RUSSO, AGUSTIN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 1
+        },
+        {
+          "number": 24,
+          "name": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 70,
+          "minutesPlayed": 70,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 25,
+          "name": "BONET PEREZ, IVAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        }
+      ]
+    },
+    {
+      "jornada": 11,
+      "acta": "732057",
+      "url": "https://www.ffib.es/Fed/NPcd/NFG_CmpPartido?cod_primaria=1000110&CodActa=732057&cod_acta=732057",
+      "match": {
+        "homeTeam": "PE SANT JORDI",
+        "awayTeam": "SANTA GERTRUDIS",
+        "score": {
+          "home": 7,
+          "away": 1
+        },
+        "santJordiSide": "home",
+        "opponent": "SANTA GERTRUDIS"
+      },
+      "events": {
+        "goals": [
+          {
+            "minute": 15,
+            "player": "REALES HARANA, DANIEL"
+          },
+          {
+            "minute": 19,
+            "player": "BENITEZ ARANDA, LUIS DANIEL"
+          },
+          {
+            "minute": 25,
+            "player": "ALFENONI, GIANLUCA"
+          },
+          {
+            "minute": 47,
+            "player": "LUNA RUIZ, ADRIAN"
+          },
+          {
+            "minute": 65,
+            "player": "ALFENONI, GIANLUCA"
+          },
+          {
+            "minute": 68,
+            "player": "GUALDRON MENDOZA, OSCAR ANDRES"
+          },
+          {
+            "minute": 72,
+            "player": "LUZZI, ALESANDRO NICOLAS"
+          }
+        ],
+        "yellows": [],
+        "substitutions": [
+          {
+            "minute": 46,
+            "in": {
+              "number": 10,
+              "name": "PEREIRA DE SOUZA, DIEGO DELEON"
+            },
+            "out": {
+              "number": 20,
+              "name": "NDAO, MOUNTAGA"
+            }
+          },
+          {
+            "minute": 56,
+            "in": {
+              "number": 24,
+              "name": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN"
+            },
+            "out": {
+              "number": 13,
+              "name": "LOPEZ LEDESMA, RINSON"
+            }
+          },
+          {
+            "minute": 56,
+            "in": {
+              "number": 15,
+              "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO"
+            },
+            "out": {
+              "number": 4,
+              "name": "ROJO COLOMAR, NESTOR"
+            }
+          },
+          {
+            "minute": 66,
+            "in": {
+              "number": 19,
+              "name": "GUALDRON MENDOZA, OSCAR ANDRES"
+            },
+            "out": {
+              "number": 2,
+              "name": "BENITEZ ARANDA, LUIS DANIEL"
+            }
+          }
+        ]
+      },
+      "lineup": [
+        {
+          "number": 1,
+          "name": "VIDAL BONED, JORDI",
+          "role": "unused",
+          "from": null,
+          "to": null,
+          "minutesPlayed": 0,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 2,
+          "name": "BENITEZ ARANDA, LUIS DANIEL",
+          "role": "starter",
+          "from": 0,
+          "to": 66,
+          "minutesPlayed": 66,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 4,
+          "name": "ROJO COLOMAR, NESTOR",
+          "role": "starter",
+          "from": 0,
+          "to": 56,
+          "minutesPlayed": 56,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 6,
+          "name": "FERRER ESCANDELL, PAU",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 7,
+          "name": "REALES HARANA, DANIEL",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 8,
+          "name": "LUNA RUIZ, ADRIAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 10,
+          "name": "PEREIRA DE SOUZA, DIEGO DELEON",
+          "role": "sub",
+          "from": 46,
+          "to": 90,
+          "minutesPlayed": 44,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 11,
+          "name": "ALFENONI, GIANLUCA",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 2,
+          "yellows": 0
+        },
+        {
+          "number": 13,
+          "name": "LOPEZ LEDESMA, RINSON",
+          "role": "starter",
+          "from": 0,
+          "to": 56,
+          "minutesPlayed": 56,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 15,
+          "name": "ALMEIDA MARTINEZ, RICHARD EDUARDO",
+          "role": "sub",
+          "from": 56,
+          "to": 90,
+          "minutesPlayed": 34,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 19,
+          "name": "GUALDRON MENDOZA, OSCAR ANDRES",
+          "role": "sub",
+          "from": 66,
+          "to": 90,
+          "minutesPlayed": 24,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 20,
+          "name": "NDAO, MOUNTAGA",
+          "role": "starter",
+          "from": 0,
+          "to": 46,
+          "minutesPlayed": 46,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 22,
+          "name": "LUZZI, ALESANDRO NICOLAS",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 1,
+          "yellows": 0
+        },
+        {
+          "number": 23,
+          "name": "CARELLA RUSSO, AGUSTIN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 24,
+          "name": "MASCAREÑA SANCHEZ, ESTEBAN DAMIAN",
+          "role": "sub",
+          "from": 56,
+          "to": 90,
+          "minutesPlayed": 34,
+          "goals": 0,
+          "yellows": 0
+        },
+        {
+          "number": 25,
+          "name": "BONET PEREZ, IVAN",
+          "role": "starter",
+          "from": 0,
+          "to": 90,
+          "minutesPlayed": 90,
+          "goals": 0,
+          "yellows": 0
+        }
+      ]
+    }
+  ]
+}

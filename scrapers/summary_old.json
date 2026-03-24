@@ -1,0 +1,59 @@
+[
+  {
+    "jornada": 1,
+    "acta": "732006",
+    "score": "4-1",
+    "uniqueGoals": [],
+    "uniqueCards": [
+      "22:REALES HARANA, DANIEL",
+      "28:LUNA RUIZ, ADRIAN",
+      "64:ALMEIDA MARTINEZ, RICHARD EDUARDO",
+      "80:ARGUELLO AREVALOS, ALVARO ADRIAN",
+      "81:CARELLA RUSSO, AGUSTIN",
+      "86:ALFENONI, GIANLUCA"
+    ],
+    "subs": 2
+  },
+  {
+    "jornada": 2,
+    "acta": "732012",
+    "score": "0-4",
+    "uniqueGoals": [
+      "15:REALES HARANA, DANIEL",
+      "32:BENITEZ ARANDA, LUIS DANIEL",
+      "34:ALFENONI, GIANLUCA",
+      "37:LUZZI, ALESANDRO NICOLAS",
+      "56:GUALDRON MENDOZA, OSCAR ANDRES",
+      "85:ALFENONI, GIANLUCA",
+      "90:LUZZI, ALESANDRO NICOLAS"
+    ],
+    "uniqueCards": [
+      "19:REALES HARANA, DANIEL",
+      "30:ALFENONI, GIANLUCA",
+      "46:BONET PEREZ, IVAN",
+      "46:ARGUELLO AREVALOS, ALVARO ADRIAN",
+      "46:BENITEZ ARANDA, LUIS DANIEL",
+      "59:CARELLA RUSSO, AGUSTIN",
+      "59:ALMEIDA MARTINEZ, RICHARD EDUARDO"
+    ],
+    "subs": 6
+  },
+  {
+    "jornada": 3,
+    "acta": "732017",
+    "score": "0-1",
+    "uniqueGoals": [
+      "3:CARELLA RUSSO, AGUSTIN",
+      "40:LUZZI, ALESANDRO NICOLAS",
+      "62:MASCAREÑA SANCHEZ, ESTEBAN DAMIAN"
+    ],
+    "uniqueCards": [
+      "9:MASCAREÑA SANCHEZ, ESTEBAN DAMIAN",
+      "45:CARELLA RUSSO, AGUSTIN",
+      "64:CASCO FERNANDEZ, JUAN MARTIN",
+      "80:LUNA RUIZ, ADRIAN",
+      "81:REALES HARANA, DANIEL"
+    ],
+    "subs": 4
+  }
+]

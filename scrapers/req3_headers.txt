@@ -1,0 +1,8 @@
+HTTP/1.1 200 
+Cache-Control: private, max-age=300
+vary: accept-encoding
+Content-Type: text/html;charset=ISO-8859-15
+Transfer-Encoding: chunked
+Date: Fri, 27 Feb 2026 09:52:22 GMT
+Connection: close
+

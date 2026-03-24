@@ -1,0 +1,218 @@
+import type {
+  DashboardActivityItem,
+  DashboardHomeSuccess,
+  DashboardMetric,
+  WeeklyCalendarDay,
+} from './types'
+
+const ES_DAY_LABELS = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB', 'DOM']
+
+function toDateKey(input: string) {
+  return new Date(input).toISOString().slice(0, 10)
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
+}
+
+function getStartOfWeek(date: Date) {
+  const start = new Date(date)
+  const offset = (start.getDay() + 6) % 7
+  start.setDate(start.getDate() - offset)
+  start.setHours(0, 0, 0, 0)
+  return start
+}
+
+export function withEquipo(path: string, equipoId?: string | null) {
+  if (!equipoId) return path
+  return `${path}?equipo=${encodeURIComponent(equipoId)}`
+}
+
+export function isActivePath(pathname: string, basePath: string) {
+  return pathname === basePath || pathname.startsWith(`${basePath}/`)
+}
+
+export function getMorningBriefingSubtitle(payload: DashboardHomeSuccess) {
+  const nextTraining = payload.schedule.activityItems.find((item) => item.type === 'entrenamiento')
+
+  if (nextTraining?.time) {
+    const date = new Date(nextTraining.time)
+    const hour = date.toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    })
+    return `Sesion de entrenamiento programada para las ${hour}`
+  }
+
+  if (payload.schedule.nextMatch?.fecha_hora) {
+    const matchDate = new Date(payload.schedule.nextMatch.fecha_hora)
+    const label = matchDate.toLocaleString('es-ES', {
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    return `Proximo partido ${label}`
+  }
+
+  return 'Sin actividad programada para hoy'
+}
+
+export function getSeasonLabel(payload: DashboardHomeSuccess) {
+  if (payload.equipo?.temporada?.trim()) {
+    return payload.equipo.temporada.toUpperCase()
+  }
+
+  const now = new Date()
+  const year = now.getFullYear()
+  const next = String((year + 1) % 100).padStart(2, '0')
+  const current = String(year % 100).padStart(2, '0')
+  return `TEMPORADA ${current}/${next}`
+}
+
+export function buildMetrics(payload: DashboardHomeSuccess): DashboardMetric[] {
+  const { kpis, teamSummary } = payload
+
+  const intensityRaw =
+    kpis.possession !== null
+      ? kpis.possession
+      : kpis.winrate > 0
+        ? Math.round(kpis.winrate * 0.85 + kpis.pointsPerGame * 8)
+        : 0
+
+  const healthBase = 100 - kpis.yellowCards * 2
+  const defensiveFactor = kpis.goalsAgainst <= kpis.goalsFor ? 6 : -6
+  const healthRaw = clamp(Math.round(healthBase + defensiveFactor), 0, 100)
+
+  return [
+    {
+      id: 'intensity',
+      label: 'INTENSIDAD',
+      value: `${clamp(intensityRaw, 0, 100)}%`,
+      helper: `${kpis.winrate}% de victorias acumuladas`,
+      icon: 'intensity',
+    },
+    {
+      id: 'health',
+      label: 'SALUD GLOBAL',
+      value: `${healthRaw}/100`,
+      helper: `${kpis.yellowCards} tarjetas en partidos cerrados`,
+      icon: 'health',
+    },
+    {
+      id: 'availability',
+      label: 'DISPONIBILIDAD',
+      value: String(teamSummary.playerCount || teamSummary.totalMembers),
+      helper: 'Jugadores registrados en el equipo',
+      icon: 'availability',
+    },
+  ]
+}
+
+export function buildInsight(payload: DashboardHomeSuccess) {
+  const { kpis, schedule, teamSummary } = payload
+
+  if (kpis.goalsAgainst > kpis.goalsFor) {
+    return {
+      title: 'AI Insight: Ajuste Defensivo',
+      description:
+        'El equipo esta recibiendo mas goles de los que anota en la muestra reciente. Se recomienda reforzar bloque medio y transiciones tras perdida durante esta semana.',
+    }
+  }
+
+  if (kpis.yellowCards >= 6) {
+    return {
+      title: 'AI Insight: Control de Riesgo',
+      description:
+        'Se detecta una carga disciplinaria alta. Conviene reducir entradas al limite en tareas competitivas y reforzar toma de decision en duelos.',
+    }
+  }
+
+  if (schedule.nextMatch?.fecha_hora) {
+    const rival = schedule.nextMatch.rival_nombre ?? 'rival pendiente'
+    return {
+      title: 'AI Insight: Preparacion de Partido',
+      description: `Proximo encuentro frente a ${rival}. Recomendacion: sesion tactica corta y trabajo especifico por lineas para llegar con mejor frescura.`,
+    }
+  }
+
+  return {
+    title: 'AI Insight: Carga Balanceada',
+    description: `Plantilla de ${teamSummary.playerCount || teamSummary.totalMembers} jugadores con dinamica estable. Mantener alternancia de cargas y bloque de recuperacion activo.`,
+  }
+}
+
+export function buildWeekDays(
+  calendarDays: DashboardHomeSuccess['schedule']['calendarDays'],
+  activityItems: DashboardActivityItem[],
+  weekOffset: number
+): WeeklyCalendarDay[] {
+  const today = new Date()
+  const todayKey = today.toISOString().slice(0, 10)
+
+  const eventMap = new Map<string, number>()
+  for (const day of calendarDays) {
+    if (day.hasEvent) {
+      eventMap.set(day.date, (eventMap.get(day.date) ?? 0) + 1)
+    }
+  }
+
+  for (const item of activityItems) {
+    const source = item.time ?? item.date
+    const key = toDateKey(source)
+    eventMap.set(key, (eventMap.get(key) ?? 0) + 1)
+  }
+
+  const baseWeek = getStartOfWeek(today)
+  baseWeek.setDate(baseWeek.getDate() + weekOffset * 7)
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(baseWeek)
+    date.setDate(baseWeek.getDate() + index)
+
+    const key = date.toISOString().slice(0, 10)
+    const dayNumber = date.getDate()
+    const isToday = key === todayKey
+
+    return {
+      key,
+      dayLabel: ES_DAY_LABELS[index],
+      dayNumber,
+      isToday,
+      isSelected: isToday,
+      eventCount: eventMap.get(key) ?? 0,
+    }
+  })
+}
+
+export function getPlayerInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return 'PL'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase()
+}
+
+export function formatCompactNumber(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(value)) return '--'
+  return new Intl.NumberFormat('es-ES').format(value)
+}
+
+export function getPassAccuracy(payload: DashboardHomeSuccess) {
+  if (payload.playerSpotlight.passAccPct !== null) {
+    return clamp(payload.playerSpotlight.passAccPct, 0, 100)
+  }
+
+  const base = payload.kpis.winrate > 0 ? payload.kpis.winrate * 0.85 : 0
+  return clamp(Math.round(base), 0, 100)
+}
+
+export function getEstimatedTopSpeed(payload: DashboardHomeSuccess) {
+  if (payload.playerSpotlight.avgRating !== null) {
+    return Number((27 + payload.playerSpotlight.avgRating).toFixed(1))
+  }
+
+  const base = 24 + payload.kpis.pointsPerGame * 2.1
+  return Number(clamp(base, 24, 36).toFixed(1))
+}
