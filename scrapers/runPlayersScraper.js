@@ -37,11 +37,16 @@ export async function runPlayersScraper() {
   const summary = {
     scrapedCount: players.length,
     insertedOrUpdatedCount: persistence.persistedCount,
+    syncedJugadoresExternosCount: persistence.externalPersistedCount,
     errorsCount: persistence.errorCount,
   };
 
   console.log(
-    `[players] scraped=${summary.scrapedCount} inserted_or_updated=${summary.insertedOrUpdatedCount} errors=${summary.errorsCount}`,
+    `[players] scraped=${summary.scrapedCount} inserted_or_updated=${summary.insertedOrUpdatedCount} synced_jugadores_externos=${summary.syncedJugadoresExternosCount} errors=${summary.errorsCount}`,
+  );
+
+  console.log(
+    `[players] players_table=${persistence.tableName} jugadores_externos_table=${persistence.externalTableName} matched_teams=${persistence.externalMatchedTeamCount}`,
   );
 
   if (persistence.errors.length > 0) {

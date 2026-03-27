@@ -4,11 +4,10 @@ import Link from 'next/link'
 import { Eye } from 'lucide-react'
 import type { SquadPlayer } from '../types'
 import {
-  cardSecondaryMetric,
-  estimatedApps,
+  formatGoalsPer90,
+  goalsPer90,
   playerInitials,
   positionTagLabel,
-  ratingValue,
   withEquipo,
 } from '../utils'
 
@@ -34,7 +33,6 @@ type PlayerCardProps = {
 }
 
 function PlayerCard({ player, index, equipoId }: PlayerCardProps) {
-  const secondary = cardSecondaryMetric(player)
   const jersey = player.dorsal !== null ? String(player.dorsal).padStart(2, '0') : String(index + 1).padStart(2, '0')
 
   return (
@@ -87,9 +85,9 @@ function PlayerCard({ player, index, equipoId }: PlayerCardProps) {
         </div>
 
         <div className="grid grid-cols-3 gap-2 border-t border-[#ebeef3] pt-4">
-          <StatItem label="Apps" value={String(estimatedApps(player))} />
-          <StatItem label={secondary.label} value={secondary.value} accent />
-          <StatItem label="Rating" value={ratingValue(player)} />
+          <StatItem label="Minutos Totales" value={String(player.stats.minutes)} />
+          <StatItem label="Goles" value={String(player.stats.goals)} accent />
+          <StatItem label="Goles/90" value={formatGoalsPer90(goalsPer90(player))} />
         </div>
       </div>
     </article>

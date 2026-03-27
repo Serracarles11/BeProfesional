@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 const DEFAULT_TABLE_NAME = "players";
+const DEFAULT_EXTERNAL_PLAYERS_TABLE = "jugadores_externos";
 const DEFAULT_BATCH_SIZE = 200;
 
 function cleanText(value) {
@@ -85,6 +86,7 @@ function normalizePlayer(player) {
     external_id: toNullableText(player?.external_id),
     name: cleanText(player?.name),
     team: cleanText(player?.team),
+    dorsal: toNullableInteger(player?.dorsal),
     position: toNullableText(player?.position),
     nationality: toNullableText(player?.nationality),
     age: toNullableInteger(player?.age),
@@ -149,6 +151,121 @@ async function upsertBatch({ supabase, tableName, rows, onConflict }) {
   return Array.isArray(response.data) ? response.data.length : rows.length;
 }
 
+function normalizeTeamName(value) {
+  return cleanText(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+async function loadEquiposIndex(supabase) {
+  const response = await supabase.from("equipos").select("id, nombre");
+
+  if (response.error) {
+    throw response.error;
+  }
+
+  const equiposByName = new Map();
+  for (const row of response.data ?? []) {
+    const id = typeof row?.id === "string" ? row.id : "";
+    const nombre = cleanText(row?.nombre);
+    const key = normalizeTeamName(nombre);
+
+    if (!id || !key || equiposByName.has(key)) {
+      continue;
+    }
+
+    equiposByName.set(key, {
+      id,
+      nombre,
+    });
+  }
+
+  return equiposByName;
+}
+
+function buildJugadoresExternosRows(players, equiposByName) {
+  const rows = [];
+  const errors = [];
+  const now = new Date().toISOString();
+  const seen = new Set();
+
+  for (const player of players) {
+    const teamKey = normalizeTeamName(player.team);
+    const equipo = equiposByName.get(teamKey);
+
+    if (!equipo) {
+      errors.push({
+        type: "team_lookup",
+        player,
+        message: `No se encontro equipo para team="${player.team}" al sincronizar jugadores_externos.`,
+      });
+      continue;
+    }
+
+    const dedupeKey = `${equipo.id}::${normalizeKey(player.name)}`;
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+
+    seen.add(dedupeKey);
+    rows.push({
+      equipo_id: equipo.id,
+      external_id: player.external_id,
+      nombre: player.name,
+      dorsal: player.dorsal,
+      posicion: player.position,
+      fuente: "scraper",
+      created_at: now,
+      updated_at: now,
+      minutes_total: toSafeInteger(player.minutes_total),
+      goals_total: toSafeInteger(player.goals_total),
+      yellows_total: toSafeInteger(player.yellows_total),
+      starts_total: toSafeInteger(player.starts_total),
+    });
+  }
+
+  return { rows, errors };
+}
+
+async function upsertJugadoresExternos({ supabase, players }) {
+  const tableName =
+    process.env.SUPABASE_JUGADORES_EXTERNOS_TABLE?.trim() || DEFAULT_EXTERNAL_PLAYERS_TABLE;
+
+  const equiposByName = await loadEquiposIndex(supabase);
+  const { rows, errors } = buildJugadoresExternosRows(players, equiposByName);
+
+  let persistedCount = 0;
+
+  for (const batch of chunk(rows, DEFAULT_BATCH_SIZE)) {
+    try {
+      persistedCount += await upsertBatch({
+        supabase,
+        tableName,
+        rows: batch,
+        onConflict: "equipo_id,nombre",
+      });
+    } catch (error) {
+      errors.push({
+        type: "database_external",
+        rows: batch.length,
+        message: error?.message || "Unknown jugadores_externos upsert error",
+      });
+    }
+  }
+
+  return {
+    tableName,
+    receivedCount: players.length,
+    matchedTeamCount: rows.length,
+    persistedCount,
+    errors,
+    errorCount: errors.length,
+  };
+}
+
 export async function savePlayersToSupabase(players) {
   const tableName = process.env.SUPABASE_PLAYERS_TABLE?.trim() || DEFAULT_TABLE_NAME;
   const supabase = createNodeSupabaseClient();
@@ -210,12 +327,22 @@ export async function savePlayersToSupabase(players) {
     }
   }
 
+  const externalSync = await upsertJugadoresExternos({
+    supabase,
+    players: dedupedRows,
+  });
+
+  errors.push(...externalSync.errors);
+
   return {
     tableName,
+    externalTableName: externalSync.tableName,
     receivedCount: normalized.length,
     validCount: validRows.length,
     dedupedCount: dedupedRows.length,
     persistedCount,
+    externalPersistedCount: externalSync.persistedCount,
+    externalMatchedTeamCount: externalSync.matchedTeamCount,
     errors,
     errorCount: errors.length,
   };

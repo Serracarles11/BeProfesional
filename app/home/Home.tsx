@@ -12,14 +12,12 @@ import { TopNavigation } from './components/TopNavigation'
 import { WeeklyCalendar } from './components/WeeklyCalendar'
 import type { DashboardHomeResponse, DashboardHomeSuccess } from './types'
 import {
-  buildInsight,
   buildMetrics,
   buildWeekDays,
   getEstimatedTopSpeed,
   getMorningBriefingSubtitle,
   getPassAccuracy,
   getSeasonLabel,
-  withEquipo,
 } from './utils'
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -97,13 +95,10 @@ export default function Home() {
   const briefingSubtitle = getMorningBriefingSubtitle(payload)
   const seasonLabel = getSeasonLabel(payload)
   const metrics = buildMetrics(payload)
-  const insight = buildInsight(payload)
   const weekDays = buildWeekDays(payload.schedule.calendarDays, payload.schedule.activityItems, weekOffset)
 
   const passAccuracy = getPassAccuracy(payload)
   const topSpeed = getEstimatedTopSpeed(payload)
-
-  const insightHref = withEquipo('/estadisticas', payload.equipo?.id)
 
   return (
     <div className={`${plusJakarta.variable} ${manrope.variable} min-h-screen bg-[#f7f9fe] [font-family:var(--font-manrope)] text-[#181c20]`}>
@@ -116,7 +111,7 @@ export default function Home() {
           <header className="mb-9 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <h1 className="mb-2 [font-family:var(--font-plus-jakarta)] text-4xl font-extrabold tracking-tight text-[#181c20]">
-                Morning Briefing
+                BeProfesional
               </h1>
               <p className="text-[#5f6776]">{briefingSubtitle}</p>
               <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#3176d2]">{coachRole}</p>
@@ -129,7 +124,7 @@ export default function Home() {
 
           <div className="space-y-8">
             <MetricsGrid metrics={metrics} />
-            <InsightCard title={insight.title} description={insight.description} actionHref={insightHref} />
+            <InsightCard equipoId={payload.equipo.id} />
             <WeeklyCalendar
               days={weekDays}
               onPrevWeek={() => setWeekOffset((prev) => prev - 1)}

@@ -23,8 +23,10 @@ type SquadPlayer = {
   dorsal: number | null
   avatarUrl: string | null
   stats: {
+    apps: number
     minutes: number
     goals: number
+    goalsPerMinute: number
     yellows: number
     starts: number
   }
@@ -89,33 +91,25 @@ type MatchRow = {
   estado: string | null
 }
 
-type ExternalPlayerRow = {
+type ExternalSquadRow = {
   id: string
-  external_id: string | null
   nombre: string
   dorsal: number | null
   posicion: string | null
+  minutes_total: number
+  goals_total: number
+  yellows_total: number
+  starts_total: number
 }
 
-type ExternalParticipantRow = {
-  jugador_externo_id: string
-  partido_id: string
-  minutos_jugados: number | null
-  titular: boolean | null
-}
-
-type ExternalEventRow = {
-  tipo: string | null
-  jugador_externo_id: string | null
-}
-
-type ScraperPlayerRow = {
+type SquadDbRow = {
   id: string
-  external_id: string | null
   name: string
   team: string
   position: string | null
+  dorsal: number | null
   age: number | null
+  apps: number
   minutes_total: number
   goals_total: number
   yellows_total: number
@@ -186,54 +180,26 @@ function normalizeEquipo(row: MembershipRow): EquipoActivo | null {
   }
 }
 
-function teamsLikelyMatch(teamValue: string | null, equipoNombre: string, club: string | null) {
-  if (!teamValue) return false
-
-  const normalizedTeam = normalizeText(teamValue).replace(/\s+/g, '')
-  const normalizedEquipo = normalizeText(equipoNombre).replace(/\s+/g, '')
-  const normalizedClub = normalizeText(club).replace(/\s+/g, '')
-
-  if (normalizedTeam && normalizedEquipo) {
-    if (normalizedTeam.includes(normalizedEquipo) || normalizedEquipo.includes(normalizedTeam)) {
-      return true
-    }
-  }
-
-  if (normalizedTeam && normalizedClub) {
-    if (normalizedTeam.includes(normalizedClub) || normalizedClub.includes(normalizedTeam)) {
-      return true
-    }
-  }
-
-  return false
+function estimateApps(minutesTotal: number, startsTotal: number) {
+  const minutes = Math.max(minutesTotal, 0)
+  const starts = Math.max(startsTotal, 0)
+  const estimatedByMinutes = minutes > 0 ? Math.max(Math.round(minutes / 90), 1) : 0
+  return Math.max(starts, estimatedByMinutes)
 }
 
-function isGoalEvent(value: string | null | undefined) {
-  return normalizeText(value).includes('GOL')
-}
-
-function isYellowEvent(value: string | null | undefined) {
-  const normalized = normalizeText(value)
-  return normalized.includes('AMAR') || normalized.includes('YELLOW')
-}
-
-function toScraperPlayerRow(raw: Record<string, unknown>): ScraperPlayerRow | null {
-  const id = typeof raw.id === 'string' || typeof raw.id === 'number' ? String(raw.id) : ''
-  const name = typeof raw.name === 'string' ? raw.name.trim() : ''
-  const team = typeof raw.team === 'string' ? raw.team.trim() : ''
-
-  if (!id || !name || !team) return null
+function toExternalSquadRow(raw: Record<string, unknown>): ExternalSquadRow | null {
+  const id = typeof raw.id === 'string' ? raw.id : ''
+  const nombre = typeof raw.nombre === 'string' ? raw.nombre.trim() : ''
+  if (!id || !nombre) return null
 
   return {
     id,
-    external_id: typeof raw.external_id === 'string' ? raw.external_id : null,
-    name,
-    team,
-    position: typeof raw.position === 'string' ? raw.position : null,
-    age:
-      typeof raw.age === 'number' || typeof raw.age === 'string'
-        ? toNumber(raw.age as number | string)
+    nombre,
+    dorsal:
+      typeof raw.dorsal === 'number' || typeof raw.dorsal === 'string'
+        ? toNumber(raw.dorsal as number | string)
         : null,
+    posicion: typeof raw.posicion === 'string' ? raw.posicion : null,
     minutes_total: toNumber(raw.minutes_total as number | string | null),
     goals_total: toNumber(raw.goals_total as number | string | null),
     yellows_total: toNumber(raw.yellows_total as number | string | null),
@@ -258,177 +224,35 @@ function buildErrorResponse(
   return NextResponse.json(payload, { status })
 }
 
-async function loadExternalParticipants(
-  supabase: SupabaseClient,
-  matchIds: string[],
-  externalIds: string[]
-): Promise<ExternalParticipantRow[]> {
-  if (matchIds.length === 0 || externalIds.length === 0) return []
-
-  const primary = await supabase
-    .from('participantes_partido')
-    .select('jugador_externo_id, partido_id, minutos_jugados, titular')
-    .in('partido_id', matchIds)
-    .in('jugador_externo_id', externalIds)
-
-  if (!primary.error) {
-    return (primary.data ?? [])
-      .map((row) => ({
-        jugador_externo_id:
-          typeof row.jugador_externo_id === 'string' ? row.jugador_externo_id : '',
-        partido_id: typeof row.partido_id === 'string' ? row.partido_id : '',
-        minutos_jugados: toNumber(row.minutos_jugados),
-        titular: typeof row.titular === 'boolean' ? row.titular : null,
-      }))
-      .filter((row) => row.jugador_externo_id && row.partido_id)
-  }
-
-  const fallback = await supabase
-    .from('participantes_partido')
-    .select('jugador_externo_id, partido_id, minutos_jugados')
-    .in('partido_id', matchIds)
-    .in('jugador_externo_id', externalIds)
-
-  if (fallback.error) return []
-
-  return (fallback.data ?? [])
-    .map((row) => ({
-      jugador_externo_id:
-        typeof row.jugador_externo_id === 'string' ? row.jugador_externo_id : '',
-      partido_id: typeof row.partido_id === 'string' ? row.partido_id : '',
-      minutos_jugados: toNumber(row.minutos_jugados),
-      titular: null,
-    }))
-    .filter((row) => row.jugador_externo_id && row.partido_id)
-}
-
-async function loadExternalEvents(
-  supabase: SupabaseClient,
-  matchIds: string[]
-): Promise<ExternalEventRow[]> {
-  if (matchIds.length === 0) return []
-
-  const result = await supabase
-    .from('eventos_partido')
-    .select('tipo, jugador_externo_id')
-    .in('partido_id', matchIds)
-
-  if (result.error) return []
-  return (result.data ?? []) as ExternalEventRow[]
-}
-
-async function loadPlayersForExternal(
-  supabase: SupabaseClient,
-  equipo: EquipoActivo,
-  externalRows: ExternalPlayerRow[]
-): Promise<ScraperPlayerRow[]> {
-  const externalIds = externalRows
-    .map((row) => row.external_id)
-    .filter((value): value is string => Boolean(value))
-
-  const names = externalRows.map((row) => row.nombre)
-
-  const [byExternal, byNames, byTeam, byClub] = await Promise.all([
-    externalIds.length > 0
-      ? supabase
-          .from('players')
-          .select('id, external_id, name, team, position, age, minutes_total, goals_total, yellows_total, starts_total')
-          .in('external_id', externalIds)
-          .limit(1500)
-      : Promise.resolve({ data: [], error: null }),
-    names.length > 0
-      ? supabase
-          .from('players')
-          .select('id, external_id, name, team, position, age, minutes_total, goals_total, yellows_total, starts_total')
-          .in('name', names)
-          .limit(1500)
-      : Promise.resolve({ data: [], error: null }),
-    supabase
-      .from('players')
-      .select('id, external_id, name, team, position, age, minutes_total, goals_total, yellows_total, starts_total')
-      .ilike('team', `%${equipo.nombre}%`)
-      .limit(1500),
-    equipo.club && normalizeText(equipo.club) !== normalizeText(equipo.nombre)
-      ? supabase
-          .from('players')
-          .select('id, external_id, name, team, position, age, minutes_total, goals_total, yellows_total, starts_total')
-          .ilike('team', `%${equipo.club}%`)
-          .limit(1500)
-      : Promise.resolve({ data: [], error: null }),
-  ])
-
-  const rawRows = [
-    ...((byExternal.error ? [] : byExternal.data ?? []) as Array<Record<string, unknown>>),
-    ...((byNames.error ? [] : byNames.data ?? []) as Array<Record<string, unknown>>),
-    ...((byTeam.error ? [] : byTeam.data ?? []) as Array<Record<string, unknown>>),
-    ...((byClub.error ? [] : byClub.data ?? []) as Array<Record<string, unknown>>),
-  ]
-
-  const rows = rawRows
-    .map((raw) => toScraperPlayerRow(raw))
-    .filter((row): row is ScraperPlayerRow => row !== null)
-
-  const deduped = new Map<string, ScraperPlayerRow>()
-
-  for (const row of rows) {
-    const key = row.external_id ? `ext:${row.external_id}` : `name:${normalizeText(row.name)}`
-    if (!deduped.has(key)) {
-      deduped.set(key, row)
-      continue
-    }
-
-    const current = deduped.get(key)
-    if (current && row.minutes_total > current.minutes_total) {
-      deduped.set(key, row)
-    }
-  }
-
-  return [...deduped.values()]
-}
-
 async function loadPlayersByTeamOnly(
   supabase: SupabaseClient,
   equipo: EquipoActivo
-): Promise<ScraperPlayerRow[]> {
-  const [byTeam, byClub] = await Promise.all([
-    supabase
-      .from('players')
-      .select('id, external_id, name, team, position, age, minutes_total, goals_total, yellows_total, starts_total')
-      .ilike('team', `%${equipo.nombre}%`)
-      .limit(1500),
-    equipo.club && normalizeText(equipo.club) !== normalizeText(equipo.nombre)
-      ? supabase
-          .from('players')
-          .select('id, external_id, name, team, position, age, minutes_total, goals_total, yellows_total, starts_total')
-          .ilike('team', `%${equipo.club}%`)
-          .limit(1500)
-      : Promise.resolve({ data: [], error: null }),
-  ])
+): Promise<SquadDbRow[]> {
+  const result = await supabase
+    .from('jugadores_externos')
+    .select('id, nombre, dorsal, posicion, minutes_total, goals_total, yellows_total, starts_total')
+    .eq('equipo_id', equipo.id)
+    .order('nombre', { ascending: true })
+    .limit(1500)
 
-  const rawRows = [
-    ...((byTeam.error ? [] : byTeam.data ?? []) as Array<Record<string, unknown>>),
-    ...((byClub.error ? [] : byClub.data ?? []) as Array<Record<string, unknown>>),
-  ]
+  if (result.error) return []
 
-  const rows = rawRows
-    .map((raw) => toScraperPlayerRow(raw))
-    .filter((row): row is ScraperPlayerRow => row !== null)
-    .filter((row) => teamsLikelyMatch(row.team, equipo.nombre, equipo.club))
-
-  const deduped = new Map<string, ScraperPlayerRow>()
-  for (const row of rows) {
-    const key = row.external_id ? `ext:${row.external_id}` : `name:${normalizeText(row.name)}::${normalizeText(row.team)}`
-    if (!deduped.has(key)) {
-      deduped.set(key, row)
-      continue
-    }
-    const current = deduped.get(key)
-    if (current && row.minutes_total > current.minutes_total) {
-      deduped.set(key, row)
-    }
-  }
-
-  return [...deduped.values()]
+  return ((result.data ?? []) as Array<Record<string, unknown>>)
+    .map((raw) => toExternalSquadRow(raw))
+    .filter((row): row is ExternalSquadRow => row !== null)
+    .map((row) => ({
+      id: row.id,
+      name: row.nombre,
+      team: equipo.nombre,
+      position: row.posicion,
+      dorsal: row.dorsal,
+      age: null,
+      apps: estimateApps(row.minutes_total, row.starts_total),
+      minutes_total: Math.max(row.minutes_total, 0),
+      goals_total: Math.max(row.goals_total, 0),
+      yellows_total: Math.max(row.yellows_total, 0),
+      starts_total: Math.max(row.starts_total, 0),
+    }))
 }
 
 export async function GET(request: NextRequest) {
@@ -485,11 +309,7 @@ export async function GET(request: NextRequest) {
 
     const nowIso = new Date().toISOString()
 
-    const [externalPlayersResult, matchesResult, nextMatchResult, checkinsResult, trainingsResult] = await Promise.all([
-      supabase
-        .from('jugadores_externos')
-        .select('id, external_id, nombre, dorsal, posicion')
-        .eq('equipo_id', activeTeam.id),
+    const [matchesResult, nextMatchResult, checkinsResult, trainingsResult, teamPlayers] = await Promise.all([
       supabase
         .from('partidos')
         .select('id, fecha_hora, goles_favor, goles_contra, rival_nombre, lugar, estado')
@@ -515,140 +335,44 @@ export async function GET(request: NextRequest) {
         .eq('equipo_id', activeTeam.id)
         .gte('fecha', new Date().toISOString().slice(0, 10))
         .lte('fecha', new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)),
+      loadPlayersByTeamOnly(supabase, activeTeam),
     ])
 
-    const externalPlayers = externalPlayersResult.error
-      ? []
-      : ((externalPlayersResult.data ?? []) as ExternalPlayerRow[])
-
     const matches = matchesResult.error ? [] : ((matchesResult.data ?? []) as MatchRow[])
-    const matchIds = matches.map((match) => match.id)
 
     let players: SquadPlayer[] = []
     let source: SquadSource = 'fallback'
 
-    if (externalPlayers.length > 0) {
+    if (teamPlayers.length > 0) {
       source = 'jugadores_externos'
-
-      const [scraperRows, participants, events] = await Promise.all([
-        loadPlayersForExternal(supabase, activeTeam, externalPlayers),
-        loadExternalParticipants(
-          supabase,
-          matchIds,
-          externalPlayers.map((player) => player.id)
-        ),
-        loadExternalEvents(supabase, matchIds),
-      ])
-
-      const scraperByExternalId = new Map<string, ScraperPlayerRow>()
-      const scraperByName = new Map<string, ScraperPlayerRow[]>()
-
-      for (const row of scraperRows) {
-        if (row.external_id) {
-          scraperByExternalId.set(row.external_id, row)
-        }
-
-        const nameKey = normalizeText(row.name)
-        if (!scraperByName.has(nameKey)) {
-          scraperByName.set(nameKey, [])
-        }
-        scraperByName.get(nameKey)?.push(row)
-      }
-
-      const participationByExternal = new Map<string, { minutes: number; starts: number }>()
-      for (const row of participants) {
-        const current = participationByExternal.get(row.jugador_externo_id) ?? { minutes: 0, starts: 0 }
-        current.minutes += row.minutos_jugados ?? 90
-        if (row.titular === true) current.starts += 1
-        participationByExternal.set(row.jugador_externo_id, current)
-      }
-
-      const goalsByExternal = new Map<string, number>()
-      const yellowsByExternal = new Map<string, number>()
-
-      for (const row of events) {
-        if (!row.jugador_externo_id) continue
-
-        if (isGoalEvent(row.tipo)) {
-          goalsByExternal.set(row.jugador_externo_id, (goalsByExternal.get(row.jugador_externo_id) ?? 0) + 1)
-        }
-
-        if (isYellowEvent(row.tipo)) {
-          yellowsByExternal.set(row.jugador_externo_id, (yellowsByExternal.get(row.jugador_externo_id) ?? 0) + 1)
-        }
-      }
-
-      players = externalPlayers
-        .map((external) => {
-          const byExternal = external.external_id ? scraperByExternalId.get(external.external_id) : null
-          const byNameCandidates = scraperByName.get(normalizeText(external.nombre)) ?? []
-          const byName = byNameCandidates.find((row) => teamsLikelyMatch(row.team, activeTeam.nombre, activeTeam.club)) ?? byNameCandidates[0] ?? null
-
-          const enriched = byExternal ?? byName ?? null
-
-          const participation = participationByExternal.get(external.id) ?? { minutes: 0, starts: 0 }
-
-          return {
-            id: external.id,
-            name: external.nombre,
-            team: enriched?.team ?? activeTeam.nombre,
-            position: external.posicion ?? enriched?.position ?? null,
-            age: enriched?.age ?? null,
-            dorsal: external.dorsal ?? null,
-            avatarUrl: null,
-            stats: {
-              minutes:
-                participation.minutes > 0
-                  ? participation.minutes
-                  : Math.max(enriched?.minutes_total ?? 0, 0),
-              goals:
-                (goalsByExternal.get(external.id) ?? 0) > 0
-                  ? goalsByExternal.get(external.id) ?? 0
-                  : Math.max(enriched?.goals_total ?? 0, 0),
-              yellows:
-                (yellowsByExternal.get(external.id) ?? 0) > 0
-                  ? yellowsByExternal.get(external.id) ?? 0
-                  : Math.max(enriched?.yellows_total ?? 0, 0),
-              starts:
-                participation.starts > 0
-                  ? participation.starts
-                  : Math.max(enriched?.starts_total ?? 0, 0),
-            },
-          }
-        })
+      players = teamPlayers
         .sort((a, b) => {
-          if (b.stats.goals !== a.stats.goals) return b.stats.goals - a.stats.goals
-          if (b.stats.starts !== a.stats.starts) return b.stats.starts - a.stats.starts
-          if (b.stats.minutes !== a.stats.minutes) return b.stats.minutes - a.stats.minutes
+          if (b.goals_total !== a.goals_total) return b.goals_total - a.goals_total
+          if (b.minutes_total !== a.minutes_total) return b.minutes_total - a.minutes_total
+          if (b.apps !== a.apps) return b.apps - a.apps
           return a.name.localeCompare(b.name, 'es')
         })
-    } else {
-      const teamPlayers = await loadPlayersByTeamOnly(supabase, activeTeam)
-      if (teamPlayers.length > 0) {
-        source = 'players'
-        players = teamPlayers
-          .sort((a, b) => {
-            if (b.goals_total !== a.goals_total) return b.goals_total - a.goals_total
-            if (b.starts_total !== a.starts_total) return b.starts_total - a.starts_total
-            if (b.minutes_total !== a.minutes_total) return b.minutes_total - a.minutes_total
-            return a.name.localeCompare(b.name, 'es')
-          })
-          .map((row) => ({
-            id: row.external_id ? `ext:${row.external_id}` : `players:${row.id}`,
+        .map((row) => {
+          const minutes = Math.max(row.minutes_total, 0)
+          const goals = Math.max(row.goals_total, 0)
+          return {
+            id: row.id,
             name: row.name,
             team: row.team,
             position: row.position,
             age: row.age,
-            dorsal: null,
+            dorsal: row.dorsal,
             avatarUrl: null,
             stats: {
-              minutes: Math.max(row.minutes_total, 0),
-              goals: Math.max(row.goals_total, 0),
+              apps: Math.max(row.apps, 0),
+              minutes,
+              goals,
+              goalsPerMinute: minutes > 0 ? goals / minutes : 0,
               yellows: Math.max(row.yellows_total, 0),
               starts: Math.max(row.starts_total, 0),
             },
-          }))
-      }
+          }
+        })
     }
 
     const finishedMatches = matches.filter((match) => normalizeText(match.estado) === 'FINALIZADO')

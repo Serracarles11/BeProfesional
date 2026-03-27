@@ -7,8 +7,10 @@ export type SquadPlayer = {
   dorsal: number | null
   avatarUrl: string | null
   stats: {
+    apps: number
     minutes: number
     goals: number
+    goalsPerMinute: number
     yellows: number
     starts: number
   }

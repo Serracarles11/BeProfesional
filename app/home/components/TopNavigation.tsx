@@ -25,7 +25,7 @@ export function TopNavigation({ equipoId, avatarUrl }: TopNavigationProps) {
       <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between px-4 lg:px-8">
         <div className="flex items-center gap-8">
           <span className="[font-family:var(--font-plus-jakarta)] text-xl font-extrabold tracking-tight text-[#001945]">
-            Azure Athletic
+            Beprofesional
           </span>
 
           <nav className="hidden items-center gap-6 md:flex">

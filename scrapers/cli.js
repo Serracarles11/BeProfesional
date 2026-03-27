@@ -1,3 +1,10 @@
+import path from "path";
+import { fileURLToPath } from "url";
+import dotenv from "dotenv";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
+
 async function main() {
   const [, , command] = process.argv;
   const requiredEnv = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
@@ -5,7 +12,7 @@ async function main() {
 
   if (missingEnv.length > 0) {
     throw new Error(
-      `Missing required environment variables: ${missingEnv.join(", ")}. Run the scraper with Node's env loader, for example: node --env-file=.env scrapers/cli.js players`,
+      `Faltan variables de entorno requeridas para Supabase: ${missingEnv.join(", ")}. Revisa el archivo .env en la raiz del proyecto y asegúrate de definir SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY.`,
     );
   }
 

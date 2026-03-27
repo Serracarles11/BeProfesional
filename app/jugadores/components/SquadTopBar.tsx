@@ -16,7 +16,7 @@ export function SquadTopBar({ equipoId, searchTerm, onSearchTermChange, avatarUr
     <header className="sticky top-0 z-30 flex w-full items-center justify-between bg-[#f7f9fe]/85 px-5 py-4 backdrop-blur-xl lg:px-8">
       <div className="flex items-center gap-8">
         <h1 className="[font-family:var(--font-plus-jakarta)] text-2xl font-black tracking-tighter text-[#005db6]">
-          AZURE ATHLETIC
+          Beprofesional
         </h1>
 
         <div className="hidden items-center gap-6 lg:flex">
