@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
 
-type SupabaseClient = Awaited<ReturnType<typeof createSupabaseRouteHandler>>
-
 const DEFAULT_EQUIPO_ID = '9f2fb096-5905-4e69-81a5-7f1b84243dfe'
 
 type EquipoActivo = {
@@ -91,29 +89,30 @@ type MatchRow = {
   estado: string | null
 }
 
-type ExternalSquadRow = {
-  id: string
-  nombre: string
-  dorsal: number | null
+type TeamMemberProfileRow = {
+  nombre: string | null
+  foto_url: string | null
   posicion: string | null
-  minutes_total: number
-  goals_total: number
-  yellows_total: number
-  starts_total: number
+  edad: number | string | null
 }
 
-type SquadDbRow = {
-  id: string
-  name: string
-  team: string
-  position: string | null
-  dorsal: number | null
-  age: number | null
-  apps: number
-  minutes_total: number
-  goals_total: number
-  yellows_total: number
-  starts_total: number
+type TeamMemberRow = {
+  usuario_id: string | null
+  dorsal: number | string | null
+  fecha_alta: string | null
+}
+
+type MatchEventRow = {
+  partido_id: string | null
+  tipo: string | null
+  jugador_id: string | null
+  jugador_relacionado_id: string | null
+}
+
+type MatchParticipantRow = {
+  partido_id: string | null
+  jugador_id: string | null
+  minutos_jugados: number | string | null
 }
 
 const EMPTY_SUCCESS: SquadSuccessResponse = {
@@ -180,31 +179,29 @@ function normalizeEquipo(row: MembershipRow): EquipoActivo | null {
   }
 }
 
-function estimateApps(minutesTotal: number, startsTotal: number) {
-  const minutes = Math.max(minutesTotal, 0)
-  const starts = Math.max(startsTotal, 0)
-  const estimatedByMinutes = minutes > 0 ? Math.max(Math.round(minutes / 90), 1) : 0
-  return Math.max(starts, estimatedByMinutes)
+function normalizeProfile(raw: unknown): TeamMemberProfileRow | null {
+  const profile = Array.isArray(raw) ? raw[0] : raw
+  if (!profile || typeof profile !== 'object') return null
+
+  const row = profile as Record<string, unknown>
+  return {
+    nombre: typeof row.nombre === 'string' ? row.nombre : null,
+    foto_url: typeof row.foto_url === 'string' ? row.foto_url : null,
+    posicion: typeof row.posicion === 'string' ? row.posicion : null,
+    edad:
+      typeof row.edad === 'number' || typeof row.edad === 'string'
+        ? (row.edad as number | string)
+        : null,
+  }
 }
 
-function toExternalSquadRow(raw: Record<string, unknown>): ExternalSquadRow | null {
-  const id = typeof raw.id === 'string' ? raw.id : ''
-  const nombre = typeof raw.nombre === 'string' ? raw.nombre.trim() : ''
-  if (!id || !nombre) return null
+function isGoalEvent(value: string | null | undefined) {
+  return normalizeText(value).includes('GOL')
+}
 
-  return {
-    id,
-    nombre,
-    dorsal:
-      typeof raw.dorsal === 'number' || typeof raw.dorsal === 'string'
-        ? toNumber(raw.dorsal as number | string)
-        : null,
-    posicion: typeof raw.posicion === 'string' ? raw.posicion : null,
-    minutes_total: toNumber(raw.minutes_total as number | string | null),
-    goals_total: toNumber(raw.goals_total as number | string | null),
-    yellows_total: toNumber(raw.yellows_total as number | string | null),
-    starts_total: toNumber(raw.starts_total as number | string | null),
-  }
+function isYellowCardEvent(value: string | null | undefined) {
+  const normalized = normalizeText(value)
+  return normalized.includes('AMAR') || normalized.includes('YELLOW')
 }
 
 function buildErrorResponse(
@@ -222,37 +219,6 @@ function buildErrorResponse(
 
   console.error('API /api/dashboard/squad error:', message, error ?? null)
   return NextResponse.json(payload, { status })
-}
-
-async function loadPlayersByTeamOnly(
-  supabase: SupabaseClient,
-  equipo: EquipoActivo
-): Promise<SquadDbRow[]> {
-  const result = await supabase
-    .from('jugadores_externos')
-    .select('id, nombre, dorsal, posicion, minutes_total, goals_total, yellows_total, starts_total')
-    .eq('equipo_id', equipo.id)
-    .order('nombre', { ascending: true })
-    .limit(1500)
-
-  if (result.error) return []
-
-  return ((result.data ?? []) as Array<Record<string, unknown>>)
-    .map((raw) => toExternalSquadRow(raw))
-    .filter((row): row is ExternalSquadRow => row !== null)
-    .map((row) => ({
-      id: row.id,
-      name: row.nombre,
-      team: equipo.nombre,
-      position: row.posicion,
-      dorsal: row.dorsal,
-      age: null,
-      apps: estimateApps(row.minutes_total, row.starts_total),
-      minutes_total: Math.max(row.minutes_total, 0),
-      goals_total: Math.max(row.goals_total, 0),
-      yellows_total: Math.max(row.yellows_total, 0),
-      starts_total: Math.max(row.starts_total, 0),
-    }))
 }
 
 export async function GET(request: NextRequest) {
@@ -274,6 +240,7 @@ export async function GET(request: NextRequest) {
       .from('miembros_equipo')
       .select('rol, fecha_alta, equipo:equipos(id, nombre, club, categoria, temporada, logo_url)')
       .eq('usuario_id', user.id)
+      .eq('estado', 'ACTIVO')
       .order('fecha_alta', { ascending: false })
 
     if (membershipError) {
@@ -309,7 +276,7 @@ export async function GET(request: NextRequest) {
 
     const nowIso = new Date().toISOString()
 
-    const [matchesResult, nextMatchResult, checkinsResult, trainingsResult, teamPlayers] = await Promise.all([
+    const [matchesResult, nextMatchResult, checkinsResult, trainingsResult, membersResult] = await Promise.all([
       supabase
         .from('partidos')
         .select('id, fecha_hora, goles_favor, goles_contra, rival_nombre, lugar, estado')
@@ -335,45 +302,178 @@ export async function GET(request: NextRequest) {
         .eq('equipo_id', activeTeam.id)
         .gte('fecha', new Date().toISOString().slice(0, 10))
         .lte('fecha', new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)),
-      loadPlayersByTeamOnly(supabase, activeTeam),
+      supabase
+        .from('miembros_equipo')
+        .select('usuario_id, dorsal, fecha_alta')
+        .eq('equipo_id', activeTeam.id)
+        .eq('rol', 'JUGADOR')
+        .eq('estado', 'ACTIVO')
+        .order('fecha_alta', { ascending: false }),
     ])
 
     const matches = matchesResult.error ? [] : ((matchesResult.data ?? []) as MatchRow[])
 
-    let players: SquadPlayer[] = []
-    let source: SquadSource = 'fallback'
-
-    if (teamPlayers.length > 0) {
-      source = 'jugadores_externos'
-      players = teamPlayers
-        .sort((a, b) => {
-          if (b.goals_total !== a.goals_total) return b.goals_total - a.goals_total
-          if (b.minutes_total !== a.minutes_total) return b.minutes_total - a.minutes_total
-          if (b.apps !== a.apps) return b.apps - a.apps
-          return a.name.localeCompare(b.name, 'es')
-        })
-        .map((row) => {
-          const minutes = Math.max(row.minutes_total, 0)
-          const goals = Math.max(row.goals_total, 0)
-          return {
-            id: row.id,
-            name: row.name,
-            team: row.team,
-            position: row.position,
-            age: row.age,
-            dorsal: row.dorsal,
-            avatarUrl: null,
-            stats: {
-              apps: Math.max(row.apps, 0),
-              minutes,
-              goals,
-              goalsPerMinute: minutes > 0 ? goals / minutes : 0,
-              yellows: Math.max(row.yellows_total, 0),
-              starts: Math.max(row.starts_total, 0),
-            },
-          }
-        })
+    if (membersResult.error) {
+      return buildErrorResponse('No se pudieron cargar los jugadores del equipo.', 500, membersResult.error)
     }
+
+    const uniqueMembers = new Map<string, TeamMemberRow>()
+
+    for (const row of (membersResult.data ?? []) as TeamMemberRow[]) {
+      const userId = row.usuario_id
+      if (!userId || uniqueMembers.has(userId)) continue
+      uniqueMembers.set(userId, row)
+    }
+
+    const memberRows = [...uniqueMembers.values()]
+    const memberIds = memberRows
+      .map((row) => row.usuario_id)
+      .filter((value): value is string => Boolean(value))
+
+    let profilesById = new Map<string, TeamMemberProfileRow>()
+
+    if (memberIds.length > 0) {
+      const profilesResult = await supabase
+        .from('perfiles')
+        .select('id, nombre, foto_url, posicion, edad')
+        .in('id', memberIds)
+
+      if (!profilesResult.error) {
+        profilesById = new Map(
+          ((profilesResult.data ?? []) as Array<Record<string, unknown>>)
+            .map((row) => {
+              const id = typeof row.id === 'string' ? row.id : null
+              if (!id) return null
+              return [id, normalizeProfile(row)] as const
+            })
+            .filter((entry): entry is readonly [string, TeamMemberProfileRow] => entry !== null && entry[1] !== null)
+        )
+      }
+    }
+
+    const basePlayers = memberRows
+      .map((row) => {
+        const userId = row.usuario_id
+        if (!userId) return null
+
+        const profile = profilesById.get(userId) ?? null
+        const fallbackOwnName =
+          userId === user.id && typeof user.user_metadata?.nombre === 'string'
+            ? user.user_metadata.nombre.trim()
+            : ''
+        const name = profile?.nombre?.trim() || fallbackOwnName
+
+        return {
+          id: userId,
+          name: name || 'Jugador',
+          team: activeTeam.nombre,
+          position: profile?.posicion ?? null,
+          age: profile?.edad == null ? null : toNumber(profile.edad),
+          dorsal:
+            typeof row.dorsal === 'number' || typeof row.dorsal === 'string'
+              ? toNumber(row.dorsal)
+              : null,
+          avatarUrl: profile?.foto_url ?? null,
+        }
+      })
+      .filter((row): row is Omit<SquadPlayer, 'stats'> => row !== null)
+
+    const matchIds = matches.map((match) => match.id)
+
+    let events: MatchEventRow[] = []
+    let participants: MatchParticipantRow[] = []
+
+    if (matchIds.length > 0 && basePlayers.length > 0) {
+      const [eventsResult, participantsResult] = await Promise.all([
+        supabase
+          .from('eventos_partido')
+          .select('partido_id, tipo, jugador_id, jugador_relacionado_id')
+          .in('partido_id', matchIds),
+        supabase
+          .from('participantes_partido')
+          .select('partido_id, jugador_id, minutos_jugados')
+          .in('partido_id', matchIds)
+          .in(
+            'jugador_id',
+            basePlayers.map((player) => player.id)
+          ),
+      ])
+
+      if (!eventsResult.error) {
+        events = (eventsResult.data ?? []) as MatchEventRow[]
+      }
+
+      if (!participantsResult.error) {
+        participants = (participantsResult.data ?? []) as MatchParticipantRow[]
+      }
+    }
+
+    const playerStats = new Map<
+      string,
+      {
+        appMatches: Set<string>
+        minutes: number
+        goals: number
+        yellows: number
+      }
+    >()
+
+    for (const player of basePlayers) {
+      playerStats.set(player.id, {
+        appMatches: new Set<string>(),
+        minutes: 0,
+        goals: 0,
+        yellows: 0,
+      })
+    }
+
+    for (const row of participants) {
+      if (!row.jugador_id || !row.partido_id) continue
+      const current = playerStats.get(row.jugador_id)
+      if (!current) continue
+      current.appMatches.add(row.partido_id)
+      current.minutes += Math.max(toNumber(row.minutos_jugados), 0)
+    }
+
+    for (const event of events) {
+      if (event.jugador_id) {
+        const current = playerStats.get(event.jugador_id)
+        if (current) {
+          if (isGoalEvent(event.tipo)) current.goals += 1
+          if (isYellowCardEvent(event.tipo)) current.yellows += 1
+        }
+      }
+    }
+
+    const players: SquadPlayer[] = basePlayers
+      .map((player) => {
+        const stats = playerStats.get(player.id)
+        const apps = stats?.appMatches.size ?? 0
+        const minutes = stats?.minutes ?? 0
+        const goals = stats?.goals ?? 0
+        const yellows = stats?.yellows ?? 0
+
+        return {
+          ...player,
+          stats: {
+            apps,
+            minutes,
+            goals,
+            goalsPerMinute: minutes > 0 ? goals / minutes : 0,
+            yellows,
+            starts: apps,
+          },
+        }
+      })
+      .sort((a, b) => {
+        if (b.stats.goals !== a.stats.goals) return b.stats.goals - a.stats.goals
+        if (b.stats.minutes !== a.stats.minutes) return b.stats.minutes - a.stats.minutes
+        if (b.stats.apps !== a.stats.apps) return b.stats.apps - a.stats.apps
+        if (a.dorsal !== null && b.dorsal !== null && a.dorsal !== b.dorsal) return a.dorsal - b.dorsal
+        return a.name.localeCompare(b.name, 'es')
+      })
+
+    const source: SquadSource = 'players'
 
     const finishedMatches = matches.filter((match) => normalizeText(match.estado) === 'FINALIZADO')
     const played = finishedMatches.length
