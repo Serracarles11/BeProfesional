@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Manrope, Plus_Jakarta_Sans } from 'next/font/google'
 import { useSearchParams } from 'next/navigation'
 import { HomeEmptyState, HomeErrorState, HomeLoadingState } from './components/HomeStates'
+import { CoachMetricsGrid } from './components/CoachMetricsGrid'
 import { InsightCard } from './components/InsightCard'
 import { LeftNavigation } from './components/LeftNavigation'
 import { MetricsGrid } from './components/MetricsGrid'
@@ -33,6 +34,35 @@ const manrope = Manrope({
 })
 
 type HomeStatus = 'loading' | 'ready' | 'error'
+type WellbeingPatch = {
+  mentalState?: number
+  fatigue?: number
+  attendingTraining?: boolean
+}
+
+type WellbeingUpdateResponse =
+  | {
+      ok: true
+      wellbeing: DashboardHomeSuccess['wellbeing']
+    }
+  | {
+      ok: false
+      error: string
+    }
+
+type CreateTrainingResponse =
+  | {
+      ok: true
+      training: {
+        id: string
+      }
+    }
+  | {
+      ok: false
+      error: string
+    }
+
+type TrainingType = 'FISICO' | 'TECNICO' | 'TACTICO' | 'RECUPERACION'
 
 export default function Home() {
   const searchParams = useSearchParams()
@@ -42,6 +72,17 @@ export default function Home() {
   const [error, setError] = useState('')
   const [payload, setPayload] = useState<DashboardHomeSuccess | null>(null)
   const [weekOffset, setWeekOffset] = useState(0)
+  const [saveError, setSaveError] = useState('')
+  const [isSavingWellbeing, setIsSavingWellbeing] = useState(false)
+  const [isCreateTrainingOpen, setIsCreateTrainingOpen] = useState(false)
+  const [isCreatingTraining, setIsCreatingTraining] = useState(false)
+  const [trainingDate, setTrainingDate] = useState('')
+  const [trainingTime, setTrainingTime] = useState('18:00')
+  const [trainingTitle, setTrainingTitle] = useState('Entrenamiento semanal')
+  const [trainingType, setTrainingType] = useState<TrainingType>('TACTICO')
+  const [trainingPlace, setTrainingPlace] = useState('')
+  const [fieldOptions, setFieldOptions] = useState<string[]>([])
+  const [isLoadingFields, setIsLoadingFields] = useState(false)
 
   const loadData = useCallback(async () => {
     setStatus('loading')
@@ -74,6 +115,70 @@ export default function Home() {
     return () => window.clearTimeout(timer)
   }, [loadData])
 
+  const updateWellbeing = useCallback(
+    async (patch: WellbeingPatch) => {
+      if (!payload?.equipo?.id) return
+
+      const previousWellbeing = payload.wellbeing
+      const equipoIdToSave = payload.equipo.id
+
+      setSaveError('')
+      setPayload((prev) =>
+        prev
+          ? {
+              ...prev,
+              wellbeing: {
+                ...prev.wellbeing,
+                ...patch,
+              },
+            }
+          : prev
+      )
+      setIsSavingWellbeing(true)
+
+      try {
+        const response = await fetch('/api/dashboard/home/wellbeing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            equipoId: equipoIdToSave,
+            ...patch,
+          }),
+        })
+
+        const data = (await response.json()) as WellbeingUpdateResponse
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.ok ? 'No se pudo guardar el estado.' : data.error)
+        }
+
+        setPayload((prev) =>
+          prev
+            ? {
+                ...prev,
+                wellbeing: data.wellbeing,
+              }
+            : prev
+        )
+      } catch (saveErr) {
+        setPayload((prev) =>
+          prev
+            ? {
+                ...prev,
+                wellbeing: previousWellbeing,
+              }
+            : prev
+        )
+        setSaveError(
+          saveErr instanceof Error ? saveErr.message : 'No se pudo guardar el estado diario.'
+        )
+      } finally {
+        setIsSavingWellbeing(false)
+      }
+    },
+    [payload]
+  )
+
   if (status === 'loading') {
     return <HomeLoadingState />
   }
@@ -87,9 +192,10 @@ export default function Home() {
   }
 
   const teamName = payload.equipo.nombre || 'Equipo'
-  const coachRole = payload.coach?.rol || payload.role || 'Entrenador'
+  const isCoach = payload.isCoach
+  const coachRole = isCoach ? 'ENTRENADOR' : payload.role || 'JUGADOR'
   const playerName = payload.playerSpotlight.nombre || 'Jugador'
-  const playerPosition = payload.playerSpotlight.posicion || 'Posicion por definir'
+  const playerPosition = isCoach ? 'Entrenador' : payload.playerSpotlight.posicion || 'Posicion por definir'
   const minutesPlayed = payload.playerSpotlight.minutesPlayed || payload.playerSpotlight.matchesPlayed * 90
 
   const briefingSubtitle = getMorningBriefingSubtitle(payload)
@@ -99,6 +205,76 @@ export default function Home() {
 
   const passAccuracy = getPassAccuracy(payload)
   const topSpeed = getEstimatedTopSpeed(payload)
+
+  const openCreateTrainingModal = () => {
+    if (!isCoach) return
+    setSaveError('')
+    setTrainingDate(weekDays[0]?.key ?? new Date().toISOString().slice(0, 10))
+    setTrainingTime('18:00')
+    setTrainingTitle('Entrenamiento semanal')
+    setTrainingType('TACTICO')
+    setTrainingPlace('')
+    setIsCreateTrainingOpen(true)
+    setIsLoadingFields(true)
+
+    const equipo = payload.equipo?.id
+    const query = equipo ? `?equipo=${encodeURIComponent(equipo)}` : ''
+
+    void fetch(`/api/dashboard/home/fields${query}`, { cache: 'no-store' })
+      .then(async (response) => {
+        const data = (await response.json()) as { ok?: boolean; error?: string; fields?: string[] }
+        if (!response.ok || !data.ok || !Array.isArray(data.fields)) {
+          throw new Error(data.error || 'No se pudieron cargar los campos de futbol.')
+        }
+        setFieldOptions(data.fields)
+      })
+      .catch((err) => {
+        setFieldOptions([])
+        setSaveError(err instanceof Error ? err.message : 'No se pudieron cargar los campos de futbol.')
+      })
+      .finally(() => {
+        setIsLoadingFields(false)
+      })
+  }
+
+  const createTraining = async () => {
+    if (!payload.equipo?.id) return
+    if (!trainingDate || !trainingTitle.trim()) {
+      setSaveError('Debes indicar fecha y titulo del entrenamiento.')
+      return
+    }
+
+    setIsCreatingTraining(true)
+    setSaveError('')
+
+    try {
+      const response = await fetch('/api/dashboard/home/trainings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          equipoId: payload.equipo.id,
+          date: trainingDate,
+          time: trainingTime,
+          title: trainingTitle.trim(),
+          type: trainingType,
+          place: trainingPlace.trim(),
+        }),
+      })
+
+      const data = (await response.json()) as CreateTrainingResponse
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.ok ? 'No se pudo crear el entrenamiento.' : data.error)
+      }
+
+      setIsCreateTrainingOpen(false)
+      await loadData()
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'No se pudo crear el entrenamiento.')
+    } finally {
+      setIsCreatingTraining(false)
+    }
+  }
 
   return (
     <div className={`${plusJakarta.variable} ${manrope.variable} min-h-screen bg-[#f7f9fe] [font-family:var(--font-manrope)] text-[#181c20]`}>
@@ -122,13 +298,39 @@ export default function Home() {
             </span>
           </header>
 
+          {saveError && (
+            <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700">
+              {saveError}
+            </p>
+          )}
+
           <div className="space-y-8">
-            <MetricsGrid metrics={metrics} />
+            {isCoach ? (
+              <CoachMetricsGrid coachWellbeing={payload.coachWellbeing} />
+            ) : (
+              <MetricsGrid
+                metrics={metrics}
+                wellbeing={payload.wellbeing}
+                isSaving={isSavingWellbeing}
+                onUpdateWellbeing={updateWellbeing}
+              />
+            )}
             <InsightCard equipoId={payload.equipo.id} />
             <WeeklyCalendar
               days={weekDays}
               onPrevWeek={() => setWeekOffset((prev) => prev - 1)}
               onNextWeek={() => setWeekOffset((prev) => prev + 1)}
+              addTrainingAction={
+                isCoach ? (
+                  <button
+                    type="button"
+                    onClick={openCreateTrainingModal}
+                    className="rounded-lg bg-[#005db6] px-3 py-1.5 text-[11px] font-bold tracking-[0.08em] text-white transition hover:bg-[#004f9a]"
+                  >
+                    + ANADIR ENTRENO
+                  </button>
+                ) : undefined
+              }
             />
           </div>
         </section>
@@ -148,6 +350,101 @@ export default function Home() {
           />
         </div>
       </main>
+
+      {isCoach && isCreateTrainingOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl">
+            <h3 className="[font-family:var(--font-plus-jakarta)] text-lg font-bold text-[#181c20]">
+              Crear entrenamiento semanal
+            </h3>
+            <p className="mt-1 text-xs font-semibold text-[#677084]">
+              Se publicara para el equipo y aparecera en el calendario.
+            </p>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
+                Fecha
+                <input
+                  type="date"
+                  value={trainingDate}
+                  onChange={(event) => setTrainingDate(event.target.value)}
+                  className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
+                Hora de inicio
+                <input
+                  type="time"
+                  value={trainingTime}
+                  onChange={(event) => setTrainingTime(event.target.value)}
+                  className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
+                />
+              </label>
+
+              <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
+                Titulo
+                <input
+                  type="text"
+                  value={trainingTitle}
+                  onChange={(event) => setTrainingTitle(event.target.value)}
+                  placeholder="Entrenamiento semanal"
+                  className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
+                Tipo
+                <select
+                  value={trainingType}
+                  onChange={(event) => setTrainingType(event.target.value as TrainingType)}
+                  className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
+                >
+                  <option value="FISICO">Fisico</option>
+                  <option value="TECNICO">Tecnico</option>
+                  <option value="TACTICO">Tactico</option>
+                  <option value="RECUPERACION">Recuperacion</option>
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
+                Lugar (opcional)
+                <input
+                  type="text"
+                  value={trainingPlace}
+                  onChange={(event) => setTrainingPlace(event.target.value)}
+                  list="football-field-options"
+                  placeholder={isLoadingFields ? 'Cargando campos...' : 'Campo principal'}
+                  className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
+                />
+                <datalist id="football-field-options">
+                  {fieldOptions.map((fieldName) => (
+                    <option key={fieldName} value={fieldName} />
+                  ))}
+                </datalist>
+              </label>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsCreateTrainingOpen(false)}
+                className="rounded-lg border border-[#d5dcea] px-3 py-2 text-xs font-bold text-[#4d5566] transition hover:bg-[#f4f7fb]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isCreatingTraining}
+                onClick={() => void createTraining()}
+                className="rounded-lg bg-[#005db6] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#004f9a] disabled:opacity-60"
+              >
+                {isCreatingTraining ? 'Guardando...' : 'Crear entrenamiento'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

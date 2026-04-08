@@ -8,6 +8,7 @@ type EquipoActivo = {
   categoria: string | null
   temporada: string | null
   logo_url: string | null
+  creado_por: string | null
 }
 
 type ActivityItem = {
@@ -22,6 +23,7 @@ type ActivityItem = {
 
 type HomeSuccessResponse = {
   ok: true
+  isCoach: boolean
   equipo: EquipoActivo | null
   role: string | null
   teamSummary: {
@@ -33,6 +35,26 @@ type HomeSuccessResponse = {
     nombre: string
     rol: string
   } | null
+  wellbeing: {
+    date: string
+    mentalState: number | null
+    fatigue: number | null
+    attendingTraining: boolean | null
+    attendingCount: number
+  }
+  coachWellbeing: {
+    date: string
+    mentalPct: number | null
+    fatiguePct: number | null
+    availabilityPct: number
+    players: Array<{
+      id: string
+      name: string
+      mentalState: number | null
+      fatigue: number | null
+      attendingTraining: boolean | null
+    }>
+  }
   kpis: {
     winrate: number
     pointsPerGame: number
@@ -105,6 +127,7 @@ type MembershipRow = {
         categoria: string | null
         temporada: string | null
         logo_url: string | null
+        creado_por: string | null
       }
     | null
     | {
@@ -114,10 +137,12 @@ type MembershipRow = {
         categoria: string | null
         temporada: string | null
         logo_url: string | null
+        creado_por: string | null
       }[]
 }
 
 type CoachCandidate = {
+  usuario_id: string
   rol: string | null
   perfiles:
     | {
@@ -129,8 +154,22 @@ type CoachCandidate = {
       }[]
 }
 
+type WellbeingRow = {
+  estado_mental: number | null
+  fatiga: number | null
+  asiste_entrenamiento: boolean | null
+}
+
+type TeamWellbeingRow = {
+  usuario_id: string
+  estado_mental: number | null
+  fatiga: number | null
+  asiste_entrenamiento: boolean | null
+}
+
 const EMPTY_SUCCESS: HomeSuccessResponse = {
   ok: true,
+  isCoach: false,
   equipo: null,
   role: null,
   teamSummary: {
@@ -139,6 +178,20 @@ const EMPTY_SUCCESS: HomeSuccessResponse = {
     staffCount: 0,
   },
   coach: null,
+  wellbeing: {
+    date: new Date().toISOString().slice(0, 10),
+    mentalState: null,
+    fatigue: null,
+    attendingTraining: null,
+    attendingCount: 0,
+  },
+  coachWellbeing: {
+    date: new Date().toISOString().slice(0, 10),
+    mentalPct: null,
+    fatiguePct: null,
+    availabilityPct: 0,
+    players: [],
+  },
   kpis: {
     winrate: 0,
     pointsPerGame: 0,
@@ -209,6 +262,7 @@ function normalizeEquipo(row: MembershipRow): EquipoActivo | null {
     categoria: equipo.categoria,
     temporada: equipo.temporada,
     logo_url: equipo.logo_url,
+    creado_por: (equipo as { creado_por?: string | null }).creado_por ?? null,
   }
 }
 
@@ -236,6 +290,15 @@ function getMonthRange(date: Date) {
   const start = new Date(date.getFullYear(), date.getMonth(), 1)
   const end = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999)
   return { start, end }
+}
+
+function getMadridDateKey(date: Date) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
 }
 
 function buildCalendarDays(date: Date, eventDates: Set<string>) {
@@ -289,6 +352,18 @@ function isStaffRole(role: string | null | undefined) {
   return STAFF_ROLE_TOKENS.some((token) => normalized.includes(token))
 }
 
+function isCoachRole(role: string | null | undefined) {
+  const normalized = normalizeText(role)
+  if (!normalized) return false
+  return normalized.includes('ENTREN') || normalized.includes('COACH') || normalized === 'ADMIN'
+}
+
+function isPlayerRole(role: string | null | undefined) {
+  const normalized = normalizeText(role)
+  if (!normalized) return false
+  return normalized === 'JUGADOR' || normalized.includes('JUGADOR') || normalized.includes('JUG')
+}
+
 function isGoalEvent(value: string | null | undefined) {
   return normalizeText(value).includes('GOL')
 }
@@ -323,7 +398,7 @@ export async function GET(request: NextRequest) {
 
     const { data: memberships, error: membershipError } = await supabase
       .from('miembros_equipo')
-      .select('rol, fecha_alta, equipo:equipos(id, nombre, club, categoria, temporada, logo_url)')
+      .select('rol, fecha_alta, equipo:equipos(id, nombre, club, categoria, temporada, logo_url, creado_por)')
       .eq('usuario_id', user.id)
       .order('fecha_alta', { ascending: false })
 
@@ -357,7 +432,9 @@ export async function GET(request: NextRequest) {
     }) as MembershipRow | undefined
 
     const role = activeMembership?.rol ? String(activeMembership.rol) : null
+    const viewerIsCoach = isCoachRole(role) || activeTeam?.creado_por === user.id
     const now = new Date()
+    const todayDateKey = getMadridDateKey(now)
     const { start, end } = getMonthRange(now)
     const futureLimit = new Date(now)
     futureLimit.setDate(futureLimit.getDate() + 30)
@@ -371,6 +448,8 @@ export async function GET(request: NextRequest) {
       profileResult,
       upcomingTrainingsResult,
       monthTrainingsResult,
+      wellbeingResult,
+      teamWellbeingResult,
     ] = await Promise.all([
       supabase
         .from('clasificacion_liga')
@@ -401,8 +480,9 @@ export async function GET(request: NextRequest) {
         .lte('fecha_hora', end.toISOString()),
       supabase
         .from('miembros_equipo')
-        .select('rol, perfiles(nombre)')
-        .eq('equipo_id', activeTeam!.id),
+        .select('usuario_id, rol, perfiles(nombre)')
+        .eq('equipo_id', activeTeam!.id)
+        .eq('estado', 'ACTIVO'),
       supabase
         .from('perfiles')
         .select('nombre, foto_url, posicion')
@@ -423,6 +503,18 @@ export async function GET(request: NextRequest) {
         .eq('equipo_id', activeTeam!.id)
         .gte('fecha', start.toISOString().slice(0, 10))
         .lte('fecha', end.toISOString().slice(0, 10)),
+      supabase
+        .from('home_bienestar_diario')
+        .select('estado_mental, fatiga, asiste_entrenamiento')
+        .eq('equipo_id', activeTeam!.id)
+        .eq('usuario_id', user.id)
+        .eq('fecha', todayDateKey)
+        .maybeSingle(),
+      supabase
+        .from('home_bienestar_diario')
+        .select('usuario_id, estado_mental, fatiga, asiste_entrenamiento')
+        .eq('equipo_id', activeTeam!.id)
+        .eq('fecha', todayDateKey),
     ])
 
     const clasificacionRow = clasificacionResult.error ? null : clasificacionResult.data
@@ -467,6 +559,20 @@ export async function GET(request: NextRequest) {
     const monthTrainings = monthTrainingsResult.error ? [] : monthTrainingsResult.data ?? []
     if (monthTrainingsResult.error) {
       logOptionalQueryError('entrenamientos del mes', monthTrainingsResult.error)
+    }
+
+    const wellbeing = wellbeingResult.error
+      ? null
+      : (wellbeingResult.data as WellbeingRow | null)
+    if (wellbeingResult.error) {
+      logOptionalQueryError('home_bienestar_diario usuario', wellbeingResult.error)
+    }
+
+    const teamWellbeingRows = teamWellbeingResult.error
+      ? []
+      : ((teamWellbeingResult.data ?? []) as TeamWellbeingRow[])
+    if (teamWellbeingResult.error) {
+      logOptionalQueryError('home_bienestar_diario equipo del dia', teamWellbeingResult.error)
     }
 
     const finalizadosChronological = [...finalizados].reverse()
@@ -560,6 +666,41 @@ export async function GET(request: NextRequest) {
     }, 0)
     const totalMembers = teamMembers.length
     const playerCount = Math.max(totalMembers - staffCount, 0)
+    const wellbeingByUser = new Map(teamWellbeingRows.map((item) => [item.usuario_id, item]))
+
+    const coachPlayers = teamMembers
+      .filter((member) => isPlayerRole(member.rol))
+      .map((member, index) => {
+        const row = wellbeingByUser.get(member.usuario_id)
+        const playerName = normalizeProfileName(member.perfiles) ?? `Jugador ${index + 1}`
+
+        return {
+          id: member.usuario_id,
+          name: playerName,
+          mentalState: row?.estado_mental ?? null,
+          fatigue: row?.fatiga ?? null,
+          attendingTraining: row?.asiste_entrenamiento ?? null,
+        }
+      })
+
+    const validMentalScores = coachPlayers
+      .map((player) => player.mentalState)
+      .filter((value): value is number => typeof value === 'number')
+    const validFatigueScores = coachPlayers
+      .map((player) => player.fatigue)
+      .filter((value): value is number => typeof value === 'number')
+    const playersAttending = coachPlayers.filter((player) => player.attendingTraining === true).length
+
+    const mentalPct =
+      validMentalScores.length > 0
+        ? Math.round((validMentalScores.reduce((sum, value) => sum + value, 0) / validMentalScores.length) * 10)
+        : null
+    const fatiguePct =
+      validFatigueScores.length > 0
+        ? Math.round((validFatigueScores.reduce((sum, value) => sum + value, 0) / validFatigueScores.length) * 10)
+        : null
+    const availabilityPct =
+      coachPlayers.length > 0 ? Math.round((playersAttending / coachPlayers.length) * 100) : 0
 
     const playerSpotlight = {
       nombre:
@@ -671,6 +812,7 @@ export async function GET(request: NextRequest) {
 
     const response: HomeSuccessResponse = {
       ok: true,
+      isCoach: viewerIsCoach,
       equipo: activeTeam ?? null,
       role,
       teamSummary: {
@@ -679,6 +821,20 @@ export async function GET(request: NextRequest) {
         staffCount,
       },
       coach,
+      wellbeing: {
+        date: todayDateKey,
+        mentalState: wellbeing?.estado_mental ?? null,
+        fatigue: wellbeing?.fatiga ?? null,
+        attendingTraining: wellbeing?.asiste_entrenamiento ?? null,
+        attendingCount: playersAttending,
+      },
+      coachWellbeing: {
+        date: todayDateKey,
+        mentalPct,
+        fatiguePct,
+        availabilityPct,
+        players: coachPlayers,
+      },
       kpis,
       playerSpotlight,
       schedule: {

@@ -7,16 +7,23 @@ type WeeklyCalendarProps = {
   days: WeeklyCalendarDay[]
   onPrevWeek: () => void
   onNextWeek: () => void
+  addTrainingAction?: React.ReactNode
 }
 
-export function WeeklyCalendar({ days, onPrevWeek, onNextWeek }: WeeklyCalendarProps) {
+export function WeeklyCalendar({
+  days,
+  onPrevWeek,
+  onNextWeek,
+  addTrainingAction,
+}: WeeklyCalendarProps) {
   return (
     <section className="rounded-2xl bg-[#f1f4f9] p-6">
       <div className="mb-6 flex items-center justify-between">
         <h3 className="[font-family:var(--font-plus-jakarta)] text-sm font-bold tracking-tight text-[#181c20]">
           CALENDARIO SEMANAL
         </h3>
-        <div className="flex gap-1">
+        <div className="flex items-center gap-2">
+          {addTrainingAction}
           <button
             type="button"
             onClick={onPrevWeek}

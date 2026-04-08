@@ -10,6 +10,7 @@ export type DashboardActivityItem = {
 
 export type DashboardHomeSuccess = {
   ok: true
+  isCoach: boolean
   equipo: {
     id: string
     nombre: string
@@ -28,6 +29,26 @@ export type DashboardHomeSuccess = {
     nombre: string
     rol: string
   } | null
+  wellbeing: {
+    date: string
+    mentalState: number | null
+    fatigue: number | null
+    attendingTraining: boolean | null
+    attendingCount: number
+  }
+  coachWellbeing: {
+    date: string
+    mentalPct: number | null
+    fatiguePct: number | null
+    availabilityPct: number
+    players: Array<{
+      id: string
+      name: string
+      mentalState: number | null
+      fatigue: number | null
+      attendingTraining: boolean | null
+    }>
+  }
   kpis: {
     winrate: number
     pointsPerGame: number
@@ -96,7 +117,7 @@ export type DashboardMetric = {
   label: string
   value: string
   helper: string
-  icon: 'intensity' | 'health' | 'availability'
+  icon: 'mental' | 'fatigue' | 'attendance'
 }
 
 export type WeeklyCalendarDay = {

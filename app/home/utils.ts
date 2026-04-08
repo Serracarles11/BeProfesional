@@ -73,40 +73,31 @@ export function getSeasonLabel(payload: DashboardHomeSuccess) {
 }
 
 export function buildMetrics(payload: DashboardHomeSuccess): DashboardMetric[] {
-  const { kpis, teamSummary } = payload
-
-  const intensityRaw =
-    kpis.possession !== null
-      ? kpis.possession
-      : kpis.winrate > 0
-        ? Math.round(kpis.winrate * 0.85 + kpis.pointsPerGame * 8)
-        : 0
-
-  const healthBase = 100 - kpis.yellowCards * 2
-  const defensiveFactor = kpis.goalsAgainst <= kpis.goalsFor ? 6 : -6
-  const healthRaw = clamp(Math.round(healthBase + defensiveFactor), 0, 100)
+  const { wellbeing } = payload
+  const mentalLabel = wellbeing.mentalState !== null ? `${wellbeing.mentalState}/10` : '--/10'
+  const fatigueLabel = wellbeing.fatigue !== null ? `${wellbeing.fatigue}/10` : '--/10'
 
   return [
     {
-      id: 'intensity',
-      label: 'INTENSIDAD',
-      value: `${clamp(intensityRaw, 0, 100)}%`,
-      helper: `${kpis.winrate}% de victorias acumuladas`,
-      icon: 'intensity',
+      id: 'mental',
+      label: 'ESTADO MENTAL',
+      value: mentalLabel,
+      helper: 'Como te encuentras hoy (1-10)',
+      icon: 'mental',
     },
     {
-      id: 'health',
-      label: 'SALUD GLOBAL',
-      value: `${healthRaw}/100`,
-      helper: `${kpis.yellowCards} tarjetas en partidos cerrados`,
-      icon: 'health',
+      id: 'fatigue',
+      label: 'FATIGA',
+      value: fatigueLabel,
+      helper: 'Nivel de fatiga actual (1-10)',
+      icon: 'fatigue',
     },
     {
-      id: 'availability',
-      label: 'DISPONIBILIDAD',
-      value: String(teamSummary.playerCount || teamSummary.totalMembers),
-      helper: 'Jugadores registrados en el equipo',
-      icon: 'availability',
+      id: 'attendance',
+      label: 'ASISTENCIA DE HOY',
+      value: String(wellbeing.attendingCount),
+      helper: 'Jugadores que van al entrenamiento de hoy',
+      icon: 'attendance',
     },
   ]
 }
