@@ -9,6 +9,14 @@ type CalendarProps = {
   selected?: Date
   onSelect?: (date: Date | undefined) => void
   className?: string
+  eventSummaryByDate?: Record<
+    string,
+    {
+      total: number
+      trainings: number
+      matches: number
+    }
+  >
 }
 
 const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom']
@@ -44,7 +52,17 @@ function isSameDay(left?: Date, right?: Date) {
   )
 }
 
-export function Calendar({ mode = 'single', selected, onSelect, className }: CalendarProps) {
+function toDateKey(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+export function Calendar({
+  mode = 'single',
+  selected,
+  onSelect,
+  className,
+  eventSummaryByDate,
+}: CalendarProps) {
   const [viewDate, setViewDate] = React.useState(() => startOfMonth(selected ?? new Date()))
 
   React.useEffect(() => {
@@ -102,6 +120,7 @@ export function Calendar({ mode = 'single', selected, onSelect, className }: Cal
           const inCurrentMonth = day.getMonth() === viewDate.getMonth()
           const isSelected = isSameDay(day, selected)
           const isToday = isSameDay(day, today)
+          const summary = eventSummaryByDate?.[toDateKey(day)]
 
           return (
             <button
@@ -112,7 +131,7 @@ export function Calendar({ mode = 'single', selected, onSelect, className }: Cal
               }}
               aria-pressed={isSelected}
               className={cn(
-                'flex h-11 items-center justify-center rounded-xl text-sm font-semibold transition-all',
+                'flex h-14 flex-col items-center justify-center rounded-xl text-sm font-semibold transition-all',
                 inCurrentMonth ? 'text-[#1f2734]' : 'text-[#a4aec0]',
                 isSelected
                   ? 'bg-[#005db6] text-white shadow-[0_14px_30px_-18px_rgba(0,93,182,0.9)]'
@@ -120,7 +139,37 @@ export function Calendar({ mode = 'single', selected, onSelect, className }: Cal
                 isToday && !isSelected && 'border border-[#b9cef3] text-[#005db6]'
               )}
             >
-              {day.getDate()}
+              <span>{day.getDate()}</span>
+              {summary ? (
+                <span className="mt-1 flex items-center gap-1">
+                  {summary.trainings > 0 ? (
+                    <span
+                      className={cn(
+                        'h-1.5 w-1.5 rounded-full',
+                        isSelected ? 'bg-white' : 'bg-[#005db6]'
+                      )}
+                    />
+                  ) : null}
+                  {summary.matches > 0 ? (
+                    <span
+                      className={cn(
+                        'h-1.5 w-1.5 rounded-full',
+                        isSelected ? 'bg-[#ffe082]' : 'bg-[#d97706]'
+                      )}
+                    />
+                  ) : null}
+                  {summary.total > 2 ? (
+                    <span
+                      className={cn(
+                        'text-[10px] font-bold',
+                        isSelected ? 'text-white/85' : 'text-[#7b8799]'
+                      )}
+                    >
+                      {summary.total}
+                    </span>
+                  ) : null}
+                </span>
+              ) : null}
             </button>
           )
         })}

@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
 
-type TrainingType = 'FISICO' | 'TECNICO' | 'TACTICO' | 'RECUPERACION'
+type MatchHomeAway = 'CASA' | 'FUERA'
 
-type CreateTrainingBody = {
+type CreateMatchBody = {
   equipoId?: unknown
   date?: unknown
   time?: unknown
-  title?: unknown
-  type?: unknown
+  opponent?: unknown
+  homeAway?: unknown
+  competition?: unknown
   place?: unknown
 }
 
@@ -31,13 +32,8 @@ function isCoachRole(role: string | null | undefined) {
   return normalized.includes('ENTREN') || normalized.includes('COACH') || normalized === 'ADMIN'
 }
 
-function parseTrainingType(value: unknown): TrainingType | null {
-  if (
-    value === 'FISICO' ||
-    value === 'TECNICO' ||
-    value === 'TACTICO' ||
-    value === 'RECUPERACION'
-  ) {
+function parseHomeAway(value: unknown): MatchHomeAway | null {
+  if (value === 'CASA' || value === 'FUERA') {
     return value
   }
 
@@ -64,19 +60,20 @@ export async function POST(request: NextRequest) {
       return createErrorResponse('No autorizado', 401)
     }
 
-    const body = (await request.json()) as CreateTrainingBody
+    const body = (await request.json()) as CreateMatchBody
     const equipoId = typeof body.equipoId === 'string' ? body.equipoId.trim() : ''
     const date = typeof body.date === 'string' ? body.date.trim() : ''
     const time = typeof body.time === 'string' ? body.time.trim() : ''
-    const title = typeof body.title === 'string' ? body.title.trim() : ''
-    const type = parseTrainingType(body.type)
+    const opponent = typeof body.opponent === 'string' ? body.opponent.trim() : ''
+    const homeAway = parseHomeAway(body.homeAway)
+    const competition = typeof body.competition === 'string' ? body.competition.trim() : ''
     const place = typeof body.place === 'string' ? body.place.trim() : ''
 
     if (!equipoId) return createErrorResponse('equipoId invalido.', 400)
     if (!date || !isValidDate(date)) return createErrorResponse('Fecha invalida.', 400)
-    if (!title) return createErrorResponse('Titulo invalido.', 400)
-    if (!type) return createErrorResponse('Tipo de entrenamiento invalido.', 400)
-    if (time && !isValidTime(time)) return createErrorResponse('Hora invalida.', 400)
+    if (!time || !isValidTime(time)) return createErrorResponse('Hora invalida.', 400)
+    if (!opponent) return createErrorResponse('Rival invalido.', 400)
+    if (!homeAway) return createErrorResponse('Condicion del partido invalida.', 400)
 
     const [membershipResult, teamOwnerResult] = await Promise.all([
       supabase
@@ -113,61 +110,58 @@ export async function POST(request: NextRequest) {
     }
 
     if (!isTeamOwner && !isCoachRole(membership?.rol)) {
-      return createErrorResponse('Solo un entrenador puede crear entrenamientos.', 403)
+      return createErrorResponse('Solo un entrenador puede crear partidos.', 403)
     }
 
-    const trainingId = crypto.randomUUID()
-    const startTime = time ? `${time}:00` : null
-    const normalizedPlace = place || null
+    const matchId = crypto.randomUUID()
+    const matchTimestamp = new Date(`${date}T${time}:00`)
+
+    if (Number.isNaN(matchTimestamp.getTime())) {
+      return createErrorResponse('Fecha u hora invalida.', 400)
+    }
 
     const insertPayload: {
       id: string
       equipo_id: string
-      fecha: string
-      titulo: string
-      tipo: TrainingType
-      estado: 'PUBLICADO'
-      creado_por: string
-      hora_inicio?: string
+      fecha_hora: string
+      casa_fuera: MatchHomeAway
+      rival_nombre: string
       lugar?: string
+      competicion?: string
+      estado: 'PROGRAMADO'
+      creado_por: string
     } = {
-      id: trainingId,
+      id: matchId,
       equipo_id: equipoId,
-      fecha: date,
-      titulo: title,
-      tipo: type,
-      estado: 'PUBLICADO',
+      fecha_hora: matchTimestamp.toISOString(),
+      casa_fuera: homeAway,
+      rival_nombre: opponent,
+      estado: 'PROGRAMADO',
       creado_por: user.id,
     }
 
-    if (startTime) {
-      insertPayload.hora_inicio = startTime
+    if (place) {
+      insertPayload.lugar = place
     }
-    if (normalizedPlace) {
-      insertPayload.lugar = normalizedPlace
+    if (competition) {
+      insertPayload.competicion = competition
     }
 
-    const { error } = await supabase.from('entrenamientos_equipo').insert(insertPayload)
+    const { error } = await supabase.from('partidos').insert(insertPayload)
 
     if (error) {
-      console.error('No se pudo insertar el entrenamiento en Supabase:', error)
-      return createErrorResponse('No se pudo crear el entrenamiento.', 500)
+      console.error('No se pudo insertar el partido en Supabase:', error)
+      return createErrorResponse('No se pudo crear el partido.', 500)
     }
 
     return NextResponse.json({
       ok: true,
-      training: {
-        id: trainingId,
-        fecha: date,
-        hora_inicio: startTime,
-        titulo: title,
-        tipo: type,
-        estado: 'PUBLICADO',
-        lugar: normalizedPlace,
+      match: {
+        id: matchId,
       },
     })
   } catch (error) {
-    console.error('Error en POST /api/dashboard/home/trainings:', error)
+    console.error('Error en POST /api/dashboard/home/matches:', error)
     return createErrorResponse('Error interno del servidor.', 500)
   }
 }

@@ -6,6 +6,10 @@ export type DashboardActivityItem = {
   date: string
   time: string | null
   status: string | null
+  location: string | null
+  opponent: string | null
+  homeAway: string | null
+  competition: string | null
 }
 
 export type DashboardHomeSuccess = {

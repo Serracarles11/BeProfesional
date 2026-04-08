@@ -19,6 +19,10 @@ type ActivityItem = {
   date: string
   time: string | null
   status: string | null
+  location: string | null
+  opponent: string | null
+  homeAway: string | null
+  competition: string | null
 }
 
 type HomeSuccessResponse = {
@@ -292,6 +296,10 @@ function getMonthRange(date: Date) {
   return { start, end }
 }
 
+function addMonths(date: Date, amount: number) {
+  return new Date(date.getFullYear(), date.getMonth() + amount, 1)
+}
+
 function getMadridDateKey(date: Date) {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Madrid',
@@ -436,18 +444,17 @@ export async function GET(request: NextRequest) {
     const now = new Date()
     const todayDateKey = getMadridDateKey(now)
     const { start, end } = getMonthRange(now)
-    const futureLimit = new Date(now)
-    futureLimit.setDate(futureLimit.getDate() + 30)
+    const calendarWindowStart = addMonths(now, -1)
+    const calendarWindowEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59, 999)
 
     const [
       clasificacionResult,
       finalizadosResult,
       nextMatchesResult,
-      monthMatchesResult,
+      calendarMatchesResult,
       teamMembersResult,
       profileResult,
-      upcomingTrainingsResult,
-      monthTrainingsResult,
+      calendarTrainingsResult,
       wellbeingResult,
       teamWellbeingResult,
     ] = await Promise.all([
@@ -474,10 +481,11 @@ export async function GET(request: NextRequest) {
         .limit(4),
       supabase
         .from('partidos')
-        .select('fecha_hora')
+        .select('id, fecha_hora, rival_nombre, casa_fuera, lugar, estado, competicion')
         .eq('equipo_id', activeTeam!.id)
-        .gte('fecha_hora', start.toISOString())
-        .lte('fecha_hora', end.toISOString()),
+        .gte('fecha_hora', calendarWindowStart.toISOString())
+        .lte('fecha_hora', calendarWindowEnd.toISOString())
+        .order('fecha_hora', { ascending: true }),
       supabase
         .from('miembros_equipo')
         .select('usuario_id, rol, perfiles(nombre)')
@@ -490,19 +498,12 @@ export async function GET(request: NextRequest) {
         .maybeSingle(),
       supabase
         .from('entrenamientos_equipo')
-        .select('id, fecha, hora_inicio, titulo, tipo, estado')
+        .select('id, fecha, hora_inicio, titulo, tipo, estado, lugar')
         .eq('equipo_id', activeTeam!.id)
-        .gte('fecha', now.toISOString().slice(0, 10))
-        .lte('fecha', futureLimit.toISOString().slice(0, 10))
+        .gte('fecha', calendarWindowStart.toISOString().slice(0, 10))
+        .lte('fecha', calendarWindowEnd.toISOString().slice(0, 10))
         .order('fecha', { ascending: true })
-        .order('hora_inicio', { ascending: true })
-        .limit(4),
-      supabase
-        .from('entrenamientos_equipo')
-        .select('fecha')
-        .eq('equipo_id', activeTeam!.id)
-        .gte('fecha', start.toISOString().slice(0, 10))
-        .lte('fecha', end.toISOString().slice(0, 10)),
+        .order('hora_inicio', { ascending: true }),
       supabase
         .from('home_bienestar_diario')
         .select('estado_mental, fatiga, asiste_entrenamiento')
@@ -532,9 +533,9 @@ export async function GET(request: NextRequest) {
       logOptionalQueryError('proximos partidos', nextMatchesResult.error)
     }
 
-    const monthMatches = monthMatchesResult.error ? [] : monthMatchesResult.data ?? []
-    if (monthMatchesResult.error) {
-      logOptionalQueryError('partidos del mes', monthMatchesResult.error)
+    const calendarMatches = calendarMatchesResult.error ? [] : calendarMatchesResult.data ?? []
+    if (calendarMatchesResult.error) {
+      logOptionalQueryError('partidos calendario', calendarMatchesResult.error)
     }
 
     const teamMembers = teamMembersResult.error
@@ -549,16 +550,9 @@ export async function GET(request: NextRequest) {
       logOptionalQueryError('perfil usuario', profileResult.error)
     }
 
-    const upcomingTrainings = upcomingTrainingsResult.error
-      ? []
-      : (upcomingTrainingsResult.data ?? [])
-    if (upcomingTrainingsResult.error) {
-      logOptionalQueryError('entrenamientos proximos', upcomingTrainingsResult.error)
-    }
-
-    const monthTrainings = monthTrainingsResult.error ? [] : monthTrainingsResult.data ?? []
-    if (monthTrainingsResult.error) {
-      logOptionalQueryError('entrenamientos del mes', monthTrainingsResult.error)
+    const calendarTrainings = calendarTrainingsResult.error ? [] : calendarTrainingsResult.data ?? []
+    if (calendarTrainingsResult.error) {
+      logOptionalQueryError('entrenamientos calendario', calendarTrainingsResult.error)
     }
 
     const wellbeing = wellbeingResult.error
@@ -731,28 +725,37 @@ export async function GET(request: NextRequest) {
     }
 
     const eventDates = new Set<string>()
-    for (const item of monthMatches) {
+    for (const item of calendarMatches) {
       if (item.fecha_hora) {
-        eventDates.add(toDateKey(item.fecha_hora))
+        const key = toDateKey(item.fecha_hora)
+        if (key >= start.toISOString().slice(0, 10) && key <= end.toISOString().slice(0, 10)) {
+          eventDates.add(key)
+        }
       }
     }
-    for (const item of monthTrainings) {
+    for (const item of calendarTrainings) {
       if (item.fecha) {
-        eventDates.add(item.fecha)
+        if (item.fecha >= start.toISOString().slice(0, 10) && item.fecha <= end.toISOString().slice(0, 10)) {
+          eventDates.add(item.fecha)
+        }
       }
     }
 
     const activityItems: ActivityItem[] = [
-      ...nextMatches.map((item) => ({
+      ...calendarMatches.map((item) => ({
         id: `match-${item.id}`,
         type: 'partido' as const,
         title: item.rival_nombre ? `Partido vs ${item.rival_nombre}` : 'Partido por confirmar',
         subtitle: item.lugar ?? (item.casa_fuera ? `Modalidad ${item.casa_fuera}` : null),
-        date: item.fecha_hora,
-        time: new Date(item.fecha_hora).toISOString(),
+        date: toDateKey(item.fecha_hora),
+        time: item.fecha_hora,
         status: item.estado ?? null,
+        location: item.lugar ?? null,
+        opponent: item.rival_nombre ?? null,
+        homeAway: item.casa_fuera ?? null,
+        competition: item.competicion ?? null,
       })),
-      ...upcomingTrainings.map((item) => ({
+      ...calendarTrainings.map((item) => ({
         id: `training-${item.id}`,
         type: 'entrenamiento' as const,
         title: item.titulo || 'Entrenamiento',
@@ -760,6 +763,10 @@ export async function GET(request: NextRequest) {
         date: item.fecha,
         time: item.hora_inicio ? `${item.fecha}T${item.hora_inicio}` : null,
         status: item.estado ?? null,
+        location: item.lugar ?? null,
+        opponent: null,
+        homeAway: null,
+        competition: null,
       })),
     ]
       .sort((a, b) => {
@@ -767,7 +774,6 @@ export async function GET(request: NextRequest) {
         const dateB = b.time ?? b.date
         return dateA.localeCompare(dateB)
       })
-      .slice(0, 4)
 
     let standings: HomeSuccessResponse['standings'] = []
     if (activeTeam!.temporada) {

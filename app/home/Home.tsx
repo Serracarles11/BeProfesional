@@ -10,11 +10,9 @@ import { LeftNavigation } from './components/LeftNavigation'
 import { MetricsGrid } from './components/MetricsGrid'
 import { PlayerSpotlightPanel } from './components/PlayerSpotlightPanel'
 import { TopNavigation } from './components/TopNavigation'
-import { WeeklyCalendar } from './components/WeeklyCalendar'
 import type { DashboardHomeResponse, DashboardHomeSuccess } from './types'
 import {
   buildMetrics,
-  buildWeekDays,
   getEstimatedTopSpeed,
   getMorningBriefingSubtitle,
   getPassAccuracy,
@@ -62,7 +60,21 @@ type CreateTrainingResponse =
       error: string
     }
 
+type CreateMatchResponse =
+  | {
+      ok: true
+      match: {
+        id: string
+      }
+    }
+  | {
+      ok: false
+      error: string
+    }
+
 type TrainingType = 'FISICO' | 'TECNICO' | 'TACTICO' | 'RECUPERACION'
+type EventFormType = 'entrenamiento' | 'partido'
+type MatchHomeAway = 'CASA' | 'FUERA'
 
 export default function Home() {
   const searchParams = useSearchParams()
@@ -71,16 +83,19 @@ export default function Home() {
   const [status, setStatus] = useState<HomeStatus>('loading')
   const [error, setError] = useState('')
   const [payload, setPayload] = useState<DashboardHomeSuccess | null>(null)
-  const [weekOffset, setWeekOffset] = useState(0)
   const [saveError, setSaveError] = useState('')
   const [isSavingWellbeing, setIsSavingWellbeing] = useState(false)
-  const [isCreateTrainingOpen, setIsCreateTrainingOpen] = useState(false)
-  const [isCreatingTraining, setIsCreatingTraining] = useState(false)
-  const [trainingDate, setTrainingDate] = useState('')
-  const [trainingTime, setTrainingTime] = useState('18:00')
+  const [isCreateEventOpen, setIsCreateEventOpen] = useState(false)
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false)
+  const [eventFormType, setEventFormType] = useState<EventFormType>('entrenamiento')
+  const [eventDate, setEventDate] = useState('')
+  const [eventTime, setEventTime] = useState('18:00')
+  const [eventPlace, setEventPlace] = useState('')
   const [trainingTitle, setTrainingTitle] = useState('Entrenamiento semanal')
   const [trainingType, setTrainingType] = useState<TrainingType>('TACTICO')
-  const [trainingPlace, setTrainingPlace] = useState('')
+  const [matchOpponent, setMatchOpponent] = useState('')
+  const [matchHomeAway, setMatchHomeAway] = useState<MatchHomeAway>('CASA')
+  const [matchCompetition, setMatchCompetition] = useState('')
   const [fieldOptions, setFieldOptions] = useState<string[]>([])
   const [isLoadingFields, setIsLoadingFields] = useState(false)
 
@@ -201,20 +216,23 @@ export default function Home() {
   const briefingSubtitle = getMorningBriefingSubtitle(payload)
   const seasonLabel = getSeasonLabel(payload)
   const metrics = buildMetrics(payload)
-  const weekDays = buildWeekDays(payload.schedule.calendarDays, payload.schedule.activityItems, weekOffset)
 
   const passAccuracy = getPassAccuracy(payload)
   const topSpeed = getEstimatedTopSpeed(payload)
 
-  const openCreateTrainingModal = () => {
+  const openCreateEventModal = (dateKey?: string) => {
     if (!isCoach) return
     setSaveError('')
-    setTrainingDate(weekDays[0]?.key ?? new Date().toISOString().slice(0, 10))
-    setTrainingTime('18:00')
+    setEventDate(dateKey ?? new Date().toISOString().slice(0, 10))
+    setEventTime('18:00')
+    setEventPlace('')
+    setEventFormType('entrenamiento')
     setTrainingTitle('Entrenamiento semanal')
     setTrainingType('TACTICO')
-    setTrainingPlace('')
-    setIsCreateTrainingOpen(true)
+    setMatchOpponent('')
+    setMatchHomeAway('CASA')
+    setMatchCompetition('')
+    setIsCreateEventOpen(true)
     setIsLoadingFields(true)
 
     const equipo = payload.equipo?.id
@@ -237,42 +255,78 @@ export default function Home() {
       })
   }
 
-  const createTraining = async () => {
+  const createEvent = async () => {
     if (!payload.equipo?.id) return
-    if (!trainingDate || !trainingTitle.trim()) {
+    if (!eventDate) {
+      setSaveError('Debes indicar una fecha para el evento.')
+      return
+    }
+    if (eventFormType === 'entrenamiento' && !trainingTitle.trim()) {
       setSaveError('Debes indicar fecha y titulo del entrenamiento.')
       return
     }
+    if (eventFormType === 'partido' && !matchOpponent.trim()) {
+      setSaveError('Debes indicar fecha y rival del partido.')
+      return
+    }
 
-    setIsCreatingTraining(true)
+    setIsCreatingEvent(true)
     setSaveError('')
 
     try {
-      const response = await fetch('/api/dashboard/home/trainings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          equipoId: payload.equipo.id,
-          date: trainingDate,
-          time: trainingTime,
-          title: trainingTitle.trim(),
-          type: trainingType,
-          place: trainingPlace.trim(),
-        }),
-      })
+      if (eventFormType === 'entrenamiento') {
+        const response = await fetch('/api/dashboard/home/trainings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            equipoId: payload.equipo.id,
+            date: eventDate,
+            time: eventTime,
+            title: trainingTitle.trim(),
+            type: trainingType,
+            place: eventPlace.trim(),
+          }),
+        })
 
-      const data = (await response.json()) as CreateTrainingResponse
+        const data = (await response.json()) as CreateTrainingResponse
 
-      if (!response.ok || !data.ok) {
-        throw new Error(data.ok ? 'No se pudo crear el entrenamiento.' : data.error)
+        if (!response.ok || !data.ok) {
+          throw new Error(data.ok ? 'No se pudo crear el entrenamiento.' : data.error)
+        }
+      } else {
+        const response = await fetch('/api/dashboard/home/matches', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            equipoId: payload.equipo.id,
+            date: eventDate,
+            time: eventTime,
+            opponent: matchOpponent.trim(),
+            homeAway: matchHomeAway,
+            competition: matchCompetition.trim(),
+            place: eventPlace.trim(),
+          }),
+        })
+
+        const data = (await response.json()) as CreateMatchResponse
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.ok ? 'No se pudo crear el partido.' : data.error)
+        }
       }
 
-      setIsCreateTrainingOpen(false)
+      setIsCreateEventOpen(false)
       await loadData()
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'No se pudo crear el entrenamiento.')
+      setSaveError(
+        err instanceof Error
+          ? err.message
+          : eventFormType === 'entrenamiento'
+            ? 'No se pudo crear el entrenamiento.'
+            : 'No se pudo crear el partido.'
+      )
     } finally {
-      setIsCreatingTraining(false)
+      setIsCreatingEvent(false)
     }
   }
 
@@ -315,22 +369,10 @@ export default function Home() {
                 onUpdateWellbeing={updateWellbeing}
               />
             )}
-            <InsightCard equipoId={payload.equipo.id} />
-            <WeeklyCalendar
-              days={weekDays}
-              onPrevWeek={() => setWeekOffset((prev) => prev - 1)}
-              onNextWeek={() => setWeekOffset((prev) => prev + 1)}
-              addTrainingAction={
-                isCoach ? (
-                  <button
-                    type="button"
-                    onClick={openCreateTrainingModal}
-                    className="rounded-lg bg-[#005db6] px-3 py-1.5 text-[11px] font-bold tracking-[0.08em] text-white transition hover:bg-[#004f9a]"
-                  >
-                    + ANADIR ENTRENO
-                  </button>
-                ) : undefined
-              }
+            <InsightCard
+              activities={payload.schedule.activityItems}
+              isCoach={isCoach}
+              onOpenCreateEvent={openCreateEventModal}
             />
           </div>
         </section>
@@ -351,23 +393,50 @@ export default function Home() {
         </div>
       </main>
 
-      {isCoach && isCreateTrainingOpen && (
+      {isCoach && isCreateEventOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl">
             <h3 className="[font-family:var(--font-plus-jakarta)] text-lg font-bold text-[#181c20]">
-              Crear entrenamiento semanal
+              Crear evento del calendario
             </h3>
             <p className="mt-1 text-xs font-semibold text-[#677084]">
-              Se publicara para el equipo y aparecera en el calendario.
+              Anade entrenamientos o partidos y se reflejaran al instante en el calendario del equipo.
             </p>
+
+            <div className="mt-4 inline-flex rounded-xl bg-[#eef3fb] p-1">
+              <button
+                type="button"
+                onClick={() => setEventFormType('entrenamiento')}
+                className={[
+                  'rounded-lg px-3 py-2 text-xs font-bold transition',
+                  eventFormType === 'entrenamiento'
+                    ? 'bg-white text-[#005db6] shadow-sm'
+                    : 'text-[#5f6d86] hover:text-[#005db6]',
+                ].join(' ')}
+              >
+                Entrenamiento
+              </button>
+              <button
+                type="button"
+                onClick={() => setEventFormType('partido')}
+                className={[
+                  'rounded-lg px-3 py-2 text-xs font-bold transition',
+                  eventFormType === 'partido'
+                    ? 'bg-white text-[#005db6] shadow-sm'
+                    : 'text-[#5f6d86] hover:text-[#005db6]',
+                ].join(' ')}
+              >
+                Partido
+              </button>
+            </div>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
                 Fecha
                 <input
                   type="date"
-                  value={trainingDate}
-                  onChange={(event) => setTrainingDate(event.target.value)}
+                  value={eventDate}
+                  onChange={(event) => setEventDate(event.target.value)}
                   className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
                 />
               </label>
@@ -376,43 +445,83 @@ export default function Home() {
                 Hora de inicio
                 <input
                   type="time"
-                  value={trainingTime}
-                  onChange={(event) => setTrainingTime(event.target.value)}
+                  value={eventTime}
+                  onChange={(event) => setEventTime(event.target.value)}
                   className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
                 />
               </label>
 
-              <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
-                Titulo
-                <input
-                  type="text"
-                  value={trainingTitle}
-                  onChange={(event) => setTrainingTitle(event.target.value)}
-                  placeholder="Entrenamiento semanal"
-                  className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
-                />
-              </label>
+              {eventFormType === 'entrenamiento' ? (
+                <>
+                  <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
+                    Titulo
+                    <input
+                      type="text"
+                      value={trainingTitle}
+                      onChange={(event) => setTrainingTitle(event.target.value)}
+                      placeholder="Entrenamiento semanal"
+                      className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
+                    />
+                  </label>
 
-              <label className="flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
-                Tipo
-                <select
-                  value={trainingType}
-                  onChange={(event) => setTrainingType(event.target.value as TrainingType)}
-                  className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
-                >
-                  <option value="FISICO">Fisico</option>
-                  <option value="TECNICO">Tecnico</option>
-                  <option value="TACTICO">Tactico</option>
-                  <option value="RECUPERACION">Recuperacion</option>
-                </select>
-              </label>
+                  <label className="flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
+                    Tipo
+                    <select
+                      value={trainingType}
+                      onChange={(event) => setTrainingType(event.target.value as TrainingType)}
+                      className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
+                    >
+                      <option value="FISICO">Fisico</option>
+                      <option value="TECNICO">Tecnico</option>
+                      <option value="TACTICO">Tactico</option>
+                      <option value="RECUPERACION">Recuperacion</option>
+                    </select>
+                  </label>
+                </>
+              ) : (
+                <>
+                  <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
+                    Rival
+                    <input
+                      type="text"
+                      value={matchOpponent}
+                      onChange={(event) => setMatchOpponent(event.target.value)}
+                      placeholder="Nombre del rival"
+                      className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
+                    Condicion
+                    <select
+                      value={matchHomeAway}
+                      onChange={(event) => setMatchHomeAway(event.target.value as MatchHomeAway)}
+                      className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
+                    >
+                      <option value="CASA">Casa</option>
+                      <option value="FUERA">Fuera</option>
+                    </select>
+                  </label>
+
+                  <label className="flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
+                    Competicion (opcional)
+                    <input
+                      type="text"
+                      value={matchCompetition}
+                      onChange={(event) => setMatchCompetition(event.target.value)}
+                      placeholder="Liga / Copa / Amistoso"
+                      className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
+                    />
+                  </label>
+                </>
+              )}
 
               <label className="flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
                 Lugar (opcional)
                 <input
                   type="text"
-                  value={trainingPlace}
-                  onChange={(event) => setTrainingPlace(event.target.value)}
+                  value={eventPlace}
+                  onChange={(event) => setEventPlace(event.target.value)}
                   list="football-field-options"
                   placeholder={isLoadingFields ? 'Cargando campos...' : 'Campo principal'}
                   className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
@@ -428,18 +537,22 @@ export default function Home() {
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setIsCreateTrainingOpen(false)}
+                onClick={() => setIsCreateEventOpen(false)}
                 className="rounded-lg border border-[#d5dcea] px-3 py-2 text-xs font-bold text-[#4d5566] transition hover:bg-[#f4f7fb]"
               >
                 Cancelar
               </button>
               <button
                 type="button"
-                disabled={isCreatingTraining}
-                onClick={() => void createTraining()}
+                disabled={isCreatingEvent}
+                onClick={() => void createEvent()}
                 className="rounded-lg bg-[#005db6] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#004f9a] disabled:opacity-60"
               >
-                {isCreatingTraining ? 'Guardando...' : 'Crear entrenamiento'}
+                {isCreatingEvent
+                  ? 'Guardando...'
+                  : eventFormType === 'entrenamiento'
+                    ? 'Crear entrenamiento'
+                    : 'Crear partido'}
               </button>
             </div>
           </div>

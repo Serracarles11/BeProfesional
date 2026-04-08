@@ -33,7 +33,19 @@ export function isActivePath(pathname: string, basePath: string) {
 }
 
 export function getMorningBriefingSubtitle(payload: DashboardHomeSuccess) {
-  const nextTraining = payload.schedule.activityItems.find((item) => item.type === 'entrenamiento')
+  const now = Date.now()
+  const nextTraining = payload.schedule.activityItems
+    .filter((item) => item.type === 'entrenamiento')
+    .filter((item) => {
+      const source = item.time ?? item.date
+      const timestamp = new Date(source).getTime()
+      return Number.isFinite(timestamp) && timestamp >= now
+    })
+    .sort((a, b) => {
+      const left = new Date(a.time ?? a.date).getTime()
+      const right = new Date(b.time ?? b.date).getTime()
+      return left - right
+    })[0]
 
   if (nextTraining?.time) {
     const date = new Date(nextTraining.time)
