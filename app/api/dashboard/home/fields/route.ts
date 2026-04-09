@@ -51,16 +51,30 @@ export async function GET(request: NextRequest) {
       return createErrorResponse('No perteneces al equipo solicitado.', 403)
     }
 
-    const { data: trainings, error: trainingsError } = await supabase
-      .from('entrenamientos_equipo')
-      .select('lugar')
-      .eq('equipo_id', equipoId)
-      .not('lugar', 'is', null)
-      .order('creado_en', { ascending: false })
-      .limit(200)
+    const [trainingsResult, playersResult] = await Promise.all([
+      supabase
+        .from('entrenamientos_equipo')
+        .select('lugar')
+        .eq('equipo_id', equipoId)
+        .not('lugar', 'is', null)
+        .order('creado_en', { ascending: false })
+        .limit(200),
+      supabase
+        .from('miembros_equipo')
+        .select('usuario_id, rol, perfiles(nombre)')
+        .eq('equipo_id', equipoId)
+        .eq('estado', 'ACTIVO'),
+    ])
+
+    const trainings = trainingsResult.data
+    const trainingsError = trainingsResult.error
 
     if (trainingsError) {
       return createErrorResponse('No se pudieron cargar los campos de futbol.', 500)
+    }
+
+    if (playersResult.error) {
+      return createErrorResponse('No se pudieron cargar los jugadores del equipo.', 500)
     }
 
     const fromTeam = (trainings ?? [])
@@ -69,10 +83,25 @@ export async function GET(request: NextRequest) {
 
     const merged = [...fromTeam, ...DEFAULT_FOOTBALL_FIELDS]
     const unique = Array.from(new Set(merged))
+    const players = (playersResult.data ?? [])
+      .map((item) => {
+        const role = typeof item.rol === 'string' ? item.rol.trim().toUpperCase() : ''
+        const profile = Array.isArray(item.perfiles) ? item.perfiles[0] : item.perfiles
+
+        if (!role.includes('JUG')) return null
+
+        return {
+          id: item.usuario_id,
+          name: profile?.nombre?.trim() || 'Jugador',
+        }
+      })
+      .filter((item): item is { id: string; name: string } => item !== null)
+      .sort((left, right) => left.name.localeCompare(right.name, 'es-ES'))
 
     return NextResponse.json({
       ok: true,
       fields: unique,
+      players,
     })
   } catch (error) {
     console.error('Error en GET /api/dashboard/home/fields:', error)

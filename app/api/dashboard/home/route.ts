@@ -42,7 +42,20 @@ type HomeSuccessResponse = {
   wellbeing: {
     date: string
     mentalState: number | null
+    mentalStateUpdatedAt: string | null
     fatigue: number | null
+    fatigueUpdatedAt: string | null
+    attendanceDate: string | null
+    attendanceTrainingId: string | null
+    attendanceTrainingLabel: string | null
+    attendanceOptions: Array<{
+      id: string
+      label: string
+      date: string
+      time: string | null
+      attending: boolean | null
+      attendingCount: number
+    }>
     attendingTraining: boolean | null
     attendingCount: number
   }
@@ -158,9 +171,16 @@ type CoachCandidate = {
       }[]
 }
 
+type TrainingAudienceRow = {
+  entrenamiento_id: string
+  usuario_id: string
+}
+
 type WellbeingRow = {
   estado_mental: number | null
+  estado_mental_actualizado_en: string | null
   fatiga: number | null
+  fatiga_actualizada_en: string | null
   asiste_entrenamiento: boolean | null
 }
 
@@ -169,6 +189,12 @@ type TeamWellbeingRow = {
   estado_mental: number | null
   fatiga: number | null
   asiste_entrenamiento: boolean | null
+}
+
+type TeamAttendanceRow = {
+  entrenamiento_id: string
+  usuario_id: string
+  asiste: boolean
 }
 
 const EMPTY_SUCCESS: HomeSuccessResponse = {
@@ -185,7 +211,13 @@ const EMPTY_SUCCESS: HomeSuccessResponse = {
   wellbeing: {
     date: new Date().toISOString().slice(0, 10),
     mentalState: null,
+    mentalStateUpdatedAt: null,
     fatigue: null,
+    fatigueUpdatedAt: null,
+    attendanceDate: null,
+    attendanceTrainingId: null,
+    attendanceTrainingLabel: null,
+    attendanceOptions: [],
     attendingTraining: null,
     attendingCount: 0,
   },
@@ -307,6 +339,32 @@ function getMadridDateKey(date: Date) {
     month: '2-digit',
     day: '2-digit',
   }).format(date)
+}
+
+function getMadridTimeValue(date: Date) {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Madrid',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date)
+}
+
+function getNextTrainingDateKey(
+  trainings: Array<{ fecha: string | null; hora_inicio: string | null }>,
+  now: Date
+) {
+  const todayDateKey = getMadridDateKey(now)
+  const currentTime = getMadridTimeValue(now)
+
+  for (const training of trainings) {
+    if (!training.fecha) continue
+    if (training.fecha > todayDateKey) return training.fecha
+    if (training.fecha < todayDateKey) continue
+    if (!training.hora_inicio || training.hora_inicio >= currentTime) return training.fecha
+  }
+
+  return null
 }
 
 function buildCalendarDays(date: Date, eventDates: Set<string>) {
@@ -506,7 +564,7 @@ export async function GET(request: NextRequest) {
         .order('hora_inicio', { ascending: true }),
       supabase
         .from('home_bienestar_diario')
-        .select('estado_mental, fatiga, asiste_entrenamiento')
+        .select('estado_mental, estado_mental_actualizado_en, fatiga, fatiga_actualizada_en, asiste_entrenamiento')
         .eq('equipo_id', activeTeam!.id)
         .eq('usuario_id', user.id)
         .eq('fecha', todayDateKey)
@@ -550,10 +608,40 @@ export async function GET(request: NextRequest) {
       logOptionalQueryError('perfil usuario', profileResult.error)
     }
 
-    const calendarTrainings = calendarTrainingsResult.error ? [] : calendarTrainingsResult.data ?? []
+    const calendarTrainingsRaw = calendarTrainingsResult.error ? [] : calendarTrainingsResult.data ?? []
     if (calendarTrainingsResult.error) {
       logOptionalQueryError('entrenamientos calendario', calendarTrainingsResult.error)
     }
+
+    const calendarTrainingsIds = calendarTrainingsRaw.map((item) => item.id)
+    const trainingAudienceResult = calendarTrainingsIds.length > 0
+      ? await supabase
+          .from('entrenamiento_destinatarios')
+          .select('entrenamiento_id, usuario_id')
+          .in('entrenamiento_id', calendarTrainingsIds)
+      : { data: [], error: null }
+
+    const trainingAudienceRows = trainingAudienceResult.error
+      ? []
+      : ((trainingAudienceResult.data ?? []) as TrainingAudienceRow[])
+    if (trainingAudienceResult.error) {
+      logOptionalQueryError('destinatarios de entrenamientos', trainingAudienceResult.error)
+    }
+
+    const audienceByTraining = new Map<string, string[]>()
+    for (const row of trainingAudienceRows) {
+      const bucket = audienceByTraining.get(row.entrenamiento_id) ?? []
+      bucket.push(row.usuario_id)
+      audienceByTraining.set(row.entrenamiento_id, bucket)
+    }
+
+    const calendarTrainings = viewerIsCoach
+      ? calendarTrainingsRaw
+      : calendarTrainingsRaw.filter((training) => {
+          const audience = audienceByTraining.get(training.id) ?? []
+          if (audience.length === 0) return true
+          return audience.includes(user.id)
+        })
 
     const wellbeing = wellbeingResult.error
       ? null
@@ -567,6 +655,36 @@ export async function GET(request: NextRequest) {
       : ((teamWellbeingResult.data ?? []) as TeamWellbeingRow[])
     if (teamWellbeingResult.error) {
       logOptionalQueryError('home_bienestar_diario equipo del dia', teamWellbeingResult.error)
+    }
+
+    const nextTrainingDateKey = getNextTrainingDateKey(
+      calendarTrainings.map((training) => ({
+        fecha: training.fecha ?? null,
+        hora_inicio: training.hora_inicio ?? null,
+      })),
+      now
+    )
+    const nextVisibleTraining =
+      calendarTrainings.find((training) => {
+        if (!training.fecha || training.fecha !== nextTrainingDateKey) return false
+        if (training.fecha > todayDateKey) return true
+        return !training.hora_inicio || training.hora_inicio >= getMadridTimeValue(now)
+      }) ?? null
+
+    const visibleTrainingIds = calendarTrainings.map((training) => training.id)
+    const attendanceRowsResult = visibleTrainingIds.length > 0
+      ? await supabase
+          .from('entrenamiento_asistencias')
+          .select('entrenamiento_id, usuario_id, asiste')
+          .eq('equipo_id', activeTeam!.id)
+          .in('entrenamiento_id', visibleTrainingIds)
+      : { data: [], error: null }
+
+    const teamAttendanceRows = attendanceRowsResult.error
+      ? []
+      : ((attendanceRowsResult.data ?? []) as TeamAttendanceRow[])
+    if (attendanceRowsResult.error) {
+      logOptionalQueryError('entrenamiento_asistencias visibles', attendanceRowsResult.error)
     }
 
     const finalizadosChronological = [...finalizados].reverse()
@@ -661,11 +779,28 @@ export async function GET(request: NextRequest) {
     const totalMembers = teamMembers.length
     const playerCount = Math.max(totalMembers - staffCount, 0)
     const wellbeingByUser = new Map(teamWellbeingRows.map((item) => [item.usuario_id, item]))
+    const teamMemberNames = new Map(
+      teamMembers.map((member, index) => [
+        member.usuario_id,
+        normalizeProfileName(member.perfiles) ?? `Jugador ${index + 1}`,
+      ])
+    )
+    const attendanceByTraining = new Map<string, TeamAttendanceRow[]>()
+    for (const row of teamAttendanceRows) {
+      const bucket = attendanceByTraining.get(row.entrenamiento_id) ?? []
+      bucket.push(row)
+      attendanceByTraining.set(row.entrenamiento_id, bucket)
+    }
 
     const coachPlayers = teamMembers
       .filter((member) => isPlayerRole(member.rol))
       .map((member, index) => {
         const row = wellbeingByUser.get(member.usuario_id)
+        const attendanceRow = nextVisibleTraining
+          ? (attendanceByTraining.get(nextVisibleTraining.id) ?? []).find(
+              (item) => item.usuario_id === member.usuario_id
+            )
+          : null
         const playerName = normalizeProfileName(member.perfiles) ?? `Jugador ${index + 1}`
 
         return {
@@ -673,7 +808,7 @@ export async function GET(request: NextRequest) {
           name: playerName,
           mentalState: row?.estado_mental ?? null,
           fatigue: row?.fatiga ?? null,
-          attendingTraining: row?.asiste_entrenamiento ?? null,
+          attendingTraining: attendanceRow?.asiste ?? null,
         }
       })
 
@@ -683,7 +818,11 @@ export async function GET(request: NextRequest) {
     const validFatigueScores = coachPlayers
       .map((player) => player.fatigue)
       .filter((value): value is number => typeof value === 'number')
-    const playersAttending = coachPlayers.filter((player) => player.attendingTraining === true).length
+    const selectedAttendanceTraining = nextVisibleTraining
+    const selectedAttendanceRows = selectedAttendanceTraining
+      ? attendanceByTraining.get(selectedAttendanceTraining.id) ?? []
+      : []
+    const playersAttending = selectedAttendanceRows.filter((row) => row.asiste).length
 
     const mentalPct =
       validMentalScores.length > 0
@@ -755,19 +894,31 @@ export async function GET(request: NextRequest) {
         homeAway: item.casa_fuera ?? null,
         competition: item.competicion ?? null,
       })),
-      ...calendarTrainings.map((item) => ({
-        id: `training-${item.id}`,
-        type: 'entrenamiento' as const,
-        title: item.titulo || 'Entrenamiento',
-        subtitle: item.tipo ?? null,
-        date: item.fecha,
-        time: item.hora_inicio ? `${item.fecha}T${item.hora_inicio}` : null,
-        status: item.estado ?? null,
-        location: item.lugar ?? null,
-        opponent: null,
-        homeAway: null,
-        competition: null,
-      })),
+      ...calendarTrainings.map((item) => {
+        const attendees = (attendanceByTraining.get(item.id) ?? [])
+          .filter((row) => row.asiste)
+          .map((row) => ({
+            id: row.usuario_id,
+            name: teamMemberNames.get(row.usuario_id) ?? 'Jugador',
+            attending: row.asiste,
+          }))
+          .sort((left, right) => left.name.localeCompare(right.name, 'es-ES'))
+
+        return {
+          id: `training-${item.id}`,
+          type: 'entrenamiento' as const,
+          title: item.titulo || 'Entrenamiento',
+          subtitle: item.tipo ?? null,
+          date: item.fecha,
+          time: item.hora_inicio ? `${item.fecha}T${item.hora_inicio}` : null,
+          status: item.estado ?? null,
+          location: item.lugar ?? null,
+          opponent: null,
+          homeAway: null,
+          competition: null,
+          attendees,
+        }
+      }),
     ]
       .sort((a, b) => {
         const dateA = a.time ?? a.date
@@ -816,6 +967,33 @@ export async function GET(request: NextRequest) {
         fecha_hora: row.fecha_hora,
       }))
 
+    const attendanceOptions = calendarTrainings
+      .filter((training) => {
+        if (!training.fecha) return false
+        if (training.fecha > todayDateKey) return true
+        if (training.fecha < todayDateKey) return false
+        return !training.hora_inicio || training.hora_inicio >= getMadridTimeValue(now)
+      })
+      .map((training) => {
+        const rows = attendanceByTraining.get(training.id) ?? []
+        const userAttendance = rows.find((row) => row.usuario_id === user.id)
+        const timeLabel = training.hora_inicio ? training.hora_inicio.slice(0, 5) : null
+
+        return {
+          id: training.id,
+          label: `${training.titulo || 'Entrenamiento'}${timeLabel ? ` · ${timeLabel}` : ''}`,
+          date: training.fecha,
+          time: training.hora_inicio ? `${training.fecha}T${training.hora_inicio}` : null,
+          attending: userAttendance?.asiste ?? null,
+          attendingCount: rows.filter((row) => row.asiste).length,
+        }
+      })
+
+    const selectedAttendanceOption =
+      (selectedAttendanceTraining
+        ? attendanceOptions.find((option) => option.id === selectedAttendanceTraining.id)
+        : null) ?? attendanceOptions[0] ?? null
+
     const response: HomeSuccessResponse = {
       ok: true,
       isCoach: viewerIsCoach,
@@ -830,8 +1008,14 @@ export async function GET(request: NextRequest) {
       wellbeing: {
         date: todayDateKey,
         mentalState: wellbeing?.estado_mental ?? null,
+        mentalStateUpdatedAt: wellbeing?.estado_mental_actualizado_en ?? null,
         fatigue: wellbeing?.fatiga ?? null,
-        attendingTraining: wellbeing?.asiste_entrenamiento ?? null,
+        fatigueUpdatedAt: wellbeing?.fatiga_actualizada_en ?? null,
+        attendanceDate: selectedAttendanceOption?.date ?? null,
+        attendanceTrainingId: selectedAttendanceOption?.id ?? null,
+        attendanceTrainingLabel: selectedAttendanceOption?.label ?? null,
+        attendanceOptions,
+        attendingTraining: selectedAttendanceOption?.attending ?? null,
         attendingCount: playersAttending,
       },
       coachWellbeing: {

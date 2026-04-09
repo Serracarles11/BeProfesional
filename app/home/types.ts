@@ -10,6 +10,11 @@ export type DashboardActivityItem = {
   opponent: string | null
   homeAway: string | null
   competition: string | null
+  attendees?: Array<{
+    id: string
+    name: string
+    attending: boolean
+  }>
 }
 
 export type DashboardHomeSuccess = {
@@ -36,7 +41,20 @@ export type DashboardHomeSuccess = {
   wellbeing: {
     date: string
     mentalState: number | null
+    mentalStateUpdatedAt: string | null
     fatigue: number | null
+    fatigueUpdatedAt: string | null
+    attendanceDate: string | null
+    attendanceTrainingId: string | null
+    attendanceTrainingLabel: string | null
+    attendanceOptions: Array<{
+      id: string
+      label: string
+      date: string
+      time: string | null
+      attending: boolean | null
+      attendingCount: number
+    }>
     attendingTraining: boolean | null
     attendingCount: number
   }

@@ -88,6 +88,12 @@ export function buildMetrics(payload: DashboardHomeSuccess): DashboardMetric[] {
   const { wellbeing } = payload
   const mentalLabel = wellbeing.mentalState !== null ? `${wellbeing.mentalState}/10` : '--/10'
   const fatigueLabel = wellbeing.fatigue !== null ? `${wellbeing.fatigue}/10` : '--/10'
+  const attendanceLabel = wellbeing.attendanceDate
+    ? new Date(`${wellbeing.attendanceDate}T12:00:00`).toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+      })
+    : null
 
   return [
     {
@@ -106,9 +112,11 @@ export function buildMetrics(payload: DashboardHomeSuccess): DashboardMetric[] {
     },
     {
       id: 'attendance',
-      label: 'ASISTENCIA DE HOY',
+      label: 'ASISTENCIA ENTRENO',
       value: String(wellbeing.attendingCount),
-      helper: 'Jugadores que van al entrenamiento de hoy',
+      helper: attendanceLabel
+        ? `${wellbeing.attendanceTrainingLabel ?? 'Entrenamiento'} · ${attendanceLabel}`
+        : 'No hay un proximo entrenamiento programado',
       icon: 'attendance',
     },
   ]

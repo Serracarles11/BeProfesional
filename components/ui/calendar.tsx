@@ -53,7 +53,10 @@ function isSameDay(left?: Date, right?: Date) {
 }
 
 function toDateKey(date: Date) {
-  return date.toISOString().slice(0, 10)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 export function Calendar({
@@ -79,11 +82,11 @@ export function Calendar({
 
   return (
     <div className={cn('rounded-lg border', className)}>
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={() => setViewDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#d9e4f7] bg-white text-[#4e5b70] transition hover:border-[#bfd0ef] hover:text-[#005db6]"
+          className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#d9e4f7] bg-white text-[#4e5b70] transition hover:border-[#bfd0ef] hover:text-[#005db6]"
           aria-label="Mes anterior"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -99,7 +102,7 @@ export function Calendar({
         <button
           type="button"
           onClick={() => setViewDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#d9e4f7] bg-white text-[#4e5b70] transition hover:border-[#bfd0ef] hover:text-[#005db6]"
+          className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#d9e4f7] bg-white text-[#4e5b70] transition hover:border-[#bfd0ef] hover:text-[#005db6]"
           aria-label="Mes siguiente"
         >
           <ChevronRight className="h-4 w-4" />
@@ -121,6 +124,8 @@ export function Calendar({
           const isSelected = isSameDay(day, selected)
           const isToday = isSameDay(day, today)
           const summary = eventSummaryByDate?.[toDateKey(day)]
+          const hasMatch = Boolean(summary?.matches)
+          const hasTraining = Boolean(summary?.trainings)
 
           return (
             <button
@@ -131,12 +136,14 @@ export function Calendar({
               }}
               aria-pressed={isSelected}
               className={cn(
-                'flex h-14 flex-col items-center justify-center rounded-xl text-sm font-semibold transition-all',
+                'flex h-12 flex-col items-center justify-center rounded-xl text-sm font-semibold transition-all',
                 inCurrentMonth ? 'text-[#1f2734]' : 'text-[#a4aec0]',
                 isSelected
                   ? 'bg-[#005db6] text-white shadow-[0_14px_30px_-18px_rgba(0,93,182,0.9)]'
                   : 'bg-white/80 hover:bg-white',
-                isToday && !isSelected && 'border border-[#b9cef3] text-[#005db6]'
+                isToday && !isSelected && !hasMatch && !hasTraining && 'border border-[#b9cef3] text-[#005db6]',
+                hasTraining && !hasMatch && !isSelected && 'border-2 border-[#8fb1ef] bg-[#f4f8ff] text-[#1f56a8] shadow-[0_12px_26px_-22px_rgba(0,93,182,0.75)]',
+                hasMatch && !isSelected && 'border-2 border-[#d97706] bg-[#fff7ed] text-[#9a4f05] shadow-[0_12px_26px_-22px_rgba(217,119,6,0.9)]'
               )}
             >
               <span>{day.getDate()}</span>

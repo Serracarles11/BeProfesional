@@ -36,6 +36,7 @@ type WellbeingPatch = {
   mentalState?: number
   fatigue?: number
   attendingTraining?: boolean
+  trainingId?: string
 }
 
 type WellbeingUpdateResponse =
@@ -75,6 +76,21 @@ type CreateMatchResponse =
 type TrainingType = 'FISICO' | 'TECNICO' | 'TACTICO' | 'RECUPERACION'
 type EventFormType = 'entrenamiento' | 'partido'
 type MatchHomeAway = 'CASA' | 'FUERA'
+type LoadDataOptions = {
+  silent?: boolean
+}
+type AudienceMode = 'all' | 'selected'
+type TeamPlayerOption = {
+  id: string
+  name: string
+}
+
+function getLocalDateKey(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 export default function Home() {
   const searchParams = useSearchParams()
@@ -97,11 +113,18 @@ export default function Home() {
   const [matchHomeAway, setMatchHomeAway] = useState<MatchHomeAway>('CASA')
   const [matchCompetition, setMatchCompetition] = useState('')
   const [fieldOptions, setFieldOptions] = useState<string[]>([])
+  const [playerOptions, setPlayerOptions] = useState<TeamPlayerOption[]>([])
   const [isLoadingFields, setIsLoadingFields] = useState(false)
+  const [audienceMode, setAudienceMode] = useState<AudienceMode>('all')
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([])
 
-  const loadData = useCallback(async () => {
-    setStatus('loading')
-    setError('')
+  const loadData = useCallback(async (options?: LoadDataOptions) => {
+    const silent = options?.silent ?? false
+
+    if (!silent) {
+      setStatus('loading')
+      setError('')
+    }
 
     try {
       const query = equipoId ? `?equipo=${encodeURIComponent(equipoId)}` : ''
@@ -109,6 +132,9 @@ export default function Home() {
       const data = (await response.json()) as DashboardHomeResponse
 
       if (!response.ok || !data.ok) {
+        if (silent) {
+          throw new Error(('error' in data && data.error) || 'No se pudo refrescar Home')
+        }
         setStatus('error')
         setError(('error' in data && data.error) || 'No se pudo cargar Home')
         return
@@ -116,7 +142,12 @@ export default function Home() {
 
       setPayload(data)
       setStatus('ready')
-    } catch {
+    } catch (loadError) {
+      if (silent) {
+        throw loadError instanceof Error
+          ? loadError
+          : new Error('Error de conexion al refrescar Home')
+      }
       setStatus('error')
       setError('Error de conexion al cargar Home')
     }
@@ -136,6 +167,34 @@ export default function Home() {
 
       const previousWellbeing = payload.wellbeing
       const equipoIdToSave = payload.equipo.id
+      const isSelectionOnly =
+        patch.trainingId !== undefined &&
+        patch.attendingTraining === undefined &&
+        patch.mentalState === undefined &&
+        patch.fatigue === undefined
+
+      if (isSelectionOnly) {
+        setSaveError('')
+        setPayload((prev) => {
+          if (!prev) return prev
+
+          const selectedOption =
+            prev.wellbeing.attendanceOptions.find((option) => option.id === patch.trainingId) ?? null
+
+          return {
+            ...prev,
+            wellbeing: {
+              ...prev.wellbeing,
+              attendanceTrainingId: selectedOption?.id ?? null,
+              attendanceTrainingLabel: selectedOption?.label ?? null,
+              attendanceDate: selectedOption?.date ?? null,
+              attendingTraining: selectedOption?.attending ?? null,
+              attendingCount: selectedOption?.attendingCount ?? 0,
+            },
+          }
+        })
+        return
+      }
 
       setSaveError('')
       setPayload((prev) =>
@@ -223,7 +282,7 @@ export default function Home() {
   const openCreateEventModal = (dateKey?: string) => {
     if (!isCoach) return
     setSaveError('')
-    setEventDate(dateKey ?? new Date().toISOString().slice(0, 10))
+    setEventDate(dateKey ?? getLocalDateKey(new Date()))
     setEventTime('18:00')
     setEventPlace('')
     setEventFormType('entrenamiento')
@@ -232,6 +291,8 @@ export default function Home() {
     setMatchOpponent('')
     setMatchHomeAway('CASA')
     setMatchCompetition('')
+    setAudienceMode('all')
+    setSelectedPlayerIds([])
     setIsCreateEventOpen(true)
     setIsLoadingFields(true)
 
@@ -240,15 +301,22 @@ export default function Home() {
 
     void fetch(`/api/dashboard/home/fields${query}`, { cache: 'no-store' })
       .then(async (response) => {
-        const data = (await response.json()) as { ok?: boolean; error?: string; fields?: string[] }
-        if (!response.ok || !data.ok || !Array.isArray(data.fields)) {
-          throw new Error(data.error || 'No se pudieron cargar los campos de futbol.')
+        const data = (await response.json()) as {
+          ok?: boolean
+          error?: string
+          fields?: string[]
+          players?: TeamPlayerOption[]
+        }
+        if (!response.ok || !data.ok || !Array.isArray(data.fields) || !Array.isArray(data.players)) {
+          throw new Error(data.error || 'No se pudieron cargar los datos del formulario.')
         }
         setFieldOptions(data.fields)
+        setPlayerOptions(data.players)
       })
       .catch((err) => {
         setFieldOptions([])
-        setSaveError(err instanceof Error ? err.message : 'No se pudieron cargar los campos de futbol.')
+        setPlayerOptions([])
+        setSaveError(err instanceof Error ? err.message : 'No se pudieron cargar los datos del formulario.')
       })
       .finally(() => {
         setIsLoadingFields(false)
@@ -263,6 +331,10 @@ export default function Home() {
     }
     if (eventFormType === 'entrenamiento' && !trainingTitle.trim()) {
       setSaveError('Debes indicar fecha y titulo del entrenamiento.')
+      return
+    }
+    if (eventFormType === 'entrenamiento' && audienceMode === 'selected' && selectedPlayerIds.length === 0) {
+      setSaveError('Selecciona al menos un jugador o marca "Todos".')
       return
     }
     if (eventFormType === 'partido' && !matchOpponent.trim()) {
@@ -285,6 +357,7 @@ export default function Home() {
             title: trainingTitle.trim(),
             type: trainingType,
             place: eventPlace.trim(),
+            targetPlayerIds: audienceMode === 'all' ? [] : selectedPlayerIds,
           }),
         })
 
@@ -316,7 +389,7 @@ export default function Home() {
       }
 
       setIsCreateEventOpen(false)
-      await loadData()
+      await loadData({ silent: true })
     } catch (err) {
       setSaveError(
         err instanceof Error
@@ -373,6 +446,23 @@ export default function Home() {
               activities={payload.schedule.activityItems}
               isCoach={isCoach}
               onOpenCreateEvent={openCreateEventModal}
+              onDeleteTraining={async (trainingId) => {
+                if (!payload.equipo?.id) return
+
+                setSaveError('')
+                const response = await fetch(
+                  `/api/dashboard/home/trainings?equipoId=${encodeURIComponent(payload.equipo.id)}&trainingId=${encodeURIComponent(trainingId)}`,
+                  { method: 'DELETE' }
+                )
+
+                const data = (await response.json()) as { ok?: boolean; error?: string }
+
+                if (!response.ok || !data.ok) {
+                  throw new Error(data.error || 'No se pudo eliminar el entrenamiento.')
+                }
+
+                await loadData({ silent: true })
+              }}
             />
           </div>
         </section>
@@ -477,6 +567,65 @@ export default function Home() {
                       <option value="RECUPERACION">Recuperacion</option>
                     </select>
                   </label>
+
+                  <div className="sm:col-span-2 rounded-xl border border-[#d5dcea] bg-[#f8fbff] p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold text-[#1f2530]">Destinatarios</p>
+                        <p className="mt-1 text-[11px] text-[#677084]">
+                          Elige si el entrenamiento le aparece a todos o solo a jugadores concretos.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAudienceMode('all')
+                          setSelectedPlayerIds([])
+                        }}
+                        className={[
+                          'rounded-lg px-3 py-2 text-xs font-bold transition',
+                          audienceMode === 'all'
+                            ? 'bg-[#005db6] text-white'
+                            : 'bg-white text-[#4d5566] hover:bg-[#eef3fb]',
+                        ].join(' ')}
+                      >
+                        Todos
+                      </button>
+                    </div>
+
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {playerOptions.map((player) => {
+                        const isSelected = selectedPlayerIds.includes(player.id)
+
+                        return (
+                          <button
+                            key={player.id}
+                            type="button"
+                            onClick={() => {
+                              setAudienceMode('selected')
+                              setSelectedPlayerIds((current) =>
+                                current.includes(player.id)
+                                  ? current.filter((id) => id !== player.id)
+                                  : [...current, player.id]
+                              )
+                            }}
+                            className={[
+                              'rounded-lg border px-3 py-2 text-left text-xs font-semibold transition',
+                              isSelected && audienceMode === 'selected'
+                                ? 'border-[#005db6] bg-[#e8f0ff] text-[#005db6]'
+                                : 'border-[#d5dcea] bg-white text-[#4d5566] hover:border-[#bfd0ef]',
+                            ].join(' ')}
+                          >
+                            {player.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {playerOptions.length === 0 ? (
+                      <p className="mt-3 text-[11px] text-[#677084]">No hay jugadores disponibles.</p>
+                    ) : null}
+                  </div>
                 </>
               ) : (
                 <>
