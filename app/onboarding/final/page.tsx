@@ -41,8 +41,8 @@ export default function FinalPage() {
   }
 
   return (
-    <div className="w-full max-w-md animate-slide-up">
-      <div className="onboarding-card p-8 md:p-10 relative z-10 overflow-visible">
+    <div className="w-full max-w-md">
+      <div className="onboarding-card animate-slide-up p-8 md:p-10 relative z-10 overflow-visible">
         {/* Confetti emojis */}
         {showConfetti && (
           <>

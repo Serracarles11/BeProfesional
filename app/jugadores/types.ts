@@ -6,12 +6,17 @@ export type SquadPlayer = {
   age: number | null
   dorsal: number | null
   avatarUrl: string | null
+  dominantFoot: string | null
+  heightCm: number | null
+  weightKg: number | null
   stats: {
     apps: number
     minutes: number
     goals: number
+    assists: number
     goalsPerMinute: number
     yellows: number
+    reds: number
     starts: number
   }
 }

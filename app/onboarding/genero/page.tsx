@@ -49,8 +49,8 @@ export default function GeneroPage() {
   }
 
   return (
-    <div className="w-full max-w-md animate-slide-up">
-      <div className="onboarding-card p-6 md:p-8 relative z-10">
+    <div className="w-full max-w-md">
+      <div className="onboarding-card animate-slide-up p-6 md:p-8 relative z-10">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-gradient-to-br from-pink-400 to-purple-600 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg shadow-pink-500/30">

@@ -20,12 +20,17 @@ type SquadPlayer = {
   age: number | null
   dorsal: number | null
   avatarUrl: string | null
+  dominantFoot: string | null
+  heightCm: number | null
+  weightKg: number | null
   stats: {
     apps: number
     minutes: number
     goals: number
+    assists: number
     goalsPerMinute: number
     yellows: number
+    reds: number
     starts: number
   }
 }
@@ -94,6 +99,9 @@ type TeamMemberProfileRow = {
   foto_url: string | null
   posicion: string | null
   edad: number | string | null
+  pie_dominante: string | null
+  altura_cm: number | string | null
+  peso_kg: number | string | null
 }
 
 type TeamMemberRow = {
@@ -192,6 +200,15 @@ function normalizeProfile(raw: unknown): TeamMemberProfileRow | null {
       typeof row.edad === 'number' || typeof row.edad === 'string'
         ? (row.edad as number | string)
         : null,
+    pie_dominante: typeof row.pie_dominante === 'string' ? row.pie_dominante : null,
+    altura_cm:
+      typeof row.altura_cm === 'number' || typeof row.altura_cm === 'string'
+        ? (row.altura_cm as number | string)
+        : null,
+    peso_kg:
+      typeof row.peso_kg === 'number' || typeof row.peso_kg === 'string'
+        ? (row.peso_kg as number | string)
+        : null,
   }
 }
 
@@ -202,6 +219,16 @@ function isGoalEvent(value: string | null | undefined) {
 function isYellowCardEvent(value: string | null | undefined) {
   const normalized = normalizeText(value)
   return normalized.includes('AMAR') || normalized.includes('YELLOW')
+}
+
+function isAssistEvent(value: string | null | undefined) {
+  const normalized = normalizeText(value)
+  return normalized.includes('ASIST')
+}
+
+function isRedCardEvent(value: string | null | undefined) {
+  const normalized = normalizeText(value)
+  return normalized.includes('ROJA') || normalized.includes('RED')
 }
 
 function buildErrorResponse(
@@ -335,7 +362,7 @@ export async function GET(request: NextRequest) {
     if (memberIds.length > 0) {
       const profilesResult = await supabase
         .from('perfiles')
-        .select('id, nombre, foto_url, posicion, edad')
+        .select('id, nombre, foto_url, posicion, edad, pie_dominante, altura_cm, peso_kg')
         .in('id', memberIds)
 
       if (!profilesResult.error) {
@@ -374,6 +401,9 @@ export async function GET(request: NextRequest) {
               ? toNumber(row.dorsal)
               : null,
           avatarUrl: profile?.foto_url ?? null,
+          dominantFoot: profile?.pie_dominante?.trim() || null,
+          heightCm: profile?.altura_cm == null ? null : toNumber(profile.altura_cm),
+          weightKg: profile?.peso_kg == null ? null : toNumber(profile.peso_kg),
         }
       })
       .filter((row): row is Omit<SquadPlayer, 'stats'> => row !== null)
@@ -414,7 +444,9 @@ export async function GET(request: NextRequest) {
         appMatches: Set<string>
         minutes: number
         goals: number
+        assists: number
         yellows: number
+        reds: number
       }
     >()
 
@@ -423,7 +455,9 @@ export async function GET(request: NextRequest) {
         appMatches: new Set<string>(),
         minutes: 0,
         goals: 0,
+        assists: 0,
         yellows: 0,
+        reds: 0,
       })
     }
 
@@ -441,7 +475,15 @@ export async function GET(request: NextRequest) {
         if (current) {
           if (isGoalEvent(event.tipo)) current.goals += 1
           if (isYellowCardEvent(event.tipo)) current.yellows += 1
+          if (isRedCardEvent(event.tipo)) current.reds += 1
         }
+      }
+
+      if (isAssistEvent(event.tipo)) {
+        const relatedId = event.jugador_relacionado_id ?? event.jugador_id
+        if (!relatedId) continue
+        const current = playerStats.get(relatedId)
+        if (current) current.assists += 1
       }
     }
 
@@ -451,7 +493,9 @@ export async function GET(request: NextRequest) {
         const apps = stats?.appMatches.size ?? 0
         const minutes = stats?.minutes ?? 0
         const goals = stats?.goals ?? 0
+        const assists = stats?.assists ?? 0
         const yellows = stats?.yellows ?? 0
+        const reds = stats?.reds ?? 0
 
         return {
           ...player,
@@ -459,8 +503,10 @@ export async function GET(request: NextRequest) {
             apps,
             minutes,
             goals,
+            assists,
             goalsPerMinute: minutes > 0 ? goals / minutes : 0,
             yellows,
+            reds,
             starts: apps,
           },
         }

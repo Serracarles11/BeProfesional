@@ -21,7 +21,7 @@ export default function OnboardingLayout({
   const progress = ((currentStepIndex + 1) / steps.length) * 100
 
   return (
-    <div className="onboarding-bg min-h-screen flex flex-col">
+    <div className="onboarding-bg min-h-screen h-[100dvh] flex flex-col">
       {/* Emojis flotantes */}
       <span className="floating-emoji" style={{ top: '5%', left: '5%' }}>
         💪
@@ -79,7 +79,7 @@ export default function OnboardingLayout({
       </div>
 
       {/* Content */}
-      <main className="flex-1 flex items-start md:items-center justify-center overflow-y-auto p-4 pt-24 pb-40 md:pb-28">
+      <main className="flex-1 flex items-start md:items-center justify-center overflow-y-auto overscroll-y-contain p-4 pt-24 pb-44 md:pb-28">
         {children}
       </main>
     </div>

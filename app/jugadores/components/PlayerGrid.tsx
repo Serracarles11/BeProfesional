@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import { useState } from 'react'
 import { Eye } from 'lucide-react'
 import type { SquadPlayer } from '../types'
 import {
@@ -8,8 +8,8 @@ import {
   goalsPer90,
   playerInitials,
   positionTagLabel,
-  withEquipo,
 } from '../utils'
+import { PlayerDetailsModal } from './PlayerDetailsModal'
 
 type PlayerGridProps = {
   players: SquadPlayer[]
@@ -17,22 +17,39 @@ type PlayerGridProps = {
 }
 
 export function PlayerGrid({ players, equipoId }: PlayerGridProps) {
+  const [selectedPlayer, setSelectedPlayer] = useState<SquadPlayer | null>(null)
+
   return (
-    <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {players.map((player, index) => (
-        <PlayerCard key={player.id} player={player} index={index} equipoId={equipoId} />
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {players.map((player, index) => (
+          <PlayerCard
+            key={player.id}
+            player={player}
+            index={index}
+            onViewDetails={() => setSelectedPlayer(player)}
+          />
+        ))}
+      </div>
+
+      {selectedPlayer ? (
+        <PlayerDetailsModal
+          player={selectedPlayer}
+          equipoId={equipoId}
+          onClose={() => setSelectedPlayer(null)}
+        />
+      ) : null}
+    </>
   )
 }
 
 type PlayerCardProps = {
   player: SquadPlayer
   index: number
-  equipoId?: string
+  onViewDetails: () => void
 }
 
-function PlayerCard({ player, index, equipoId }: PlayerCardProps) {
+function PlayerCard({ player, index, onViewDetails }: PlayerCardProps) {
   const jersey = player.dorsal !== null ? String(player.dorsal).padStart(2, '0') : String(index + 1).padStart(2, '0')
 
   return (
@@ -55,14 +72,15 @@ function PlayerCard({ player, index, equipoId }: PlayerCardProps) {
           </div>
         )}
 
-        <div className="absolute inset-0 flex items-center justify-center bg-[#005db6]/55 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-          <Link
-            href={withEquipo('/estadisticas', equipoId)}
+        <div className="absolute inset-0 flex items-center justify-center bg-[#005db6]/55 opacity-100 transition-opacity duration-300 md:opacity-0 md:group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={onViewDetails}
             className="inline-flex items-center gap-2 rounded-full bg-white px-7 py-3 [font-family:var(--font-plus-jakarta)] text-sm font-bold text-[#005db6] shadow-2xl"
           >
             <Eye className="h-4 w-4" />
-            View Details
-          </Link>
+            Ver detalles
+          </button>
         </div>
       </div>
 

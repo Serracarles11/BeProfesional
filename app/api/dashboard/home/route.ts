@@ -30,6 +30,10 @@ type HomeSuccessResponse = {
   isCoach: boolean
   equipo: EquipoActivo | null
   role: string | null
+  inviteCodes: {
+    player: string | null
+    coach: string | null
+  }
   teamSummary: {
     totalMembers: number
     playerCount: number
@@ -197,11 +201,25 @@ type TeamAttendanceRow = {
   asiste: boolean
 }
 
+type InviteCodeRow = {
+  codigo: string | null
+  rol_asignado: string | null
+  usos_maximos: number | null
+  usos_actuales: number | null
+  caduca_en: string | null
+  activo: boolean | null
+  creado_en: string | null
+}
+
 const EMPTY_SUCCESS: HomeSuccessResponse = {
   ok: true,
   isCoach: false,
   equipo: null,
   role: null,
+  inviteCodes: {
+    player: null,
+    coach: null,
+  },
   teamSummary: {
     totalMembers: 0,
     playerCount: 0,
@@ -515,6 +533,7 @@ export async function GET(request: NextRequest) {
       calendarTrainingsResult,
       wellbeingResult,
       teamWellbeingResult,
+      inviteCodesResult,
     ] = await Promise.all([
       supabase
         .from('clasificacion_liga')
@@ -574,6 +593,12 @@ export async function GET(request: NextRequest) {
         .select('usuario_id, estado_mental, fatiga, asiste_entrenamiento')
         .eq('equipo_id', activeTeam!.id)
         .eq('fecha', todayDateKey),
+      supabase
+        .from('codigos_invitacion_equipo')
+        .select('codigo, rol_asignado, usos_maximos, usos_actuales, caduca_en, activo, creado_en')
+        .eq('equipo_id', activeTeam!.id)
+        .eq('activo', true)
+        .order('creado_en', { ascending: false }),
     ])
 
     const clasificacionRow = clasificacionResult.error ? null : clasificacionResult.data
@@ -655,6 +680,37 @@ export async function GET(request: NextRequest) {
       : ((teamWellbeingResult.data ?? []) as TeamWellbeingRow[])
     if (teamWellbeingResult.error) {
       logOptionalQueryError('home_bienestar_diario equipo del dia', teamWellbeingResult.error)
+    }
+
+    const inviteCodeRows = inviteCodesResult.error
+      ? []
+      : ((inviteCodesResult.data ?? []) as InviteCodeRow[])
+    if (inviteCodesResult.error) {
+      logOptionalQueryError('codigos_invitacion_equipo', inviteCodesResult.error)
+    }
+
+    let coachInviteCode: string | null = null
+    let playerInviteCode: string | null = null
+
+    for (const row of inviteCodeRows) {
+      const code = typeof row.codigo === 'string' ? row.codigo.trim() : ''
+      if (!code) continue
+
+      const expiresAt = row.caduca_en ? new Date(row.caduca_en) : null
+      if (expiresAt && !Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() <= now.getTime()) continue
+
+      const maxUses = toNumber(row.usos_maximos)
+      const currentUses = toNumber(row.usos_actuales)
+      if (maxUses > 0 && currentUses >= maxUses) continue
+
+      const assignedRole = normalizeText(row.rol_asignado)
+      if (!coachInviteCode && assignedRole.includes('ENTREN')) {
+        coachInviteCode = code
+        continue
+      }
+      if (!playerInviteCode && assignedRole.includes('JUG')) {
+        playerInviteCode = code
+      }
     }
 
     const nextTrainingDateKey = getNextTrainingDateKey(
@@ -999,6 +1055,10 @@ export async function GET(request: NextRequest) {
       isCoach: viewerIsCoach,
       equipo: activeTeam ?? null,
       role,
+      inviteCodes: {
+        player: playerInviteCode,
+        coach: viewerIsCoach ? coachInviteCode : null,
+      },
       teamSummary: {
         totalMembers,
         playerCount,

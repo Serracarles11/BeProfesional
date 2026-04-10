@@ -29,6 +29,10 @@ export type DashboardHomeSuccess = {
     logo_url: string | null
   } | null
   role: string | null
+  inviteCodes: {
+    player: string | null
+    coach: string | null
+  }
   teamSummary: {
     totalMembers: number
     playerCount: number

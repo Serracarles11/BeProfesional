@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Manrope, Plus_Jakarta_Sans } from 'next/font/google'
 import { useSearchParams } from 'next/navigation'
+import { Camera, Loader2, Save, UserRound, X } from 'lucide-react'
 import { HomeEmptyState, HomeErrorState, HomeLoadingState } from './components/HomeStates'
 import { CoachMetricsGrid } from './components/CoachMetricsGrid'
 import { InsightCard } from './components/InsightCard'
 import { LeftNavigation } from './components/LeftNavigation'
 import { MetricsGrid } from './components/MetricsGrid'
 import { PlayerSpotlightPanel } from './components/PlayerSpotlightPanel'
-import { TopNavigation } from './components/TopNavigation'
 import type { DashboardHomeResponse, DashboardHomeSuccess } from './types'
 import {
   buildMetrics,
@@ -84,6 +84,65 @@ type TeamPlayerOption = {
   id: string
   name: string
 }
+type SettingsProfile = {
+  nombre: string
+  genero: string
+  edad: string
+  peso_kg: string
+  altura_cm: string
+  posicion: string
+  pie_dominante: string
+  telefono: string
+  ciudad: string
+  pais: string
+  bio: string
+  instagram: string
+  objetivo: string
+  foto_url: string | null
+}
+
+const EMPTY_SETTINGS_PROFILE: SettingsProfile = {
+  nombre: '',
+  genero: '',
+  edad: '',
+  peso_kg: '',
+  altura_cm: '',
+  posicion: '',
+  pie_dominante: '',
+  telefono: '',
+  ciudad: '',
+  pais: '',
+  bio: '',
+  instagram: '',
+  objetivo: '',
+  foto_url: null,
+}
+
+function toStringOrEmpty(value: unknown) {
+  if (value === null || value === undefined) return ''
+  return String(value)
+}
+
+function normalizeProfile(raw: Record<string, unknown> | null | undefined): SettingsProfile {
+  if (!raw) return { ...EMPTY_SETTINGS_PROFILE }
+
+  return {
+    nombre: toStringOrEmpty(raw.nombre),
+    genero: toStringOrEmpty(raw.genero),
+    edad: toStringOrEmpty(raw.edad),
+    peso_kg: toStringOrEmpty(raw.peso_kg),
+    altura_cm: toStringOrEmpty(raw.altura_cm),
+    posicion: toStringOrEmpty(raw.posicion),
+    pie_dominante: toStringOrEmpty(raw.pie_dominante),
+    telefono: toStringOrEmpty(raw.telefono),
+    ciudad: toStringOrEmpty(raw.ciudad),
+    pais: toStringOrEmpty(raw.pais),
+    bio: toStringOrEmpty(raw.bio),
+    instagram: toStringOrEmpty(raw.instagram),
+    objetivo: toStringOrEmpty(raw.objetivo),
+    foto_url: typeof raw.foto_url === 'string' ? raw.foto_url : null,
+  }
+}
 
 function getLocalDateKey(date: Date) {
   const year = date.getFullYear()
@@ -101,6 +160,16 @@ export default function Home() {
   const [payload, setPayload] = useState<DashboardHomeSuccess | null>(null)
   const [saveError, setSaveError] = useState('')
   const [isSavingWellbeing, setIsSavingWellbeing] = useState(false)
+  const [isInviteCodesOpen, setIsInviteCodesOpen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [settingsProfile, setSettingsProfile] = useState<SettingsProfile>({ ...EMPTY_SETTINGS_PROFILE })
+  const [settingsEmail, setSettingsEmail] = useState('')
+  const [isSettingsLoading, setIsSettingsLoading] = useState(false)
+  const [isSettingsSaving, setIsSettingsSaving] = useState(false)
+  const [isPhotoUploading, setIsPhotoUploading] = useState(false)
+  const [settingsError, setSettingsError] = useState('')
+  const [settingsSuccess, setSettingsSuccess] = useState('')
+  const [hasLoadedSettings, setHasLoadedSettings] = useState(false)
   const [isCreateEventOpen, setIsCreateEventOpen] = useState(false)
   const [isCreatingEvent, setIsCreatingEvent] = useState(false)
   const [eventFormType, setEventFormType] = useState<EventFormType>('entrenamiento')
@@ -278,6 +347,12 @@ export default function Home() {
 
   const passAccuracy = getPassAccuracy(payload)
   const topSpeed = getEstimatedTopSpeed(payload)
+  const inviteCodeItems = isCoach
+    ? [
+        { key: 'coach', label: 'Codigo entrenador', code: payload.inviteCodes.coach },
+        { key: 'player', label: 'Codigo jugador', code: payload.inviteCodes.player },
+      ]
+    : [{ key: 'player', label: 'Codigo jugador', code: payload.inviteCodes.player }]
 
   const openCreateEventModal = (dateKey?: string) => {
     if (!isCoach) return
@@ -321,6 +396,114 @@ export default function Home() {
       .finally(() => {
         setIsLoadingFields(false)
       })
+  }
+
+  const openSettingsModal = async () => {
+    setIsSettingsOpen(true)
+    setSettingsError('')
+    setSettingsSuccess('')
+
+    if (hasLoadedSettings) return
+
+    setIsSettingsLoading(true)
+    try {
+      const response = await fetch('/api/profile/settings', { cache: 'no-store' })
+      const data = (await response.json()) as {
+        ok?: boolean
+        error?: string
+        profile?: Record<string, unknown>
+        email?: string
+      }
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'No se pudo cargar ajustes.')
+      }
+
+      const normalized = normalizeProfile(data.profile)
+      setSettingsProfile(normalized)
+      setSettingsEmail(data.email || '')
+      setHasLoadedSettings(true)
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'No se pudo cargar ajustes.')
+    } finally {
+      setIsSettingsLoading(false)
+    }
+  }
+
+  const setSettingsField = (field: keyof SettingsProfile, value: string) => {
+    setSettingsProfile((current) => ({ ...current, [field]: value }))
+  }
+
+  const handleSaveSettings = async () => {
+    setIsSettingsSaving(true)
+    setSettingsError('')
+    setSettingsSuccess('')
+
+    try {
+      const response = await fetch('/api/profile/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settingsProfile),
+      })
+
+      const data = (await response.json()) as { ok?: boolean; error?: string }
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'No se pudo guardar ajustes.')
+      }
+
+      setSettingsSuccess('Ajustes guardados correctamente.')
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'No se pudo guardar ajustes.')
+    } finally {
+      setIsSettingsSaving(false)
+    }
+  }
+
+  const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    const input = event.target
+    if (!file) return
+
+    setSettingsError('')
+    setSettingsSuccess('')
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setSettingsError('Formato no valido. Usa JPG, PNG o WEBP.')
+      input.value = ''
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setSettingsError('La foto supera el maximo de 5 MB.')
+      input.value = ''
+      return
+    }
+
+    setIsPhotoUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('next', '/home')
+
+      const response = await fetch('/api/profile/photo', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = (await response.json()) as { ok?: boolean; error?: string; foto_url?: string }
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'No se pudo subir la foto.')
+      }
+
+      setSettingsProfile((current) => ({ ...current, foto_url: data.foto_url ?? current.foto_url }))
+      setSettingsSuccess('Foto de perfil actualizada.')
+      await loadData({ silent: true })
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'No se pudo subir la foto.')
+    } finally {
+      setIsPhotoUploading(false)
+      input.value = ''
+    }
   }
 
   const createEvent = async () => {
@@ -405,12 +588,17 @@ export default function Home() {
 
   return (
     <div className={`${plusJakarta.variable} ${manrope.variable} min-h-screen bg-[#f7f9fe] [font-family:var(--font-manrope)] text-[#181c20]`}>
-      <TopNavigation equipoId={payload.equipo.id} avatarUrl={payload.playerSpotlight.foto_url} />
+      <main className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col xl:flex-row">
+        <LeftNavigation
+          equipoId={payload.equipo.id}
+          teamName={teamName}
+          isCodesActive={isInviteCodesOpen}
+          onOpenCodes={() => setIsInviteCodesOpen(true)}
+          isSettingsActive={isSettingsOpen}
+          onOpenSettings={() => void openSettingsModal()}
+        />
 
-      <main className="mx-auto flex min-h-[calc(100vh-64px)] w-full max-w-[1600px] flex-col xl:flex-row">
-        <LeftNavigation equipoId={payload.equipo.id} teamName={teamName} />
-
-        <section className="flex-1 px-4 py-6 lg:px-8 xl:h-[calc(100vh-64px)] xl:overflow-y-auto">
+        <section className="flex-1 px-4 py-6 lg:px-8 xl:h-screen xl:overflow-y-auto">
           <header className="mb-9 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <h1 className="mb-2 [font-family:var(--font-plus-jakarta)] text-4xl font-extrabold tracking-tight text-[#181c20]">
@@ -467,7 +655,7 @@ export default function Home() {
           </div>
         </section>
 
-        <div className="xl:sticky xl:top-16 xl:h-[calc(100vh-64px)] xl:overflow-y-auto">
+        <div className="xl:sticky xl:top-0 xl:h-screen xl:overflow-y-auto">
           <PlayerSpotlightPanel
             equipoId={payload.equipo.id}
             playerName={playerName}
@@ -482,6 +670,191 @@ export default function Home() {
           />
         </div>
       </main>
+
+      {isInviteCodesOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="[font-family:var(--font-plus-jakarta)] text-lg font-bold text-[#181c20]">
+                  Codigos de acceso
+                </h3>
+                <p className="mt-1 text-xs font-semibold text-[#677084]">
+                  Comparte estos codigos para unirse al equipo.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsInviteCodesOpen(false)}
+                className="rounded-lg p-1 text-[#6b7487] transition hover:bg-[#eef3fb] hover:text-[#005db6]"
+                aria-label="Cerrar codigos"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              {inviteCodeItems.map((item) => (
+                <article key={item.key} className="rounded-xl border border-[#dbe5f4] bg-[#f8fbff] px-3 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6a7386]">
+                    {item.label}
+                  </p>
+                  <p className="mt-1 rounded-lg bg-white px-3 py-2 font-mono text-sm font-extrabold tracking-[0.08em] text-[#005db6]">
+                    {item.code ?? 'No disponible'}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="[font-family:var(--font-plus-jakarta)] text-lg font-bold text-[#181c20]">
+                  Settings
+                </h3>
+                <p className="mt-1 text-xs font-semibold text-[#677084]">
+                  Edita tu perfil y actualiza tu foto.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSettingsOpen(false)}
+                className="rounded-lg p-1 text-[#6b7487] transition hover:bg-[#eef3fb] hover:text-[#005db6]"
+                aria-label="Cerrar ajustes"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {isSettingsLoading ? (
+              <div className="mt-6 flex items-center gap-2 text-sm text-[#5f6776]">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Cargando ajustes...
+              </div>
+            ) : (
+              <div className="mt-5 space-y-4">
+                <div className="flex items-center gap-4 rounded-xl border border-[#dbe5f4] bg-[#f8fbff] p-4">
+                  <div className="h-16 w-16 overflow-hidden rounded-full bg-[#dbe5f4]">
+                    {settingsProfile.foto_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={settingsProfile.foto_url} alt={settingsProfile.nombre || 'Perfil'} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[#4f5b70]">
+                        <UserRound className="h-7 w-7" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-[#1f2530]">{settingsProfile.nombre || 'Tu perfil'}</p>
+                    <p className="text-xs text-[#677084]">{settingsEmail || 'Sin email'}</p>
+                  </div>
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[#c8d8f7] bg-white px-3 py-2 text-xs font-bold text-[#005db6] transition hover:bg-[#eef3fb]">
+                    <Camera className="h-4 w-4" />
+                    {isPhotoUploading ? 'Subiendo...' : 'Cambiar foto'}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={handlePhotoChange}
+                      disabled={isPhotoUploading}
+                    />
+                  </label>
+                </div>
+
+                {settingsError ? (
+                  <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                    {settingsError}
+                  </p>
+                ) : null}
+                {settingsSuccess ? (
+                  <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                    {settingsSuccess}
+                  </p>
+                ) : null}
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6a7386]">Nombre</span>
+                    <input value={settingsProfile.nombre} onChange={(e) => setSettingsField('nombre', e.target.value)} className="w-full rounded-lg border border-[#dbe5f4] px-3 py-2 text-sm" />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6a7386]">Genero</span>
+                    <input value={settingsProfile.genero} onChange={(e) => setSettingsField('genero', e.target.value)} className="w-full rounded-lg border border-[#dbe5f4] px-3 py-2 text-sm" />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6a7386]">Edad</span>
+                    <input value={settingsProfile.edad} onChange={(e) => setSettingsField('edad', e.target.value)} className="w-full rounded-lg border border-[#dbe5f4] px-3 py-2 text-sm" />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6a7386]">Peso (kg)</span>
+                    <input value={settingsProfile.peso_kg} onChange={(e) => setSettingsField('peso_kg', e.target.value)} className="w-full rounded-lg border border-[#dbe5f4] px-3 py-2 text-sm" />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6a7386]">Altura (cm)</span>
+                    <input value={settingsProfile.altura_cm} onChange={(e) => setSettingsField('altura_cm', e.target.value)} className="w-full rounded-lg border border-[#dbe5f4] px-3 py-2 text-sm" />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6a7386]">Posicion</span>
+                    <input value={settingsProfile.posicion} onChange={(e) => setSettingsField('posicion', e.target.value)} className="w-full rounded-lg border border-[#dbe5f4] px-3 py-2 text-sm" />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6a7386]">Pie dominante</span>
+                    <input value={settingsProfile.pie_dominante} onChange={(e) => setSettingsField('pie_dominante', e.target.value)} className="w-full rounded-lg border border-[#dbe5f4] px-3 py-2 text-sm" />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6a7386]">Telefono</span>
+                    <input value={settingsProfile.telefono} onChange={(e) => setSettingsField('telefono', e.target.value)} className="w-full rounded-lg border border-[#dbe5f4] px-3 py-2 text-sm" />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6a7386]">Ciudad</span>
+                    <input value={settingsProfile.ciudad} onChange={(e) => setSettingsField('ciudad', e.target.value)} className="w-full rounded-lg border border-[#dbe5f4] px-3 py-2 text-sm" />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6a7386]">Pais</span>
+                    <input value={settingsProfile.pais} onChange={(e) => setSettingsField('pais', e.target.value)} className="w-full rounded-lg border border-[#dbe5f4] px-3 py-2 text-sm" />
+                  </label>
+                  <label className="space-y-1 md:col-span-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6a7386]">Instagram</span>
+                    <input value={settingsProfile.instagram} onChange={(e) => setSettingsField('instagram', e.target.value)} className="w-full rounded-lg border border-[#dbe5f4] px-3 py-2 text-sm" />
+                  </label>
+                  <label className="space-y-1 md:col-span-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6a7386]">Bio</span>
+                    <textarea rows={3} value={settingsProfile.bio} onChange={(e) => setSettingsField('bio', e.target.value)} className="w-full rounded-lg border border-[#dbe5f4] px-3 py-2 text-sm" />
+                  </label>
+                  <label className="space-y-1 md:col-span-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6a7386]">Objetivo</span>
+                    <textarea rows={3} value={settingsProfile.objetivo} onChange={(e) => setSettingsField('objetivo', e.target.value)} className="w-full rounded-lg border border-[#dbe5f4] px-3 py-2 text-sm" />
+                  </label>
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsSettingsOpen(false)}
+                    className="rounded-lg border border-[#d5dcea] px-3 py-2 text-xs font-bold text-[#4d5566] transition hover:bg-[#f4f7fb]"
+                  >
+                    Cerrar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveSettings()}
+                    disabled={isSettingsSaving || isPhotoUploading}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#005db6] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#004f9a] disabled:opacity-60"
+                  >
+                    {isSettingsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Guardar cambios
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {isCoach && isCreateEventOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">

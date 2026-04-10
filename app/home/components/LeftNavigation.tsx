@@ -2,27 +2,46 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, CalendarDays, LayoutDashboard, MessageSquare, Settings, Users } from 'lucide-react'
+import {
+  BarChart3,
+  CalendarDays,
+  KeyRound,
+  LayoutDashboard,
+  MessageSquare,
+  Settings,
+  Users,
+} from 'lucide-react'
 import { isActivePath, withEquipo } from '../utils'
 
 type LeftNavigationProps = {
   equipoId?: string
   teamName: string
+  isCodesActive?: boolean
+  onOpenCodes?: () => void
+  isSettingsActive?: boolean
+  onOpenSettings?: () => void
 }
 
 const MENU_ITEMS = [
   { label: 'Home', href: '/home', icon: LayoutDashboard },
   { label: 'Players', href: '/jugadores', icon: Users },
-  { label: 'Schedule', href: '/entrenamientos', icon: CalendarDays },
+  { label: 'Matches', href: '/partidos', icon: CalendarDays },
+  { label: 'Chats', href: '/chat', icon: MessageSquare },
   { label: 'Reports', href: '/estadisticas', icon: BarChart3 },
-  { label: 'Settings', href: '/settings', icon: Settings },
 ]
 
-export function LeftNavigation({ equipoId, teamName }: LeftNavigationProps) {
+export function LeftNavigation({
+  equipoId,
+  teamName,
+  isCodesActive = false,
+  onOpenCodes,
+  isSettingsActive = false,
+  onOpenSettings,
+}: LeftNavigationProps) {
   const pathname = usePathname()
 
   return (
-    <aside className="hidden h-[calc(100vh-64px)] w-64 shrink-0 border-r border-[#dfe3e8] bg-[#f4f7fc] p-4 xl:flex xl:flex-col">
+    <aside className="hidden h-screen w-64 shrink-0 border-r border-[#dfe3e8] bg-[#f4f7fc] p-4 xl:flex xl:flex-col">
       <div className="mb-5 px-2 py-4">
         <h2 className="[font-family:var(--font-plus-jakarta)] text-lg font-black text-[#00468c]">Elite Performance</h2>
         <p className="text-xs font-medium text-[#5f6776]">{teamName}</p>
@@ -49,6 +68,34 @@ export function LeftNavigation({ equipoId, teamName }: LeftNavigationProps) {
             </Link>
           )
         })}
+
+        <button
+          type="button"
+          onClick={onOpenCodes}
+          className={[
+            'flex w-full items-center gap-3 rounded-xl p-3 text-sm transition-transform duration-200 hover:translate-x-1',
+            isCodesActive
+              ? 'bg-[#d6e3ff] font-semibold text-[#00468c]'
+              : 'text-[#5f6776] hover:text-[#005db6]',
+          ].join(' ')}
+        >
+          <KeyRound className="h-[18px] w-[18px]" strokeWidth={1.8} />
+          <span className="[font-family:var(--font-plus-jakarta)]">Codigos</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className={[
+            'flex w-full items-center gap-3 rounded-xl p-3 text-sm transition-transform duration-200 hover:translate-x-1',
+            isSettingsActive
+              ? 'bg-[#d6e3ff] font-semibold text-[#00468c]'
+              : 'text-[#5f6776] hover:text-[#005db6]',
+          ].join(' ')}
+        >
+          <Settings className="h-[18px] w-[18px]" strokeWidth={1.8} />
+          <span className="[font-family:var(--font-plus-jakarta)]">Settings</span>
+        </button>
       </nav>
 
       <div className="mt-auto rounded-2xl bg-[#005db6] p-4 text-white">

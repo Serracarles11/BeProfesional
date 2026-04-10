@@ -67,13 +67,13 @@ export function PlayerSpotlightPanel({
           </div>
         </header>
 
-        <div className="group relative mb-8 aspect-[4/5] w-full overflow-hidden rounded-2xl bg-[#dfe3e8]">
+        <div className="relative mb-8 aspect-[4/5] w-full overflow-hidden rounded-2xl bg-[#dfe3e8]">
           {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imageUrl}
               alt={playerName}
-              className="h-full w-full scale-105 object-cover grayscale transition-all duration-700 group-hover:scale-100 group-hover:grayscale-0"
+              className="h-full w-full object-cover"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#a9c7ff] via-[#3176d2] to-[#005db6] text-6xl font-black text-white">
