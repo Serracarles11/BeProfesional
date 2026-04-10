@@ -5,9 +5,18 @@ const STAFF_ROLE_TOKENS = ['ENTREN', 'COACH', 'TECN', 'ADMIN', 'AUX', 'DELEG', '
 
 const EVENT_GOAL = 'GOL'
 const EVENT_ASSIST = 'ASISTENCIA'
-const EVENT_YELLOW = 'TARJETA_AMARILLA'
-const EVENT_RED = 'TARJETA_ROJA'
-const PLAYER_STAT_EVENT_TYPES = [EVENT_GOAL, EVENT_ASSIST, EVENT_YELLOW, EVENT_RED]
+const EVENT_YELLOW = 'AMARILLA'
+const EVENT_RED = 'ROJA'
+const LEGACY_EVENT_YELLOW = 'TARJETA_AMARILLA'
+const LEGACY_EVENT_RED = 'TARJETA_ROJA'
+const PLAYER_STAT_EVENT_TYPES = [
+  EVENT_GOAL,
+  EVENT_ASSIST,
+  EVENT_YELLOW,
+  EVENT_RED,
+  LEGACY_EVENT_YELLOW,
+  LEGACY_EVENT_RED,
+]
 
 type MembershipRow = {
   equipo_id: string
@@ -112,6 +121,23 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
 
+function parseMatchTime(value: string | null | undefined) {
+  if (!value) return null
+  const time = new Date(value).getTime()
+  return Number.isNaN(time) ? null : time
+}
+
+function isMatchOpenForStats(
+  fechaHora: string | null | undefined,
+  estado: string | null | undefined,
+  now = new Date()
+) {
+  if (normalizeText(estado) === 'FINALIZADO') return true
+  const matchTime = parseMatchTime(fechaHora)
+  if (matchTime === null) return false
+  return matchTime <= now.getTime()
+}
+
 function getWeekRange(now = new Date()) {
   const start = new Date(now)
   const weekdayOffset = (start.getDay() + 6) % 7
@@ -128,14 +154,41 @@ function getWeekRange(now = new Date()) {
 function pickWeekFeatured(matches: MatchRow[], now = new Date()) {
   if (matches.length === 0) return null
 
-  return [...matches]
-    .sort((left, right) => {
-      const leftTime = new Date(left.fecha_hora).getTime()
-      const rightTime = new Date(right.fecha_hora).getTime()
-      const leftDistance = Math.abs(leftTime - now.getTime())
-      const rightDistance = Math.abs(rightTime - now.getTime())
-      return leftDistance - rightDistance
+  const openMatches = matches.filter((match) => isMatchOpenForStats(match.fecha_hora, match.estado, now))
+  if (openMatches.length > 0) {
+    return [...openMatches].sort((left, right) => {
+      const leftTime = parseMatchTime(left.fecha_hora)
+      const rightTime = parseMatchTime(right.fecha_hora)
+      if (leftTime === null && rightTime === null) return 0
+      if (leftTime === null) return 1
+      if (rightTime === null) return -1
+      return rightTime - leftTime
     })[0]
+  }
+
+  const upcomingMatches = matches
+    .filter((match) => {
+      const matchTime = parseMatchTime(match.fecha_hora)
+      return matchTime !== null && matchTime > now.getTime()
+    })
+    .sort((left, right) => {
+      const leftTime = parseMatchTime(left.fecha_hora) ?? Number.POSITIVE_INFINITY
+      const rightTime = parseMatchTime(right.fecha_hora) ?? Number.POSITIVE_INFINITY
+      return leftTime - rightTime
+    })
+
+  if (upcomingMatches.length > 0) {
+    return upcomingMatches[0]
+  }
+
+  return [...matches].sort((left, right) => {
+    const leftTime = parseMatchTime(left.fecha_hora)
+    const rightTime = parseMatchTime(right.fecha_hora)
+    if (leftTime === null && rightTime === null) return 0
+    if (leftTime === null) return 1
+    if (rightTime === null) return -1
+    return rightTime - leftTime
+  })[0]
 }
 
 function isGoalEvent(value: string | null | undefined) {
@@ -170,14 +223,33 @@ function parseCounter(value: unknown) {
   return clamp(value, 0, 30)
 }
 
+function isMissingColumnError(
+  error: { code?: string | null; message?: string | null } | null | undefined,
+  column: string
+) {
+  const message = error?.message?.toLowerCase() ?? ''
+  const code = error?.code ?? ''
+  return (
+    code === '42703' ||
+    message.includes(`column ${column.toLowerCase()}`) ||
+    message.includes(`'${column.toLowerCase()}' column`)
+  )
+}
+
+function isUniqueViolation(error: { code?: string | null; message?: string | null } | null | undefined) {
+  const code = error?.code ?? ''
+  const message = error?.message?.toLowerCase() ?? ''
+  return code === '23505' || message.includes('duplicate key') || message.includes('unique constraint')
+}
+
 async function resolveParticipantPlayerColumn(
   supabase: Awaited<ReturnType<typeof createSupabaseRouteHandler>>
 ): Promise<ParticipantPlayerColumn | null> {
-  const byUsuarioId = await supabase.from('participantes_partido').select('usuario_id').limit(1)
-  if (!byUsuarioId.error) return 'usuario_id'
-
   const byJugadorId = await supabase.from('participantes_partido').select('jugador_id').limit(1)
-  if (!byJugadorId.error) return 'jugador_id'
+  if (!byJugadorId.error || !isMissingColumnError(byJugadorId.error, 'jugador_id')) return 'jugador_id'
+
+  const byUsuarioId = await supabase.from('participantes_partido').select('usuario_id').limit(1)
+  if (!byUsuarioId.error || !isMissingColumnError(byUsuarioId.error, 'usuario_id')) return 'usuario_id'
 
   return null
 }
@@ -185,22 +257,34 @@ async function resolveParticipantPlayerColumn(
 async function resolveEventColumns(
   supabase: Awaited<ReturnType<typeof createSupabaseRouteHandler>>
 ): Promise<{ player: EventPlayerColumn; related: EventRelatedColumn | null } | null> {
-  const playerUsuario = await supabase.from('eventos_partido').select('usuario_id').limit(1)
-  if (!playerUsuario.error) {
-    const relatedUsuario = await supabase
-      .from('eventos_partido')
-      .select('usuario_relacionado_id')
-      .limit(1)
-    return { player: 'usuario_id', related: relatedUsuario.error ? null : 'usuario_relacionado_id' }
-  }
-
   const playerJugador = await supabase.from('eventos_partido').select('jugador_id').limit(1)
-  if (!playerJugador.error) {
+  if (!playerJugador.error || !isMissingColumnError(playerJugador.error, 'jugador_id')) {
     const relatedJugador = await supabase
       .from('eventos_partido')
       .select('jugador_relacionado_id')
       .limit(1)
-    return { player: 'jugador_id', related: relatedJugador.error ? null : 'jugador_relacionado_id' }
+    return {
+      player: 'jugador_id',
+      related:
+        !relatedJugador.error || !isMissingColumnError(relatedJugador.error, 'jugador_relacionado_id')
+          ? 'jugador_relacionado_id'
+          : null,
+    }
+  }
+
+  const playerUsuario = await supabase.from('eventos_partido').select('usuario_id').limit(1)
+  if (!playerUsuario.error || !isMissingColumnError(playerUsuario.error, 'usuario_id')) {
+    const relatedUsuario = await supabase
+      .from('eventos_partido')
+      .select('usuario_relacionado_id')
+      .limit(1)
+    return {
+      player: 'usuario_id',
+      related:
+        !relatedUsuario.error || !isMissingColumnError(relatedUsuario.error, 'usuario_relacionado_id')
+          ? 'usuario_relacionado_id'
+          : null,
+    }
   }
 
   return null
@@ -542,8 +626,7 @@ export async function GET(request: NextRequest) {
 
     const featuredIsOpen =
       !!featuredMatch &&
-      (normalizeText(featuredMatch.estado) === 'FINALIZADO' ||
-        new Date(featuredMatch.fecha_hora).getTime() <= now.getTime())
+      isMatchOpenForStats(featuredMatch.fecha_hora, featuredMatch.estado, now)
 
     const mySubmission = featuredMatch
       ? getSubmissionFromRows(user.id, participants, events, featuredMatch.id)
@@ -636,8 +719,7 @@ export async function POST(request: NextRequest) {
 
     const now = new Date()
     const isOpenForStats =
-      normalizeText(match.estado) === 'FINALIZADO' ||
-      new Date(match.fecha_hora).getTime() <= now.getTime()
+      isMatchOpenForStats(match.fecha_hora, match.estado, now)
 
     if (!isOpenForStats) {
       return createErrorResponse('Solo puedes registrar estadisticas despues del partido.', 400)
@@ -650,20 +732,27 @@ export async function POST(request: NextRequest) {
 
     const existingParticipantResult = await supabase
       .from('participantes_partido')
-      .select(`id, ${participantColumn}`)
+      .select('id')
       .eq('partido_id', matchId)
       .eq(participantColumn, user.id)
-      .maybeSingle()
+      .order('id', { ascending: true })
+      .limit(1)
 
     if (existingParticipantResult.error) {
+      console.error('POST /api/partidos - existing participant query failed:', existingParticipantResult.error)
       return createErrorResponse('No se pudo validar tu participacion actual.', 500)
     }
 
-    if (existingParticipantResult.data?.id) {
+    const existingParticipantId =
+      Array.isArray(existingParticipantResult.data) && typeof existingParticipantResult.data[0]?.id === 'string'
+        ? existingParticipantResult.data[0].id
+        : null
+
+    if (existingParticipantId) {
       const updateResult = await supabase
         .from('participantes_partido')
         .update({ minutos_jugados: minutes })
-        .eq('id', existingParticipantResult.data.id)
+        .eq('id', existingParticipantId)
 
       if (updateResult.error) {
         return createErrorResponse('No se pudieron actualizar tus minutos.', 500)
@@ -671,13 +760,40 @@ export async function POST(request: NextRequest) {
     } else {
       const insertPayload: Record<string, unknown> = {
         partido_id: matchId,
+        convocado: true,
+        titular: false,
         minutos_jugados: minutes,
         [participantColumn]: user.id,
       }
 
       const insertResult = await supabase.from('participantes_partido').insert(insertPayload)
       if (insertResult.error) {
-        return createErrorResponse('No se pudo registrar tu participacion.', 500)
+        if (isUniqueViolation(insertResult.error)) {
+          // If another process/user already created this participant row, update minutes instead of failing.
+          const recoverUpdate = await supabase
+            .from('participantes_partido')
+            .update({ minutos_jugados: minutes })
+            .eq('partido_id', matchId)
+            .eq(participantColumn, user.id)
+
+          if (!recoverUpdate.error) {
+            // Participant row recovered, continue with event upsert.
+          } else {
+            console.error(
+              'POST /api/partidos - recover update after duplicate participant failed:',
+              recoverUpdate.error
+            )
+          }
+
+          if (!recoverUpdate.error) {
+            // Avoid returning early so goals/cards are still persisted below.
+          } else {
+            return createErrorResponse('No se pudo registrar tu participacion.', 500)
+          }
+        } else {
+          console.error('POST /api/partidos - participant insert failed:', insertResult.error)
+          return createErrorResponse('No se pudo registrar tu participacion.', 500)
+        }
       }
     }
 
