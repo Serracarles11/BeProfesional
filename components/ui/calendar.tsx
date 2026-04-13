@@ -82,19 +82,19 @@ export function Calendar({
 
   return (
     <div className={cn('rounded-lg border', className)}>
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={() => setViewDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
-          className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#d9e4f7] bg-white text-[#4e5b70] transition hover:border-[#bfd0ef] hover:text-[#005db6]"
+          className="flex h-7 w-7 items-center justify-center rounded-xl border border-[#d9e4f7] bg-white text-[#4e5b70] transition hover:border-[#bfd0ef] hover:text-[#005db6]"
           aria-label="Mes anterior"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-3.5 w-3.5" />
         </button>
 
         <div className="text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#7b8799]">Mes actual</p>
-          <h4 className="mt-1 [font-family:var(--font-plus-jakarta)] text-base font-bold capitalize text-[#181c20]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7b8799]">Mes actual</p>
+          <h4 className="mt-0.5 [font-family:var(--font-plus-jakarta)] text-[1.05rem] font-bold capitalize text-[#181c20]">
             {monthLabel}
           </h4>
         </div>
@@ -102,18 +102,18 @@ export function Calendar({
         <button
           type="button"
           onClick={() => setViewDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
-          className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#d9e4f7] bg-white text-[#4e5b70] transition hover:border-[#bfd0ef] hover:text-[#005db6]"
+          className="flex h-7 w-7 items-center justify-center rounded-xl border border-[#d9e4f7] bg-white text-[#4e5b70] transition hover:border-[#bfd0ef] hover:text-[#005db6]"
           aria-label="Mes siguiente"
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5 text-center">
+      <div className="grid grid-cols-7 gap-1 text-center">
         {WEEKDAY_LABELS.map((label) => (
           <span
             key={label}
-            className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7b8799]"
+            className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#7b8799]"
           >
             {label}
           </span>
@@ -136,7 +136,7 @@ export function Calendar({
               }}
               aria-pressed={isSelected}
               className={cn(
-                'flex h-12 flex-col items-center justify-center rounded-xl text-sm font-semibold transition-all',
+                'flex h-10 flex-col items-center justify-center rounded-lg text-[13px] font-semibold transition-all',
                 inCurrentMonth ? 'text-[#1f2734]' : 'text-[#a4aec0]',
                 isSelected
                   ? 'bg-[#005db6] text-white shadow-[0_14px_30px_-18px_rgba(0,93,182,0.9)]'
@@ -148,7 +148,7 @@ export function Calendar({
             >
               <span>{day.getDate()}</span>
               {summary ? (
-                <span className="mt-1 flex items-center gap-1">
+                <span className="mt-0.5 flex items-center gap-1">
                   {summary.trainings > 0 ? (
                     <span
                       className={cn(

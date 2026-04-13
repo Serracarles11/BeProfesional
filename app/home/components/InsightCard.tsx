@@ -118,10 +118,10 @@ export function InsightCard({ activities, isCoach, onOpenCreateEvent, onDeleteTr
   return (
     <>
       <section className="overflow-hidden rounded-[28px] border border-[#d9e4f7] bg-white shadow-[0_30px_80px_-42px_rgba(15,23,42,0.35)]">
-        <div className="border-b border-[#e7eef9] bg-[linear-gradient(135deg,#f8fbff_0%,#eef4ff_100%)] p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="border-b border-[#e7eef9] bg-[linear-gradient(135deg,#f8fbff_0%,#eef4ff_100%)] p-3.5">
+          <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#005db6] text-white shadow-[0_18px_34px_-18px_rgba(0,93,182,0.9)]">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#005db6] text-white shadow-[0_18px_34px_-18px_rgba(0,93,182,0.9)]">
                 <CalendarDays className="h-4.5 w-4.5" strokeWidth={2} />
               </div>
 
@@ -129,24 +129,24 @@ export function InsightCard({ activities, isCoach, onOpenCreateEvent, onDeleteTr
                 <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#5f6d86]">
                   Planificacion
                 </p>
-                <h3 className="mt-1 [font-family:var(--font-plus-jakarta)] text-lg font-extrabold text-[#0f172a]">
+                <h3 className="mt-0.5 [font-family:var(--font-plus-jakarta)] text-[1.05rem] font-extrabold text-[#0f172a]">
                   Calendario del equipo
                 </h3>
-                <p className="mt-1 max-w-2xl text-sm text-[#4b5565]">
+                <p className="mt-1 max-w-xl text-[13px] leading-snug text-[#4b5565]">
                   Visualiza entrenamientos y partidos y abre el detalle de cada evento desde el propio calendario.
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-col items-start gap-2 lg:items-end">
-              <span className="inline-flex rounded-full bg-white px-3 py-1 text-xs font-bold text-[#005db6] shadow-[0_12px_28px_-20px_rgba(0,93,182,0.55)]">
+            <div className="flex flex-col items-start gap-1.5 lg:items-end">
+              <span className="inline-flex rounded-full bg-white px-3 py-0.5 text-xs font-bold text-[#005db6] shadow-[0_12px_28px_-20px_rgba(0,93,182,0.55)]">
                 {selectedDateLabel}
               </span>
               {isCoach ? (
                 <button
                   type="button"
                   onClick={() => onOpenCreateEvent(selectedDateKey || undefined)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#005db6] px-3.5 py-2 text-sm font-bold text-white transition hover:bg-[#004f9a]"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#005db6] px-3 py-1.5 text-sm font-bold text-white transition hover:bg-[#004f9a]"
                 >
                   <Plus className="h-4 w-4" />
                   Anadir entrenamiento / partido
@@ -156,8 +156,8 @@ export function InsightCard({ activities, isCoach, onOpenCreateEvent, onDeleteTr
           </div>
         </div>
 
-        <div className="grid gap-5 p-4 xl:grid-cols-[1.02fr_0.98fr] xl:items-start">
-          <div className="rounded-[24px] border border-[#e3ebf8] bg-[#f8fbff] p-4 xl:h-[560px]">
+        <div className="grid gap-4 p-3.5 xl:grid-cols-[1.02fr_0.98fr] xl:items-start">
+          <div className="rounded-[24px] border border-[#e3ebf8] bg-[#f8fbff] p-3.5 xl:h-[500px]">
             <Calendar
               mode="single"
               selected={selectedDate}
@@ -166,7 +166,7 @@ export function InsightCard({ activities, isCoach, onOpenCreateEvent, onDeleteTr
               className="border-none bg-transparent p-0"
             />
 
-            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold text-[#617084]">
+            <div className="mt-2.5 flex flex-wrap items-center gap-3 text-xs font-semibold text-[#617084]">
               <span className="inline-flex items-center gap-2">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#005db6]" />
                 Entrenamientos
@@ -178,8 +178,8 @@ export function InsightCard({ activities, isCoach, onOpenCreateEvent, onDeleteTr
             </div>
           </div>
 
-          <div className="rounded-[24px] border border-[#e3ebf8] bg-[#fbfdff] p-4 xl:flex xl:h-[560px] xl:flex-col">
-            <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="rounded-[24px] border border-[#e3ebf8] bg-[#fbfdff] p-3.5 xl:flex xl:h-[500px] xl:flex-col">
+            <div className="mb-2.5 flex items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#738197]">
                   Eventos del dia
@@ -193,7 +193,7 @@ export function InsightCard({ activities, isCoach, onOpenCreateEvent, onDeleteTr
               </span>
             </div>
 
-            <div className="space-y-2.5 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1">
+            <div className="space-y-2 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1">
               {selectedDayEvents.length > 0 ? (
                 selectedDayEvents.map((event) => (
                   <button
@@ -203,9 +203,9 @@ export function InsightCard({ activities, isCoach, onOpenCreateEvent, onDeleteTr
                       setDeleteError('')
                       setActiveEvent(event)
                     }}
-                    className="w-full rounded-2xl border border-[#dbe5f4] bg-white p-3.5 text-left transition hover:border-[#bfd0ef] hover:shadow-[0_18px_40px_-34px_rgba(15,23,42,0.45)]"
+                    className="w-full rounded-2xl border border-[#dbe5f4] bg-white p-3 text-left transition hover:border-[#bfd0ef] hover:shadow-[0_18px_40px_-34px_rgba(15,23,42,0.45)]"
                   >
-                    <div className="mb-2 flex items-start justify-between gap-3">
+                    <div className="mb-1.5 flex items-start justify-between gap-3">
                       <div>
                         <span
                           className={[
