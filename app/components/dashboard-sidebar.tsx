@@ -6,6 +6,7 @@ import {
   Home,
   MessageSquare,
   Settings,
+  Sparkles,
   Trophy,
   Users,
   type LucideIcon,
@@ -114,6 +115,13 @@ export default function DashboardSidebar({ equipoId }: DashboardSidebarProps) {
       icon: MessageSquare,
       path: '/chat',
       href: withEquipoQuery('/chat', activeTeamId),
+    },
+    {
+      id: 'play-maker',
+      label: 'Play Maker',
+      icon: Sparkles,
+      path: '/play-maker',
+      href: withEquipoQuery('/play-maker', activeTeamId),
     },
     {
       id: 'settings',

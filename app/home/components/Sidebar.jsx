@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Dumbbell, Home, MessageSquare, Settings, Trophy, Users } from 'lucide-react'
+import { Dumbbell, Home, MessageSquare, Settings, Sparkles, Trophy, Users } from 'lucide-react'
 
 function withTeam(path, teamId) {
   if (!teamId) return path
@@ -26,6 +26,7 @@ export default function Sidebar({ equipoId }) {
     { id: 'train', label: 'Entrenamiento', icon: Dumbbell, path: '/entrenamientos', href: withTeam('/entrenamientos', activeTeamId) },
     { id: 'trophies', label: 'Trofeos', icon: Trophy, path: '/partidos', href: withTeam('/partidos', activeTeamId) },
     { id: 'chat', label: 'Chat', icon: MessageSquare, path: '/chat', href: withTeam('/chat', activeTeamId) },
+    { id: 'play-maker', label: 'Play Maker', icon: Sparkles, path: '/play-maker', href: withTeam('/play-maker', activeTeamId) },
     { id: 'settings', label: 'Ajustes', icon: Settings, path: '/settings', href: withTeam('/settings', activeTeamId) },
   ]
 
@@ -57,7 +58,7 @@ export default function Sidebar({ equipoId }) {
       </aside>
 
       <nav className="fixed bottom-3 left-3 right-3 z-40 lg:hidden">
-        <div className="grid grid-cols-6 gap-1 rounded-2xl border border-[#4a79df] bg-[#07205f]/90 p-2 backdrop-blur-xl">
+        <div className="grid grid-cols-7 gap-1 rounded-2xl border border-[#4a79df] bg-[#07205f]/90 p-2 backdrop-blur-xl">
           {items.map((item) => {
             const Icon = item.icon
             const active = isActive(pathname, item.path)
