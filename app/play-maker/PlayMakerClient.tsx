@@ -5,11 +5,19 @@ import { useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   ArrowLeft,
+  ArrowUpDown,
+  Copy,
+  Download,
+  Eye,
+  Heart,
   History,
+  MoreVertical,
   Plus,
   Search,
   Settings,
+  SlidersHorizontal,
   Sparkles,
+  Star,
   Trash2,
 } from 'lucide-react'
 import { LeftNavigation } from '@/app/home/components/LeftNavigation'
@@ -75,6 +83,19 @@ type SavedPlay = {
   title: string
   updatedAt: string
   draft: BoardDraft
+}
+
+type CommunityCategory = 'All Plays' | 'Attacking' | 'Defensive' | 'Set Pieces' | 'Counter-Press'
+
+type CommunityPlay = {
+  id: string
+  title: string
+  coach: string
+  downloads: number
+  likes: number
+  category: Exclude<CommunityCategory, 'All Plays'>
+  imageUrl: string
+  elitePick?: boolean
 }
 
 type PaletteSelection =
@@ -213,6 +234,91 @@ const TOOL_ICON_SRC: Record<ToolbarTool, string> = {
   BALL: '/playmaker-assets/pelota.png',
   DRAW: '/playmaker-assets/tactical-zone-marker.svg',
   ERASER: '/playmaker-assets/stopwatch.svg',
+}
+
+const COMMUNITY_CATEGORIES: CommunityCategory[] = [
+  'All Plays',
+  'Attacking',
+  'Defensive',
+  'Set Pieces',
+  'Counter-Press',
+]
+
+const COMMUNITY_FEATURED_PLAY = {
+  title: 'Total Overload 4-3-3',
+  coach: 'Coach Julian Nagels',
+  downloads: 12400,
+  imageUrl:
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuBszHBVUPCATCwjG-ymUolk1KKNfrWFZ0CqFMQ5ebHrT46czht4tfgwDh4G4TGhxX_ejS_oKZ2lvFIWb9MFQo_xRWU8xWgYb7tUbPgjWJgvEWmXBvKLqWpU7y3igYKNi7_F01Ss7QY55PjNnoguLaisk2OAqevNVCbqxOnhZvXaz6OUaAIM4LiMyjqztxIE4_dLfoPMrCpaZO92bbIutpLDz_hmZ11tAXIpH8uhbjAmM0F3LHZB8lQZM26sO9bp6O4dznVW1s60CeE',
+} as const
+
+const COMMUNITY_PLAYS: CommunityPlay[] = [
+  {
+    id: 'asymmetric-343-diamond',
+    title: 'Asymmetric 3-4-3 Diamond',
+    coach: 'Coach Rafa',
+    downloads: 2800,
+    likes: 942,
+    category: 'Attacking',
+    elitePick: true,
+    imageUrl:
+      'https://lh3.googleusercontent.com/aida-public/AB6AXuDlYzBlQcSips2QQf-8J-rtLsXNZcVF1PIxqAOEkrvIEqt0eKSzPSHT3VeeMtVGLKzfGhEeQwalbqDhTHSejC4erLwrQ73ZP5YhI1Zq9JwLVFdHPIfqyopdHah4r0M1aBbDGyghWsWK7KeB4i6QPjtrU9Djg8uSZoVAp66510uc8xImzbutMOFoEr7CAv8YnFqCUOMBN6KinHhqlRXtEDym6Ad-ofpmEHSDTW1B3g9FUgLrDVQCcNF5Z-4wa_o2SMsSBtmZK8AYzF8',
+  },
+  {
+    id: 'false9-transition-grid',
+    title: 'False 9 Transition Grid',
+    coach: 'Analyst Mark',
+    downloads: 1500,
+    likes: 428,
+    category: 'Counter-Press',
+    imageUrl:
+      'https://lh3.googleusercontent.com/aida-public/AB6AXuDzWOAqKin2cnS0zvVvy0PM4eehUyqU1iDm6cVRQoThb_o9yPuYGJxEw3_i-xCnR3IBwWXjrXjyQTOWa_jACRMKOVVbOFQngxPsmQGSZQwbt6bLWZUSzS0LHuSy0QFjheTYHj4MufvHNSXO5JkDO4VoUjlUfKVS1TdhRkD3VJR1hUlDjy-uXLVB1vWqKANtk6hqMcRJZrwl-vzn84dDbzTG_U3KK-OI14m29bQKwcQeZjyn8BVtayMduxhzwZkfFAb48R5JNXnYFvI',
+  },
+  {
+    id: 'corner-flag-trap',
+    title: 'Corner Flag Trap Set Piece',
+    coach: 'SetPiecePro',
+    downloads: 5200,
+    likes: 1200,
+    category: 'Set Pieces',
+    elitePick: true,
+    imageUrl:
+      'https://lh3.googleusercontent.com/aida-public/AB6AXuAjgft6_d6TsrUBnZkCtL0ZwEKIm56R8K3s39iRDmBYQ_UnooBt1BCDQlH72kwDK-574zzekuIRtlY-0242Cv8ZX1ZsLOQjT_hN5umcDH6-Dxe-hi44nrQaQnUEErkOdju_iH_bjpFHEa9yeOuVFZA3z7MFxdf3j6XCtBkLW8PPMWCcIztiTmWGlddLaGIHNSkBFsBHzq5Un5zo0yoDAxDLcvRFBVcUFooQ3_c6kWIPCCozZ7COIJ3-zKht_wrm_STX-7TNe2KmuI0',
+  },
+  {
+    id: 'box-to-box-442',
+    title: 'Box-to-Box Engine 4-4-2',
+    coach: 'Coach Sime',
+    downloads: 842,
+    likes: 210,
+    category: 'Defensive',
+    imageUrl:
+      'https://lh3.googleusercontent.com/aida-public/AB6AXuDOdIBJNk6561n2QjE_C10nUfCgbDC_jCB6-Ihza2SIgziLCPNaG0xZa28v1GXystBw3Hx2UdeDv596USUNPAi3anUhe1aGCXNNDKIgUPC7HuxeenmnP4bIyot5dAwoSWxn92Lo1d7a98r80aZE0oLJGy-7YR8_yIT0b5E8b-GAA_36eRC_Mt9fFmj69Jg_crzzx8bEgHD8bnppEpl5SVTUUlZL-qvA1tTmIZbMXimZck2KHj3PTszAMHA0uyq5nvMl426LW_hLrcU',
+  },
+  {
+    id: 'low-block-counter',
+    title: 'Low Block Counter Kill',
+    coach: 'Master_Tactics',
+    downloads: 1200,
+    likes: 650,
+    category: 'Defensive',
+    imageUrl:
+      'https://lh3.googleusercontent.com/aida-public/AB6AXuBs0vNipmnVBs6qdzkEH5-aOduwzKsV7t40Eu1gyjh4qmFl6_S7HujuFIrkLT_Lf4OWPiVqa4NwufrKjHPmNH3BTzDpwD68tlSLeTfDLRgP_hQSNfpPllzRh7WjwmbsvFnRHkOewD1bthPY8WFmYgCO-G6BBdKKtqbjOZoeguQw8ndHzL5YeCpAAAhVBiRYkX6GB7AxVI9bjlHT3AuSfYrBnCrCDa5-QzFKcrUnjz8tjwMeej6SgwAX-jF2vGiIdAAawFGYPqHs_ic',
+  },
+  {
+    id: 'zonal-overload-left',
+    title: 'Zonal Overload (Left Flank)',
+    coach: 'WingBackKing',
+    downloads: 940,
+    likes: 312,
+    category: 'Attacking',
+    imageUrl:
+      'https://lh3.googleusercontent.com/aida-public/AB6AXuD_xFxtxFIR646B6MXbd69IEER8iVcvH-ytsaAWLn3fnpgcOHoTnsuyrSGW37k2ptBesA0VMMwib-4G7F7T40igMVeOF0xvbQRZD5oWbxQCbacGYxFqCrsRp-WakmyD9jql7yU-9vaCp8zvNCzk5W3nRkAjGocKA9uQyOBQLzxMXsEpwMoOxvAHwBxB13Zx-kfYCuTRVRoR_GwYWLlKv63mNclbHaXPLYwLHLohDTE6dLb3y4q53QumF3EvWe-6DBJHBiv7ikg8_9A',
+  },
+]
+
+function formatCompactNumber(value: number) {
+  return new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
 }
 
 function createId(prefix: string) {
@@ -482,6 +588,8 @@ export default function PlayMakerClient() {
   const trashRef = useRef<HTMLDivElement | null>(null)
   const [activeTab, setActiveTab] = useState<PlayMakerTab>('MY')
   const [query, setQuery] = useState('')
+  const [communityCategory, setCommunityCategory] = useState<CommunityCategory>('All Plays')
+  const [communitySort, setCommunitySort] = useState<'newest' | 'popular'>('newest')
   const [isEditorOpen, setIsEditorOpen] = useState(false)
   const [activeTool, setActiveTool] = useState<ToolbarTool>('SELECT')
   const [paletteSelection, setPaletteSelection] = useState<PaletteSelection | null>(null)
@@ -524,6 +632,27 @@ export default function PlayMakerClient() {
     () => draft.phases.find((phase) => phase.id === draft.activePhaseId) ?? draft.phases[0],
     [draft]
   )
+
+  const communityPlays = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+    const filtered = COMMUNITY_PLAYS.filter((play) => {
+      const categoryMatch = communityCategory === 'All Plays' || play.category === communityCategory
+      if (!categoryMatch) return false
+      if (!normalizedQuery) return true
+      return (
+        play.title.toLowerCase().includes(normalizedQuery) ||
+        play.coach.toLowerCase().includes(normalizedQuery) ||
+        play.category.toLowerCase().includes(normalizedQuery)
+      )
+    })
+
+    const sorted = [...filtered]
+    if (communitySort === 'popular') {
+      sorted.sort((a, b) => b.downloads + b.likes - (a.downloads + a.likes))
+    }
+
+    return sorted
+  }, [communityCategory, communitySort, query])
 
   const serializedBoard = useMemo(() => JSON.stringify(draft), [draft])
 
@@ -2130,6 +2259,217 @@ export default function PlayMakerClient() {
                     </article>
                   )
                 })}
+              </div>
+            ) : activeTab === 'COMMUNITY' ? (
+              <div className="w-full space-y-8 lg:space-y-10">
+                <section className="relative overflow-hidden rounded-[30px] bg-gradient-to-br from-[#005db6] via-[#1f67c6] to-[#2b5bb5] p-6 text-white shadow-[0_18px_45px_rgba(0,93,182,0.28)] md:p-8 lg:p-10">
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.25),transparent_60%)]" />
+
+                  <div className="relative grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px]">
+                    <div>
+                      <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#ffe170] px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-[#3a3100]">
+                        <Star className="h-3.5 w-3.5 fill-current" />
+                        Most Downloaded Play of the Week
+                      </div>
+                      <h2 className="[font-family:var(--font-plus-jakarta)] text-3xl font-extrabold tracking-tight md:text-4xl xl:text-5xl">
+                        {COMMUNITY_FEATURED_PLAY.title}
+                      </h2>
+                      <div className="mt-4 flex flex-wrap items-center gap-4 text-sm font-semibold text-white/90">
+                        <span>{COMMUNITY_FEATURED_PLAY.coach}</span>
+                        <span className="h-1.5 w-1.5 rounded-full bg-white/50" />
+                        <span className="inline-flex items-center gap-1.5">
+                          <Download className="h-4 w-4" />
+                          {formatCompactNumber(COMMUNITY_FEATURED_PLAY.downloads)} downloads
+                        </span>
+                      </div>
+
+                      <div className="mt-7 flex flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={openNewPlay}
+                          className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-black text-[#005db6] transition hover:bg-[#f1f4f9]"
+                        >
+                          <Copy className="h-4 w-4" />
+                          Clone to My Library
+                        </button>
+                        <button
+                          type="button"
+                          onClick={openNewPlay}
+                          className="inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/15 px-6 py-3 text-sm font-black text-white backdrop-blur-sm transition hover:bg-white/25"
+                        >
+                          <Eye className="h-4 w-4" />
+                          View Breakdown
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mx-auto w-full max-w-[420px] lg:mx-0 lg:justify-self-end">
+                      <div className="rounded-3xl border border-white/30 bg-white/12 p-3 shadow-[0_14px_36px_rgba(0,0,0,0.24)] backdrop-blur-md">
+                        <div className="relative aspect-[4/3] overflow-hidden rounded-2xl">
+                          <PlaymakerAsset
+                            src={COMMUNITY_FEATURED_PLAY.imageUrl}
+                            alt={COMMUNITY_FEATURED_PLAY.title}
+                            className="h-full w-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
+                          <div className="absolute bottom-4 left-4 rounded-full bg-black/35 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-white">
+                            Positional Play
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="space-y-5">
+                  <div className="flex flex-wrap gap-2">
+                    {COMMUNITY_CATEGORIES.map((category) => {
+                      const isActive = communityCategory === category
+                      return (
+                        <button
+                          key={category}
+                          type="button"
+                          onClick={() => setCommunityCategory(category)}
+                          className={[
+                            'rounded-full px-5 py-2 text-xs font-black uppercase tracking-[0.1em] transition',
+                            isActive
+                              ? 'bg-[#005db6] text-white shadow-[0_10px_20px_rgba(0,93,182,0.25)]'
+                              : 'border border-[#dfe3e8] bg-white text-[#5f6776] hover:bg-[#f1f4f9]',
+                          ].join(' ')}
+                        >
+                          {category}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#dfe3e8] bg-white px-4 py-2.5 text-sm font-bold text-[#414754] transition hover:bg-[#f1f4f9]"
+                    >
+                      <SlidersHorizontal className="h-4 w-4" />
+                      Filter
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCommunitySort((current) => (current === 'newest' ? 'popular' : 'newest'))
+                      }
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#dfe3e8] bg-white px-4 py-2.5 text-sm font-bold text-[#414754] transition hover:bg-[#f1f4f9]"
+                    >
+                      <ArrowUpDown className="h-4 w-4" />
+                      Sort: {communitySort === 'newest' ? 'Newest' : 'Popular'}
+                    </button>
+                  </div>
+                </section>
+
+                {communityPlays.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                    {communityPlays.map((play) => (
+                      <article
+                        key={play.id}
+                        className="group flex flex-col overflow-hidden rounded-[22px] border border-[#e5e8ed] bg-white shadow-[0px_18px_35px_rgba(0,93,182,0.04)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0px_20px_40px_rgba(0,93,182,0.1)]"
+                      >
+                        <div className="relative aspect-video overflow-hidden">
+                          <PlaymakerAsset
+                            src={play.imageUrl}
+                            alt={play.title}
+                            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent opacity-80" />
+
+                          {play.elitePick ? (
+                            <div className="absolute left-4 top-4 inline-flex items-center gap-1 rounded-full bg-[#ffe170] px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#3a3100]">
+                              <Star className="h-3 w-3 fill-current" />
+                              Elite Pick
+                            </div>
+                          ) : null}
+
+                          <div className="absolute inset-x-0 bottom-4 flex items-center justify-center gap-2 opacity-0 transition group-hover:opacity-100">
+                            <button
+                              type="button"
+                              onClick={openNewPlay}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-[#005db6] transition hover:scale-105"
+                              aria-label={`Preview ${play.title}`}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={openNewPlay}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#005db6] text-white transition hover:scale-105"
+                              aria-label={`Clone ${play.title}`}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-1 flex-col p-5">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <h3 className="[font-family:var(--font-plus-jakarta)] text-lg font-bold leading-tight text-[#181c20]">
+                                {play.title}
+                              </h3>
+                              <p className="mt-1 text-sm font-semibold text-[#5f6776]">by {play.coach}</p>
+                            </div>
+                            <button
+                              type="button"
+                              className="rounded-lg p-1.5 text-[#9aa0ae] transition hover:bg-[#f1f4f9] hover:text-[#5f6776]"
+                              aria-label={`More options for ${play.title}`}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          <div className="mt-5 flex flex-wrap items-center gap-4 text-xs font-bold text-[#5f6776]">
+                            <span className="inline-flex items-center gap-1.5">
+                              <Download className="h-3.5 w-3.5" />
+                              {formatCompactNumber(play.downloads)}
+                            </span>
+                            <span className="inline-flex items-center gap-1.5">
+                              <Heart className="h-3.5 w-3.5" />
+                              {formatCompactNumber(play.likes)}
+                            </span>
+                            <span className="rounded-full bg-[#ebf2ff] px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] text-[#005db6]">
+                              {play.category}
+                            </span>
+                          </div>
+
+                          <div className="mt-6 grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={openNewPlay}
+                              className="rounded-xl bg-[#ebf2ff] px-3 py-2 text-sm font-bold text-[#005db6] transition hover:bg-[#d6e3ff]"
+                            >
+                              Preview
+                            </button>
+                            <button
+                              type="button"
+                              onClick={openNewPlay}
+                              className="rounded-xl bg-[#005db6] px-3 py-2 text-sm font-black text-white transition hover:bg-[#2b5bb5]"
+                            >
+                              Clone
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex w-full flex-1 items-center justify-center rounded-3xl border border-dashed border-[#c1c6d6] bg-white/50 p-10 text-center">
+                    <div className="max-w-md">
+                      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#ebf2ff] text-[#005db6]">
+                        <Search className="h-8 w-8" />
+                      </div>
+                      <p className="text-sm font-semibold text-[#414754]">No community plays found.</p>
+                      <p className="mt-2 text-xs text-[#727785]">
+                        Try another search term or change the selected category.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex w-full flex-1 items-center justify-center rounded-3xl border border-dashed border-[#c1c6d6] bg-white/50 p-10 text-center">
