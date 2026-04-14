@@ -21,6 +21,18 @@ import {
   Trash2,
 } from 'lucide-react'
 import { LeftNavigation } from '@/app/home/components/LeftNavigation'
+import type {
+  BoardDraft,
+  BoardDrawing,
+  BoardElement,
+  EquipmentType,
+  MarkerColor,
+  PhaseDraft,
+  PlaymakerAnalysis,
+  PlaymakerAnalysisResponse,
+  PlaymakerImprovement,
+  PlaymakerImprovementResponse,
+} from '@/lib/playmaker/types'
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -36,47 +48,6 @@ const manrope = Manrope({
 
 type PlayMakerTab = 'MY' | 'COMMUNITY' | 'PUBLIC' | 'PRIVATE'
 type ToolbarTool = 'SELECT' | 'TOOLS' | 'BALL' | 'DRAW' | 'ERASER'
-type EquipmentType = 'cone' | 'ladder' | 'pole' | 'hurdle' | 'mannequin' | 'mini-goal'
-type MarkerColor = 'blue' | 'red' | 'ball'
-type ElementType = 'marker' | EquipmentType
-
-type BoardElement = {
-  id: string
-  type: ElementType
-  xPct: number
-  yPct: number
-  widthPct: number
-  heightPct: number
-  rotationDeg: number
-  color?: MarkerColor
-  label?: string
-}
-
-type BoardDrawing = {
-  id: string
-  type: 'arrow'
-  color: string
-  startXPct: number
-  startYPct: number
-  endXPct: number
-  endYPct: number
-  strokeWidthPct: number
-}
-
-type PhaseDraft = {
-  id: string
-  label: string
-  elements: BoardElement[]
-  drawings: BoardDrawing[]
-}
-
-type BoardDraft = {
-  version: 1
-  name: string
-  analysisContext: string
-  activePhaseId: string
-  phases: PhaseDraft[]
-}
 
 type SavedPlay = {
   id: string
@@ -123,31 +94,6 @@ type PlaymakerApiResponse = {
   ok: boolean
   plays?: SavedPlay[]
   play?: SavedPlay
-  error?: string
-}
-
-type PlaymakerAnalysis = {
-  verdict: string
-  main_problem: string
-  reasons: string[]
-  improvements: string[]
-  danger_zones: string[]
-  strengths: string[]
-  assumptions: string[]
-  recommendations: Array<{
-    title: string
-    reason: string
-    changes: Array<{
-      operation: 'move_element' | 'add_drawing' | 'delete_drawing'
-      [key: string]: unknown
-    }>
-  }>
-  confidence: 'low' | 'medium' | 'high'
-}
-
-type PlaymakerAnalysisResponse = {
-  ok: boolean
-  data?: PlaymakerAnalysis
   error?: string
 }
 
@@ -327,6 +273,82 @@ function createId(prefix: string) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
+}
+
+function getConfidenceMeta(confidence: PlaymakerAnalysis['confidence']) {
+  switch (confidence) {
+    case 'high':
+      return {
+        label: 'Confianza alta',
+        className: 'bg-[#e8f5e9] text-[#1b5e20]',
+      }
+    case 'low':
+      return {
+        label: 'Confianza baja',
+        className: 'bg-[#fff4e5] text-[#8a5200]',
+      }
+    default:
+      return {
+        label: 'Confianza media',
+        className: 'bg-[#ebf2ff] text-[#005db6]',
+      }
+  }
+}
+
+function createPreviewPhaseFromImprovement(
+  sourcePhase: PhaseDraft,
+  improvement: PlaymakerImprovement,
+  createIdFn: (prefix: string) => string
+) {
+  const nextPhase: PhaseDraft = {
+    ...sourcePhase,
+    elements: sourcePhase.elements.map((element) => ({ ...element })),
+    drawings: sourcePhase.drawings.map((drawing) => ({ ...drawing })),
+  }
+
+  for (const change of improvement.changes) {
+    if (change.type === 'move_element') {
+      nextPhase.elements = nextPhase.elements.map((element) => {
+        if (element.id !== change.elementId) return element
+        const halfWidth = element.widthPct / 2
+        const halfHeight = element.heightPct / 2
+        return {
+          ...element,
+          xPct: clamp(change.to.x, halfWidth, 100 - halfWidth),
+          yPct: clamp(change.to.y, halfHeight, 100 - halfHeight),
+        }
+      })
+      continue
+    }
+
+    if (change.type === 'add_drawing') {
+      nextPhase.drawings = [
+        ...nextPhase.drawings,
+        {
+          id: createIdFn('arrow-improvement'),
+          type: 'arrow',
+          color:
+            change.drawing.kind === 'pass'
+              ? '#7bb1ff'
+              : change.drawing.kind === 'support'
+                ? '#6ed4a0'
+                : change.drawing.color ?? '#ffe170',
+          startXPct: clamp(change.drawing.from.x, 0, 100),
+          startYPct: clamp(change.drawing.from.y, 0, 100),
+          endXPct: clamp(change.drawing.to.x, 0, 100),
+          endYPct: clamp(change.drawing.to.y, 0, 100),
+          strokeWidthPct: clamp(change.drawing.strokeWidthPct ?? 0.8, 0.3, 2),
+        },
+      ]
+      continue
+    }
+
+    if (change.type === 'delete_drawing') {
+      nextPhase.drawings = nextPhase.drawings.filter((drawing) => drawing.id !== change.drawingId)
+    }
+  }
+
+  return nextPhase
 }
 
 function createMarkerElement(
@@ -606,7 +628,13 @@ export default function PlayMakerClient() {
   const [isSaving, setIsSaving] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState<PlaymakerAnalysis | null>(null)
+  const [analysisMeta, setAnalysisMeta] = useState<PlaymakerAnalysisResponse['meta'] | null>(null)
   const [analysisError, setAnalysisError] = useState<string | null>(null)
+  const [isGeneratingImprovement, setIsGeneratingImprovement] = useState(false)
+  const [improvement, setImprovement] = useState<PlaymakerImprovement | null>(null)
+  const [improvementMeta, setImprovementMeta] = useState<PlaymakerImprovementResponse['meta'] | null>(null)
+  const [improvementError, setImprovementError] = useState<string | null>(null)
+  const [previewPhase, setPreviewPhase] = useState<PhaseDraft | null>(null)
   const [sharePlay, setSharePlay] = useState<SavedPlay | null>(null)
   const [shareChannels, setShareChannels] = useState<ChatChannel[]>([])
   const [selectedShareChatId, setSelectedShareChatId] = useState<string>('')
@@ -632,6 +660,10 @@ export default function PlayMakerClient() {
     () => draft.phases.find((phase) => phase.id === draft.activePhaseId) ?? draft.phases[0],
     [draft]
   )
+
+  const visiblePhase = previewPhase ?? activePhase
+
+  const analysisConfidenceMeta = analysis ? getConfidenceMeta(analysis.confidence) : null
 
   const communityPlays = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
@@ -967,6 +999,7 @@ export default function PlayMakerClient() {
 
   function setActivePhase(phaseId: string) {
     setDraft((current) => ({ ...current, activePhaseId: phaseId }))
+    setPreviewPhase(null)
     setSelectedElementId(null)
     setSelectedDrawingId(null)
     setDragState(null)
@@ -1050,6 +1083,7 @@ export default function PlayMakerClient() {
   }
 
   function handlePitchPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (previewPhase) return
     if (activeTool !== 'DRAW') return
 
     const target = event.target as HTMLElement | SVGElement
@@ -1081,6 +1115,7 @@ export default function PlayMakerClient() {
   }
 
   function handlePitchClick(event: ReactPointerEvent<HTMLDivElement>) {
+    if (previewPhase) return
     const target = event.target as HTMLElement | SVGElement
     const targetElement = target instanceof Element ? target : null
     if (targetElement?.closest('button')) return
@@ -1093,6 +1128,7 @@ export default function PlayMakerClient() {
   }
 
   function handleElementPointerDown(elementId: string, event: ReactPointerEvent<HTMLButtonElement>) {
+    if (previewPhase) return
     event.stopPropagation()
 
     if (activeTool === 'ERASER') {
@@ -1121,6 +1157,7 @@ export default function PlayMakerClient() {
   }
 
   function handleDrawingClick(drawingId: string) {
+    if (previewPhase) return
     if (activeTool === 'ERASER') {
       setDraft((current) => ({
         ...current,
@@ -1143,6 +1180,7 @@ export default function PlayMakerClient() {
   }
 
   function handleDrawingPointerDown(drawingId: string, event: ReactPointerEvent<SVGGElement>) {
+    if (previewPhase) return
     event.stopPropagation()
 
     if (activeTool === 'ERASER') {
@@ -1261,12 +1299,7 @@ export default function PlayMakerClient() {
       }
 
       if (change.operation === 'delete_drawing') {
-        const drawingId =
-          typeof change.drawingId === 'string'
-            ? change.drawingId
-            : typeof change.id === 'string'
-              ? change.id
-              : ''
+        const drawingId = typeof change.drawingId === 'string' ? change.drawingId : ''
 
         if (!drawingId) continue
         nextPhase.drawings = nextPhase.drawings.filter((drawing) => drawing.id !== drawingId)
@@ -1404,6 +1437,10 @@ export default function PlayMakerClient() {
 
     setIsAnalyzing(true)
     setAnalysisError(null)
+    setImprovement(null)
+    setImprovementMeta(null)
+    setImprovementError(null)
+    setPreviewPhase(null)
 
     try {
       const response = await fetch('/api/playmaker/analyze', {
@@ -1423,11 +1460,72 @@ export default function PlayMakerClient() {
       }
 
       setAnalysis(payload.data)
+      setAnalysisMeta(payload.meta ?? null)
     } catch (error) {
+      setAnalysisMeta(null)
       setAnalysisError(error instanceof Error ? error.message : 'No se pudo analizar la jugada.')
     } finally {
       setIsAnalyzing(false)
     }
+  }
+
+  async function generateImprovement() {
+    if (isGeneratingImprovement || !analysis) return
+
+    setIsGeneratingImprovement(true)
+    setImprovementError(null)
+    setPreviewPhase(null)
+
+    try {
+      const response = await fetch('/api/playmaker/improve', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          draft,
+          analysis,
+        }),
+      })
+
+      const payload = (await response.json()) as PlaymakerImprovementResponse
+      if (!response.ok || !payload.ok || !payload.data) {
+        throw new Error(payload.error ?? 'Improvement failed')
+      }
+
+      setImprovement(payload.data)
+      setImprovementMeta(payload.meta ?? null)
+    } catch (error) {
+      setImprovementMeta(null)
+      setImprovementError(error instanceof Error ? error.message : 'No se pudo generar la mejora.')
+    } finally {
+      setIsGeneratingImprovement(false)
+    }
+  }
+
+  function previewImprovement() {
+    if (!improvement) return
+    const nextPreview = createPreviewPhaseFromImprovement(activePhase, improvement, createId)
+    setPreviewPhase(nextPreview)
+    setSelectedElementId(null)
+    setSelectedDrawingId(null)
+  }
+
+  function clearImprovementPreview() {
+    setPreviewPhase(null)
+  }
+
+  function applyImprovement() {
+    if (!improvement) return
+
+    const improvedPhase = createPreviewPhaseFromImprovement(activePhase, improvement, createId)
+    setDraft((current) => ({
+      ...current,
+      phases: current.phases.map((phase) => (phase.id === current.activePhaseId ? improvedPhase : phase)),
+    }))
+    setPreviewPhase(null)
+    setSaveNotice('Mejora aplicada a la fase actual')
   }
 
   async function saveBoard() {
@@ -1507,7 +1605,12 @@ export default function PlayMakerClient() {
     setDrawingState(null)
     setDrawingDragState(null)
     setAnalysis(null)
+    setAnalysisMeta(null)
     setAnalysisError(null)
+    setImprovement(null)
+    setImprovementMeta(null)
+    setImprovementError(null)
+    setPreviewPhase(null)
     setSaveNotice(`Opened ${new Date(play.updatedAt).toLocaleDateString('es-ES')}`)
     setIsEditorOpen(true)
   }
@@ -1522,7 +1625,12 @@ export default function PlayMakerClient() {
     setDrawingState(null)
     setDrawingDragState(null)
     setAnalysis(null)
+    setAnalysisMeta(null)
     setAnalysisError(null)
+    setImprovement(null)
+    setImprovementMeta(null)
+    setImprovementError(null)
+    setPreviewPhase(null)
     setSaveNotice('New draft')
     setIsEditorOpen(true)
   }
@@ -1722,7 +1830,7 @@ export default function PlayMakerClient() {
                     Analisis IA
                   </p>
                   <p className="mt-1 text-xs text-[#727785]">
-                    Opinion tactica breve sobre la idea actual.
+                    Lectura tactica contextual sobre la fase actual.
                   </p>
                 </div>
                 <div className="inline-flex items-center gap-1 rounded-full bg-[#ebf2ff] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#005db6]">
@@ -1758,28 +1866,64 @@ export default function PlayMakerClient() {
 
                 {analysis ? (
                   <div className="mt-4 space-y-4 pb-2">
-                    <div>
-                      <p className="[font-family:var(--font-plus-jakarta)] text-base font-extrabold leading-snug text-[#0e1f46]">
+                    <div className="rounded-[28px] border border-[#dbe5f3] bg-[linear-gradient(180deg,#f4f8ff_0%,#ffffff_100%)] p-4 shadow-[0_12px_28px_rgba(0,93,182,0.08)]">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-[#0e1f46] px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">
+                          Veredicto
+                        </span>
+                        {analysisConfidenceMeta ? (
+                          <span
+                            className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${analysisConfidenceMeta.className}`}
+                          >
+                            {analysisConfidenceMeta.label}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-3 [font-family:var(--font-plus-jakarta)] text-lg font-extrabold leading-snug text-[#0e1f46]">
                         {analysis.verdict}
                       </p>
-                      <p className="mt-3 rounded-2xl bg-[#fff4e5] px-3 py-2 text-sm font-semibold text-[#8a5200]">
-                        {analysis.main_problem}
-                      </p>
-                      <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#727785]">
-                        Confidence {analysis.confidence}
-                      </p>
+                      <div className="mt-4 rounded-2xl bg-[#fff4e5] px-3 py-3">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8a5200]">
+                          Problema principal
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-[#8a5200]">{analysis.main_problem}</p>
+                      </div>
+                      {analysisMeta?.fallbackUsed ? (
+                        <p className="mt-3 rounded-2xl bg-[#f1f4f9] px-3 py-2 text-xs font-semibold text-[#5f6776]">
+                          Se ha usado una lectura de respaldo porque la respuesta estructurada de OpenAI no llego limpia.
+                        </p>
+                      ) : null}
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={generateImprovement}
+                          disabled={isGeneratingImprovement}
+                          className="inline-flex rounded-full bg-[#0e1f46] px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:opacity-90 disabled:cursor-wait disabled:opacity-70"
+                        >
+                          {isGeneratingImprovement ? 'Creando mejora...' : 'Crear mejora'}
+                        </button>
+                        {improvement ? (
+                          <button
+                            type="button"
+                            onClick={previewPhase ? clearImprovementPreview : previewImprovement}
+                            className="inline-flex rounded-full border border-[#bfd0ef] bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-[#005db6] transition hover:bg-[#ebf2ff]"
+                          >
+                            {previewPhase ? 'Ocultar preview' : 'Preview mejora'}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
 
                     {analysis.reasons.length > 0 ? (
                       <div>
                         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#5f6776]">
-                          Reasons
+                          Por que
                         </p>
                         <div className="mt-2 space-y-2">
                           {analysis.reasons.map((reason, index) => (
                             <p
                               key={`reason-${index}`}
-                              className="rounded-2xl bg-[#f8fafc] px-3 py-2 text-sm font-medium text-[#414754]"
+                              className="rounded-2xl border border-[#dfe3e8] bg-[#f8fafc] px-3 py-3 text-sm font-medium text-[#414754]"
                             >
                               {reason}
                             </p>
@@ -1791,13 +1935,13 @@ export default function PlayMakerClient() {
                     {analysis.improvements.length > 0 ? (
                       <div>
                         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#5f6776]">
-                          Improvements
+                          Ajustes sugeridos
                         </p>
                         <div className="mt-2 space-y-2">
                           {analysis.improvements.map((improvement, index) => (
                             <p
                               key={`improvement-${index}`}
-                              className="rounded-2xl bg-[#ebf2ff] px-3 py-2 text-sm font-semibold text-[#005db6]"
+                              className="rounded-2xl bg-[#ebf2ff] px-3 py-3 text-sm font-semibold text-[#005db6]"
                             >
                               {improvement}
                             </p>
@@ -1809,13 +1953,13 @@ export default function PlayMakerClient() {
                     {analysis.danger_zones.length > 0 ? (
                       <div>
                         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#5f6776]">
-                          Danger Zones
+                          Zonas de peligro
                         </p>
                         <div className="mt-2 space-y-2">
                           {analysis.danger_zones.map((zone, index) => (
                             <p
                               key={`danger-zone-${index}`}
-                              className="rounded-2xl bg-[#ffdad6] px-3 py-2 text-sm font-semibold text-[#93000a]"
+                              className="rounded-2xl bg-[#ffdad6] px-3 py-3 text-sm font-semibold text-[#93000a]"
                             >
                               {zone}
                             </p>
@@ -1827,13 +1971,13 @@ export default function PlayMakerClient() {
                     {analysis.strengths.length > 0 ? (
                       <div>
                         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#5f6776]">
-                          Strengths
+                          Puntos fuertes
                         </p>
                         <div className="mt-2 space-y-2">
                           {analysis.strengths.map((strength, index) => (
                             <p
                               key={`strength-${index}`}
-                              className="rounded-2xl bg-[#e8f5e9] px-3 py-2 text-sm font-semibold text-[#1b5e20]"
+                              className="rounded-2xl bg-[#e8f5e9] px-3 py-3 text-sm font-semibold text-[#1b5e20]"
                             >
                               {strength}
                             </p>
@@ -1845,13 +1989,13 @@ export default function PlayMakerClient() {
                     {analysis.assumptions.length > 0 ? (
                       <div>
                         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#5f6776]">
-                          Assumptions
+                          Suposiciones
                         </p>
                         <div className="mt-2 space-y-2">
                           {analysis.assumptions.map((assumption, index) => (
                             <p
                               key={`assumption-${index}`}
-                              className="rounded-2xl bg-[#f1f4f9] px-3 py-2 text-sm font-medium text-[#5f6776]"
+                              className="rounded-2xl bg-[#f1f4f9] px-3 py-3 text-sm font-medium text-[#5f6776]"
                             >
                               {assumption}
                             </p>
@@ -1863,13 +2007,13 @@ export default function PlayMakerClient() {
                     {analysis.recommendations.length > 0 ? (
                       <div>
                         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#5f6776]">
-                          Board Recommendations
+                          Parches de tablero
                         </p>
                         <div className="mt-2 space-y-3">
                           {analysis.recommendations.map((recommendation, index) => (
                             <div
                               key={`recommendation-${index}`}
-                              className="rounded-3xl border border-[#dfe3e8] bg-white p-3"
+                              className="rounded-3xl border border-[#dfe3e8] bg-white p-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"
                             >
                               <p className="text-sm font-extrabold text-[#0e1f46]">
                                 {recommendation.title}
@@ -1899,33 +2043,130 @@ export default function PlayMakerClient() {
                         </div>
                       </div>
                     ) : null}
+
+                    {improvement ? (
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#5f6776]">
+                          Version mejorada
+                        </p>
+                        <div className="mt-2 rounded-3xl border border-[#dfe3e8] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+                          <p className="text-sm font-extrabold text-[#0e1f46]">{improvement.improved_verdict}</p>
+                          <p className="mt-2 rounded-2xl bg-[#ebf2ff] px-3 py-2 text-sm font-semibold text-[#005db6]">
+                            Objetivo: {improvement.improvement_goal}
+                          </p>
+                          {improvement.expected_benefits.length > 0 ? (
+                            <div className="mt-3 space-y-2">
+                              {improvement.expected_benefits.map((benefit, index) => (
+                                <p
+                                  key={`improvement-benefit-${index}`}
+                                  className="rounded-2xl bg-[#e8f5e9] px-3 py-2 text-sm font-semibold text-[#1b5e20]"
+                                >
+                                  {benefit}
+                                </p>
+                              ))}
+                            </div>
+                          ) : null}
+                          <div className="mt-3 space-y-2">
+                            {improvement.changes.map((change, index) => (
+                              <pre
+                                key={`improvement-change-${index}`}
+                                className="overflow-x-auto rounded-2xl bg-[#f8fafc] px-3 py-2 text-xs font-medium text-[#5f6776]"
+                              >
+                                {JSON.stringify(change, null, 2)}
+                              </pre>
+                            ))}
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={previewPhase ? clearImprovementPreview : previewImprovement}
+                              className="inline-flex rounded-full border border-[#bfd0ef] bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-[#005db6] transition hover:bg-[#ebf2ff]"
+                            >
+                              {previewPhase ? 'Ocultar preview' : 'Preview mejora'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={applyImprovement}
+                              className="inline-flex rounded-full bg-[#005db6] px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:opacity-90"
+                            >
+                              Aplicar mejora
+                            </button>
+                          </div>
+                          {improvementMeta?.fallbackUsed ? (
+                            <p className="mt-3 rounded-2xl bg-[#f1f4f9] px-3 py-2 text-xs font-semibold text-[#5f6776]">
+                              Esta propuesta uso una mejora de respaldo porque OpenAI no devolvio una mejora estructurada limpia.
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <div className="mt-4 rounded-3xl border border-dashed border-[#dfe3e8] bg-[#f8fafc] p-4">
-                    <p className="text-sm font-semibold text-[#414754]">
-                      {isAnalyzing ? 'Analizando la estructura y el riesgo tactico...' : 'Pulsa "Analizar IA" para recibir una opinion de entrenador.'}
-                    </p>
-                    <p className="mt-2 text-xs text-[#727785]">
-                      El analisis juzga la idea: apoyos, balance defensivo, weak side, espacio a la espalda y riesgo tras perdida.
-                    </p>
+                    {isAnalyzing ? (
+                      <div className="space-y-3">
+                        <div className="h-4 w-28 animate-pulse rounded-full bg-[#d8e4f6]" />
+                        <div className="h-16 animate-pulse rounded-2xl bg-[#eaf1fb]" />
+                        <div className="h-12 animate-pulse rounded-2xl bg-[#eef3fa]" />
+                        <p className="text-sm font-semibold text-[#414754]">
+                          Analizando contexto, estructura, apoyos y riesgo tras perdida...
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm font-semibold text-[#414754]">
+                          Pulsa &quot;Analizar IA&quot; para recibir una opinion de entrenador sobre esta fase.
+                        </p>
+                        <p className="mt-2 text-xs text-[#727785]">
+                          La IA ahora valora lado fuerte, lado debil, apoyos, rest defence, espacio a la espalda y viabilidad real de la idea.
+                        </p>
+                      </>
+                    )}
                   </div>
                 )}
+
+                {analysisMeta && analysis ? (
+                  <p className="mt-3 text-[11px] font-semibold text-[#727785]">
+                    Modelo: {analysisMeta.model}
+                  </p>
+                ) : null}
 
                 {analysisError ? (
                   <p className="mt-3 rounded-2xl bg-[#ffdad6] px-3 py-2 text-sm font-semibold text-[#93000a]">
                     {analysisError}
                   </p>
                 ) : null}
+
+                {improvementError ? (
+                  <p className="mt-3 rounded-2xl bg-[#ffdad6] px-3 py-2 text-sm font-semibold text-[#93000a]">
+                    {improvementError}
+                  </p>
+                ) : null}
+
+                {!analysis && !analysisError && !isAnalyzing ? (
+                  <div className="mt-3 rounded-2xl bg-white/70 px-3 py-2 text-xs font-medium text-[#727785]">
+                    Cuanto mejor expliques el objetivo en el contexto, mas exigente y precisa sera la lectura tactica.
+                  </div>
+                ) : null}
               </div>
             </aside>
 
             <section className="flex flex-1 items-center justify-center px-3 pb-28 pt-3 md:px-6 md:pt-5">
-              <div
-                ref={pitchRef}
-                onPointerDown={handlePitchPointerDown}
-                onClick={handlePitchClick}
-                className="relative aspect-[9/14] h-full max-h-[82vh] w-full max-w-[540px] overflow-hidden rounded-[32px] border-[12px] border-white/10 bg-gradient-to-b from-[#2e7d32] to-[#1b5e20] shadow-2xl ring-1 ring-black/5"
-              >
+              <div className="relative aspect-[9/14] h-full max-h-[82vh] w-full max-w-[540px]">
+                {previewPhase ? (
+                  <div className="absolute left-4 right-4 top-4 z-40 rounded-2xl border border-white/60 bg-[#0e1f46]/88 px-4 py-3 text-white shadow-[0_12px_28px_rgba(14,31,70,0.28)] backdrop-blur">
+                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-white/75">Preview mejora</p>
+                    <p className="mt-1 text-sm font-semibold">
+                      Estas viendo una version propuesta de la fase actual. Puedes ocultarla o aplicarla desde el panel IA.
+                    </p>
+                  </div>
+                ) : null}
+                <div
+                  ref={pitchRef}
+                  onPointerDown={handlePitchPointerDown}
+                  onClick={handlePitchClick}
+                  className="relative h-full w-full overflow-hidden rounded-[32px] border-[12px] border-white/10 bg-gradient-to-b from-[#2e7d32] to-[#1b5e20] shadow-2xl ring-1 ring-black/5"
+                >
                 <div className="absolute inset-0 opacity-20 [background-image:repeating-linear-gradient(180deg,transparent,transparent_5%,rgba(255,255,255,0.05)_5%,rgba(255,255,255,0.05)_10%)]" />
                 <div className="absolute inset-4 rounded-sm border-2 border-white/40" />
                 <div className="absolute left-0 top-1/2 h-[2px] w-full -translate-y-1/2 bg-white/40" />
@@ -1950,9 +2191,9 @@ export default function PlayMakerClient() {
                   </defs>
 
                   {[
-                    ...activePhase.drawings,
+                    ...visiblePhase.drawings,
                     ...(drawingState &&
-                    !activePhase.drawings.some((item) => item.id === drawingState.drawing.id)
+                    !visiblePhase.drawings.some((item) => item.id === drawingState.drawing.id)
                       ? [drawingState.drawing]
                       : []),
                   ].map((drawing) => {
@@ -1981,7 +2222,7 @@ export default function PlayMakerClient() {
                   })}
                 </svg>
 
-                {activePhase.elements.map((element) => {
+                {visiblePhase.elements.map((element) => {
                   const isSelected = selectedElementId === element.id
 
                   return (
@@ -2009,6 +2250,7 @@ export default function PlayMakerClient() {
                 })}
 
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                </div>
               </div>
             </section>
 

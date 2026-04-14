@@ -1,163 +1,227 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
-
-type BoardDraftPayload = {
-  version: number
-  name?: string
-  analysisContext?: string
-  activePhaseId: string
-  phases: unknown[]
-}
-
-type AnalysisResult = {
-  verdict: string
-  main_problem: string
-  reasons: string[]
-  improvements: string[]
-  danger_zones: string[]
-  strengths: string[]
-  assumptions: string[]
-  recommendations: Array<{
-    title: string
-    reason: string
-    changes: Array<{
-      operation: 'move_element' | 'add_drawing' | 'delete_drawing'
-      [key: string]: unknown
-    }>
-  }>
-  confidence: 'low' | 'medium' | 'high'
-}
+import { buildPlaymakerAnalysisInput } from '@/lib/playmaker/analysis-engine'
+import {
+  extractJsonCandidate,
+  extractRawResponseText,
+  formatOpenAiError,
+  getModelName,
+  getTemperature,
+  isBoardDraftPayload,
+  validateAnalysisPayload,
+} from '@/lib/playmaker/server-ai'
+import { buildFallbackAnalysis } from '@/lib/playmaker/analysis-engine'
 
 type RequestBody = {
   draft?: unknown
 }
 
+const ANALYSIS_JSON_SCHEMA = {
+  name: 'playmaker_tactical_analysis',
+  strict: true,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      verdict: { type: 'string' },
+      main_problem: { type: 'string' },
+      reasons: { type: 'array', items: { type: 'string' } },
+      improvements: { type: 'array', items: { type: 'string' } },
+      danger_zones: { type: 'array', items: { type: 'string' } },
+      strengths: { type: 'array', items: { type: 'string' } },
+      assumptions: { type: 'array', items: { type: 'string' } },
+      recommendations: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            title: { type: 'string' },
+            reason: { type: 'string' },
+            changes: {
+              type: 'array',
+              items: {
+                anyOf: [
+                  {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                      operation: { type: 'string', enum: ['move_element'] },
+                      elementId: { type: 'string' },
+                      xPct: { type: 'number' },
+                      yPct: { type: 'number' },
+                      rotationDeg: { anyOf: [{ type: 'number' }, { type: 'null' }] },
+                    },
+                    required: ['operation', 'elementId', 'xPct', 'yPct', 'rotationDeg'],
+                  },
+                  {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                      operation: { type: 'string', enum: ['add_drawing'] },
+                      type: { type: 'string', enum: ['arrow'] },
+                      color: { type: 'string' },
+                      startXPct: { type: 'number' },
+                      startYPct: { type: 'number' },
+                      endXPct: { type: 'number' },
+                      endYPct: { type: 'number' },
+                      strokeWidthPct: { type: 'number' },
+                    },
+                    required: ['operation', 'type', 'color', 'startXPct', 'startYPct', 'endXPct', 'endYPct', 'strokeWidthPct'],
+                  },
+                  {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                      operation: { type: 'string', enum: ['delete_drawing'] },
+                      drawingId: { type: 'string' },
+                    },
+                    required: ['operation', 'drawingId'],
+                  },
+                ],
+              },
+            },
+          },
+          required: ['title', 'reason', 'changes'],
+        },
+      },
+      confidence: { type: 'string', enum: ['low', 'medium', 'high'] },
+    },
+    required: ['verdict', 'main_problem', 'reasons', 'improvements', 'danger_zones', 'strengths', 'assumptions', 'recommendations', 'confidence'],
+  },
+} as const
+
 function errorResponse(error: string, status = 500, code?: string) {
   return NextResponse.json({ ok: false, error, code }, { status })
 }
 
-function isBoardDraftPayload(value: unknown): value is BoardDraftPayload {
-  if (!value || typeof value !== 'object') return false
-  const draft = value as Partial<BoardDraftPayload>
-  return draft.version === 1 && typeof draft.activePhaseId === 'string' && Array.isArray(draft.phases)
+function buildSystemPrompt() {
+  return `
+Eres un analista tactico de futbol profesional. No eres un narrador del tablero.
+
+Tu trabajo es leer una pizarra tactica, entender la idea, juzgar si funciona y explicar por que.
+Debes sonar como un entrenador o analista con criterio real: claro, tactico, natural y capaz de decir que una jugada es floja, ingenua o poco realista si lo merece.
+
+Prioridades de analisis, en este orden:
+1. espacio a la espalda
+2. balance defensivo tras perdida
+3. apoyos reales para el poseedor
+4. ocupacion del lado debil
+5. lineas de pase y opciones para romper lineas
+6. amplitud y profundidad
+7. realismo del objetivo
+
+Reglas:
+- No describas posiciones de forma mecanica.
+- No premies una jugada solo porque tenga muchos jugadores cerca del balon.
+- Si hay ambiguedad, explica la suposicion en assumptions.
+- Si derived_features contradice la intuicion visual, usa ambas cosas y razona la diferencia.
+- Valora la jugada; no la resumas.
+- Mantente concreto, opinionado y util.
+- Devuelve solo JSON valido siguiendo el esquema pedido.
+- Las recomendaciones son opcionales, pero si propones cambios deben ser seguros, realistas y aplicables al tablero recibido.
+  `.trim()
 }
 
-function extractJson(text: string) {
-  const trimmed = text.trim()
-  if (trimmed.startsWith('{') && trimmed.endsWith('}')) return trimmed
-
-  const first = trimmed.indexOf('{')
-  const last = trimmed.lastIndexOf('}')
-  if (first >= 0 && last > first) {
-    return trimmed.slice(first, last + 1)
+function buildFewShotMessages() {
+  const exampleOneInput = {
+    play_context: {
+      play_type: 'attacking_overload',
+      phase_name: 'Phase 2',
+      objective: 'fijar en izquierda y soltar al lado debil',
+      ball_holder: 'blue-8',
+    },
+    derived_features: {
+      strong_side: 'left',
+      weak_side: 'right',
+      weak_side_occupied: false,
+      support_count_near_ball: 3,
+      defensive_balance_ok: false,
+      rest_defence_count: 2,
+      switch_option_available: false,
+      space_in_behind_risk: 'high',
+      number_of_safe_passing_options: 1,
+      transition_risk: 'high',
+      line_breaking_options: [],
+    },
   }
-  return null
-}
 
-function normalizeStringList(value: unknown, maxItems: number) {
-  if (!Array.isArray(value)) return []
-  return value
-    .filter((item): item is string => typeof item === 'string')
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, maxItems)
-}
-
-function normalizeRecommendations(value: unknown) {
-  if (!Array.isArray(value)) return []
-
-  return value
-    .map((item) => {
-      if (!item || typeof item !== 'object') return null
-      const raw = item as Record<string, unknown>
-      const title = typeof raw.title === 'string' ? raw.title.trim() : ''
-      const reason = typeof raw.reason === 'string' ? raw.reason.trim() : ''
-      const changes = Array.isArray(raw.changes)
-        ? raw.changes
-            .map((change) => {
-              if (!change || typeof change !== 'object') return null
-              const payload = change as Record<string, unknown>
-              const operation = payload.operation
-              if (
-                operation !== 'move_element' &&
-                operation !== 'add_drawing' &&
-                operation !== 'delete_drawing'
-              ) {
-                return null
-              }
-              return payload as {
-                operation: 'move_element' | 'add_drawing' | 'delete_drawing'
-                [key: string]: unknown
-              }
-            })
-            .filter((change): change is {
-              operation: 'move_element' | 'add_drawing' | 'delete_drawing'
-              [key: string]: unknown
-            } => Boolean(change))
-        : []
-
-      if (!title || !reason || changes.length === 0) return null
-      return { title, reason, changes }
-    })
-    .filter(
-      (
-        item
-      ): item is {
-        title: string
-        reason: string
-        changes: Array<{
-          operation: 'move_element' | 'add_drawing' | 'delete_drawing'
-          [key: string]: unknown
-        }>
-      } => Boolean(item)
-    )
-    .slice(0, 3)
-}
-
-function normalizeAnalysisPayload(value: unknown): AnalysisResult | null {
-  if (!value || typeof value !== 'object') return null
-  const payload = value as Partial<AnalysisResult>
-
-  const verdict = typeof payload.verdict === 'string' ? payload.verdict.trim() : ''
-  const mainProblem = typeof payload.main_problem === 'string' ? payload.main_problem.trim() : ''
-  const reasons = normalizeStringList(payload.reasons, 3)
-  const improvements = normalizeStringList(payload.improvements, 2)
-  const dangerZones = normalizeStringList(payload.danger_zones, 2)
-  const strengths = normalizeStringList(payload.strengths, 2)
-  const assumptions = normalizeStringList(payload.assumptions, 2)
-  const recommendations = normalizeRecommendations(payload.recommendations)
-  const confidence =
-    payload.confidence === 'low' || payload.confidence === 'medium' || payload.confidence === 'high'
-      ? payload.confidence
-      : 'medium'
-
-  if (!verdict || !mainProblem) return null
-
-  return {
-    verdict,
-    main_problem: mainProblem,
-    reasons,
-    improvements,
-    danger_zones: dangerZones,
-    strengths,
-    assumptions,
-    recommendations,
-    confidence,
+  const exampleOneOutput = {
+    verdict: 'No me gusta esta jugada porque cargas el lado fuerte pero no proteges nada detras.',
+    main_problem: 'La sobrecarga no tiene ni salida limpia ni estructura para sostener la perdida.',
+    reasons: [
+      'El poseedor solo tiene una salida segura, asi que el rival puede encerrar la accion.',
+      'Con solo dos jugadores en rest defence, la perdida deja espacio claro para correr a tu espalda.',
+      'El lado debil no existe de verdad, asi que la sobrecarga no obliga al rival a respetar un cambio de orientacion.',
+    ],
+    improvements: [
+      'Fija un jugador util en el lado debil antes de atraer tanta gente al balon.',
+      'Deja una cobertura interior y otra exterior por detras del balon para sostener la transicion.',
+    ],
+    danger_zones: ['pasillo central tras perdida', 'espacio a la espalda del ultimo apoyo'],
+    strengths: ['La idea de atraer por un costado es reconocible.'],
+    assumptions: [],
+    recommendations: [],
+    confidence: 'high',
   }
+
+  const exampleTwoInput = {
+    play_context: {
+      play_type: 'build_up',
+      phase_name: 'Phase 1',
+      objective: 'progresar por dentro',
+      ball_holder: 'blue-4',
+    },
+    derived_features: {
+      strong_side: 'center',
+      weak_side: 'left',
+      weak_side_occupied: true,
+      support_count_near_ball: 2,
+      defensive_balance_ok: true,
+      rest_defence_count: 3,
+      switch_option_available: true,
+      space_in_behind_risk: 'low',
+      number_of_safe_passing_options: 3,
+      transition_risk: 'low',
+      line_breaking_options: ['blue-6 ataca espacio interior'],
+    },
+  }
+
+  const exampleTwoOutput = {
+    verdict: 'Esta jugada tiene sentido porque la estructura si sostiene la progresion y la perdida.',
+    main_problem: 'Lo menos convincente es que la recepcion interior depende demasiado de un solo hombre libre.',
+    reasons: [
+      'Hay tres apoyos seguros para el poseedor, asi que la salida no nace forzada.',
+      'La rest defence de tres jugadores te deja una base razonable si el pase interior falla.',
+      'El lado debil esta ocupado y eso mantiene abierta la opcion de girar la accion.',
+    ],
+    improvements: ['Acerca una segunda recepcion interior para que la progresion no dependa solo del mismo apoyo.'],
+    danger_zones: ['intervalo interior si el receptor gira mal'],
+    strengths: [
+      'La jugada junta apoyo cercano, amenaza interior y posibilidad de cambio de orientacion.',
+      'El balance tras perdida esta bastante mejor protegido que en una salida demasiado agresiva.',
+    ],
+    assumptions: [],
+    recommendations: [],
+    confidence: 'high',
+  }
+
+  return [
+    { role: 'user' as const, content: `Ejemplo 1\n${JSON.stringify(exampleOneInput, null, 2)}` },
+    { role: 'assistant' as const, content: JSON.stringify(exampleOneOutput) },
+    { role: 'user' as const, content: `Ejemplo 2\n${JSON.stringify(exampleTwoInput, null, 2)}` },
+    { role: 'assistant' as const, content: JSON.stringify(exampleTwoOutput) },
+  ]
 }
 
 export async function POST(request: NextRequest) {
   try {
     const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      return errorResponse('OPENAI_API_KEY no configurada.', 500, 'OPENAI_KEY_MISSING')
-    }
+    if (!apiKey) return errorResponse('OPENAI_API_KEY no configurada.', 500, 'OPENAI_KEY_MISSING')
 
     const body = (await request.json()) as RequestBody
-    if (!isBoardDraftPayload(body.draft)) {
-      return errorResponse('El tablero recibido no es valido.', 400, 'INVALID_BODY')
-    }
+    if (!isBoardDraftPayload(body.draft)) return errorResponse('El tablero recibido no es valido.', 400, 'INVALID_BODY')
 
     const supabase = await createSupabaseRouteHandler()
     const {
@@ -165,211 +229,101 @@ export async function POST(request: NextRequest) {
       error: authError,
     } = await supabase.auth.getUser()
 
-    if (authError || !user) {
-      return errorResponse('No autorizado', 401, 'UNAUTHORIZED')
-    }
+    if (authError || !user) return errorResponse('No autorizado', 401, 'UNAUTHORIZED')
 
-    const systemPrompt = `
-Eres un analista tactico de futbol de nivel profesional.
+    const draft = body.draft
+    const modelName = getModelName()
+    const temperature = getTemperature()
+    const modelInput = buildPlaymakerAnalysisInput(draft)
 
-Tu trabajo NO es describir mecanicamente un tablero.
-Tu trabajo es ENTENDER la idea tactica, JUZGARLA con criterio y dar una opinion clara, util y especifica, como lo haria un entrenador o analista experto.
-
-Vas a recibir una jugada en formato JSON.
-Debes interpretarla como una pizarra tactica de futbol.
-
-========================
-REGLAS DE INTERPRETACION
-========================
-
-1. El campo
-- x=0 es el lado izquierdo del campo
-- x=100 es el lado derecho del campo
-- y=0 es la porteria rival
-- y=100 es la porteria propia
-- attack_direction indica hacia que porteria ataca el equipo azul
-
-2. Equipos
-- blue = equipo que disena la jugada
-- red = rival
-- white o black markers pueden representar balon, apoyos, referencias o herramientas segun board_semantics
-
-3. Elementos
-- type=player representa un jugador
-- type=ball representa el balon
-- tools como cone, ladder, pole, hurdle, mannequin, mini_goal son herramientas de entrenamiento y NO deben analizarse como jugadores
-- cada jugador puede incluir team, number, role, label, x, y
-
-4. Dibujos
-- drawings representan acciones tacticas
-- su significado exacto vendra definido en board_semantics
-- por ejemplo:
-  - dashed_arrow = pase
-  - solid_arrow = desmarque
-  - support_line = apoyo
-  - zone = zona objetivo
-- si algo no esta completamente claro, haz una suposicion razonable y declarala en "assumptions"
-
-5. Contexto tactico
-Ademas del tablero, recibiras contexto como:
-- tipo de jugada
-- objetivo
-- quien inicia la accion
-- fase actual
-- foco de analisis
-- comentario del entrenador
-
-Ese contexto es MUY importante y debe influir en tu valoracion.
-
-========================
-COMO DEBES ANALIZAR
-========================
-
-No describas simplemente donde estan los jugadores.
-No hagas comentarios obvios.
-No seas generico.
-No intentes quedar bien si la jugada esta mal.
-
-Debes analizar la jugada como un entrenador con criterio.
-
-Prioriza este orden:
-
-1. Espacio a la espalda
-2. Equilibrio tras perdida
-3. Apoyos reales al poseedor
-4. Ocupacion de espacios
-5. Riesgo y viabilidad
-6. Coherencia con el objetivo
-
-========================
-ESTILO DE RESPUESTA
-========================
-
-Quiero que hables como un analista tactico real.
-Tu tono debe ser claro, directo, tactico, util, natural y con opinion real.
-
-========================
-SALIDA OBLIGATORIA
-========================
-
-Devuelve SOLO JSON valido con esta estructura exacta:
-{
-  "verdict": "opinion tactica principal en 1 frase, clara y directa",
-  "main_problem": "principal problema tactico detectado",
-  "reasons": ["razon tactica 1", "razon tactica 2", "razon tactica 3"],
-  "improvements": ["mejora concreta 1", "mejora concreta 2"],
-  "danger_zones": ["zona o situacion de riesgo 1", "zona o situacion de riesgo 2"],
-  "strengths": ["fortaleza 1", "fortaleza 2"],
-  "assumptions": ["suposicion 1", "suposicion 2"],
-  "recommendations": [
-    {
-      "title": "ajuste concreto",
-      "reason": "por que merece la pena",
-      "changes": [
-        { "operation": "move_element", "elementId": "id-existente", "xPct": 52, "yPct": 61 },
-        { "operation": "add_drawing", "type": "arrow", "color": "#ffe170", "startXPct": 48, "startYPct": 62, "endXPct": 61, "endYPct": 44, "strokeWidthPct": 0.7 }
-      ]
-    }
-  ],
-  "confidence": "low | medium | high"
-}
-
-========================
-REGLAS FINALES
-========================
-
-- No inventes jugadores, movimientos o intenciones no presentes en los datos
-- No ignores el contexto dado por el entrenador
-- Si algo es ambiguo, usa assumptions
-- Si la jugada es floja, dilo claramente
-- Si la jugada es buena, explicalo claramente
-- Además de opinar, devuelve recomendaciones aplicables al tablero
-- Cada recommendation debe incluir title, reason y changes
-- Los changes solo pueden usar operaciones permitidas: move_element, add_drawing, delete_drawing
-- No inventes elementIds
-- No propongas cambios imposibles
-- No respondas en texto libre
-- Responde SOLO con el JSON pedido
-`.trim()
-
-    const userPrompt = JSON.stringify(
-      {
-        PLAY_CONTEXT: {
-          play_name: typeof body.draft.name === 'string' ? body.draft.name : 'Play Maker Draft',
-          phase_in_focus: body.draft.activePhaseId,
-          analysis_focus: 'evaluar viabilidad tactica, balance tras perdida y apoyos reales',
-        },
-        BOARD_SEMANTICS: {
-          attack_direction: 'blue attacks toward y=0',
-          team_mapping: {
-            blue: 'equipo que diseña la jugada',
-            red: 'rival',
-          },
-          markers: {
-            blue: 'jugador del equipo azul',
-            red: 'jugador rival',
-            ball: 'balon',
-          },
-          drawings: {
-            dashed_arrow: 'trayectoria, pase o movimiento orientativo segun contexto',
-          },
-          note: 'Los tools de entrenamiento no deben analizarse como jugadores.',
-        },
-        BOARD_STATE: body.draft,
-        COACH_NOTE:
-          typeof body.draft.analysisContext === 'string' && body.draft.analysisContext.trim()
-            ? body.draft.analysisContext.trim()
-            : '',
-      },
-      null,
-      2
-    )
+    console.info('PLAYMAKER_ANALYZE_REQUEST', { userId: user.id, model: modelName, temperature, payload: modelInput })
 
     const openai = new OpenAI({ apiKey })
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      temperature: 0.55,
-      max_tokens: 700,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-    })
+    let rawText = ''
+    let parsedResult: unknown = null
+    let fallbackUsed = false
+    let validationErrors: string[] = []
+    let responseMeta: { id?: string; model?: string | null; status?: string | null; requestID?: string | null } = {}
 
-    const rawText = completion.choices[0]?.message?.content?.trim()
-    if (!rawText) {
-      return errorResponse('La IA no devolvio contenido.', 502, 'EMPTY_AI_RESPONSE')
-    }
-
-    const jsonText = extractJson(rawText)
-    if (!jsonText) {
-      return errorResponse('No se pudo interpretar la respuesta de IA como JSON.', 502, 'INVALID_AI_JSON')
-    }
-
-    let parsed: unknown
     try {
-      parsed = JSON.parse(jsonText)
-    } catch {
-      return errorResponse('La IA devolvio JSON invalido.', 502, 'INVALID_AI_JSON')
+      const response = await openai.responses.create({
+        model: modelName,
+        temperature,
+        max_output_tokens: 1100,
+        instructions: buildSystemPrompt(),
+        input: [
+          ...buildFewShotMessages(),
+          { role: 'user', content: JSON.stringify(modelInput, null, 2) },
+        ],
+        text: {
+          format: {
+            type: 'json_schema',
+            ...ANALYSIS_JSON_SCHEMA,
+          },
+        },
+      })
+
+      responseMeta = {
+        id: response.id,
+        model: response.model,
+        status: response.status,
+        requestID: response._request_id ?? null,
+      }
+
+      console.info('PLAYMAKER_ANALYZE_OPENAI_RESPONSE', { responseMeta, response })
+
+      rawText = extractRawResponseText(response)
+      if (!rawText) throw new Error('EMPTY_AI_RESPONSE')
+      const jsonCandidate = extractJsonCandidate(rawText)
+      if (!jsonCandidate) throw new Error('INVALID_AI_JSON_WRAPPER')
+      parsedResult = JSON.parse(jsonCandidate)
+      console.info('PLAYMAKER_ANALYZE_PARSED_JSON', { responseMeta, rawText, parsedResult })
+    } catch (modelError) {
+      fallbackUsed = true
+      validationErrors = ['La llamada estructurada a OpenAI fallo antes de producir una respuesta valida.']
+      console.warn('PLAYMAKER_ANALYZE_OPENAI_ERROR', {
+        responseMeta,
+        rawText,
+        parsedResult,
+        validationErrors,
+        error: formatOpenAiError(modelError),
+      })
     }
 
-    const analysis = normalizeAnalysisPayload(parsed)
-    if (!analysis) {
-      return errorResponse('La IA devolvio una respuesta vacia o invalida.', 502, 'INVALID_AI_JSON')
+    let analysis
+    if (!fallbackUsed) {
+      const validation = validateAnalysisPayload(parsedResult, draft)
+      validationErrors = validation.errors
+      console.info('PLAYMAKER_ANALYZE_VALIDATION', { responseMeta, rawText, parsedResult, validation })
+
+      if (validation.ok) {
+        analysis = validation.analysis
+      } else {
+        fallbackUsed = true
+        console.warn('PLAYMAKER_ANALYZE_VALIDATION_FAILED', { responseMeta, rawText, parsedResult, validationErrors })
+        analysis = buildFallbackAnalysis(draft)
+      }
+    } else {
+      analysis = buildFallbackAnalysis(draft)
     }
+
+    console.info('PLAYMAKER_ANALYZE_FINAL_RESULT', { responseMeta, fallbackUsed, rawText, parsedResult, validationErrors, analysis })
 
     return NextResponse.json({
       ok: true,
       data: analysis,
+      meta: {
+        fallbackUsed,
+        model: responseMeta.model ?? modelName,
+        currentPhaseId: draft.activePhaseId,
+      },
     })
   } catch (error) {
-    console.error('Error en POST /api/playmaker/analyze:', error)
-
+    console.error('Error en POST /api/playmaker/analyze:', { error: formatOpenAiError(error) })
     if (error instanceof OpenAI.APIError) {
       if (error.status === 401) return errorResponse('API key de OpenAI invalida.', 401, 'OPENAI_UNAUTHORIZED')
       if (error.status === 429) return errorResponse('Limite de OpenAI alcanzado. Intenta de nuevo.', 429, 'OPENAI_RATE_LIMIT')
     }
-
     return errorResponse('Error interno del servidor.', 500, 'INTERNAL_ERROR')
   }
 }

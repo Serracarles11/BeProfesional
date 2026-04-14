@@ -159,13 +159,6 @@ function norm(value: string | null | undefined) {
     .toUpperCase()
 }
 
-function isPresent(estado: string | null | undefined) {
-  const v = norm(estado)
-  if (!v) return false
-  if (v.includes('AUSEN') || v.includes('NO_ASIST') || v.includes('FALTA')) return false
-  return v.includes('ASIST') || v.includes('PRES') || v === 'CONFIRMADO' || v === 'OK'
-}
-
 function isCancelled(estado: string | null | undefined) {
   return norm(estado).includes('CANCEL')
 }
@@ -197,6 +190,21 @@ function formatNum(value: number | null, suffix = '') {
 function getErrorMeta(error: unknown) {
   const e = (error ?? {}) as { code?: string | null; details?: string | null; hint?: string | null }
   return { code: e.code ?? null, details: e.details ?? null, hint: e.hint ?? null }
+}
+
+function isPresentAttendanceState(estado: unknown) {
+  if (typeof estado !== 'string') return false
+
+  const v = estado
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '_')
+    .toUpperCase()
+
+  if (!v) return false
+  if (v.includes('AUSEN') || v.includes('NO_ASIST') || v.includes('FALTA')) return false
+  return v.includes('ASIST') || v.includes('PRES') || v === 'CONFIRMADO' || v === 'OK'
 }
 
 function parseProfile(raw: unknown) {
@@ -400,42 +408,66 @@ export async function loadTrainingStatsDashboardData({
   for (const j of jugadores) attendanceByPlayer.set(j.usuarioId, { count: 0, rpeSum: 0, rpeCount: 0 })
 
   if (trainingIds.length > 0) {
-    const attendanceRes = await supabase
-      .from('asistencia_entrenamientos')
-      .select('entrenamiento_id, jugador_id, estado, rpe')
+    const currentAttendanceRes = await supabase
+      .from('entrenamiento_asistencias')
+      .select('entrenamiento_id, usuario_id, asiste')
       .in('entrenamiento_id', trainingIds)
 
-    if (attendanceRes.error) {
-      return { ok: false, error: 'No se pudo cargar la asistencia.', ...getErrorMeta(attendanceRes.error) }
-    }
+    if (!currentAttendanceRes.error) {
+      for (const raw of (currentAttendanceRes.data ?? []) as Array<Record<string, unknown>>) {
+        const entrenamientoId = typeof raw.entrenamiento_id === 'string' ? raw.entrenamiento_id : null
+        const jugadorId = typeof raw.usuario_id === 'string' ? raw.usuario_id : null
+        const present = raw.asiste === true
+        if (!entrenamientoId) continue
 
-    for (const raw of (attendanceRes.data ?? []) as Array<Record<string, unknown>>) {
-      const entrenamientoId = typeof raw.entrenamiento_id === 'string' ? raw.entrenamiento_id : null
-      if (!entrenamientoId) continue
-      const row = attendanceByTraining.get(entrenamientoId) ?? { asistentes: 0, rpeSum: 0, rpeCount: 0 }
-      const present = isPresent(typeof raw.estado === 'string' ? raw.estado : null)
-      const rpe = toNumber(raw.rpe)
-      const jugadorId = typeof raw.jugador_id === 'string' ? raw.jugador_id : null
-
-      if (present) {
-        row.asistentes += 1
-        if (jugadorId && playerIds.has(jugadorId)) {
-          const p = attendanceByPlayer.get(jugadorId)
-          if (p) p.count += 1
-        }
-      }
-      if (rpe !== null) {
-        row.rpeSum += rpe
-        row.rpeCount += 1
-        if (jugadorId && playerIds.has(jugadorId)) {
-          const p = attendanceByPlayer.get(jugadorId)
-          if (p) {
-            p.rpeSum += rpe
-            p.rpeCount += 1
+        const row = attendanceByTraining.get(entrenamientoId) ?? { asistentes: 0, rpeSum: 0, rpeCount: 0 }
+        if (present) {
+          row.asistentes += 1
+          if (jugadorId && playerIds.has(jugadorId)) {
+            const p = attendanceByPlayer.get(jugadorId)
+            if (p) p.count += 1
           }
         }
+        attendanceByTraining.set(entrenamientoId, row)
       }
-      attendanceByTraining.set(entrenamientoId, row)
+    } else {
+      const attendanceRes = await supabase
+        .from('asistencia_entrenamientos')
+        .select('entrenamiento_id, jugador_id, estado, rpe')
+        .in('entrenamiento_id', trainingIds)
+
+      if (attendanceRes.error) {
+        return { ok: false, error: 'No se pudo cargar la asistencia.', ...getErrorMeta(currentAttendanceRes.error) }
+      }
+
+      for (const raw of (attendanceRes.data ?? []) as Array<Record<string, unknown>>) {
+        const entrenamientoId = typeof raw.entrenamiento_id === 'string' ? raw.entrenamiento_id : null
+        if (!entrenamientoId) continue
+        const row = attendanceByTraining.get(entrenamientoId) ?? { asistentes: 0, rpeSum: 0, rpeCount: 0 }
+        const present = isPresentAttendanceState(raw.estado)
+        const rpe = toNumber(raw.rpe)
+        const jugadorId = typeof raw.jugador_id === 'string' ? raw.jugador_id : null
+
+        if (present) {
+          row.asistentes += 1
+          if (jugadorId && playerIds.has(jugadorId)) {
+            const p = attendanceByPlayer.get(jugadorId)
+            if (p) p.count += 1
+          }
+        }
+        if (rpe !== null) {
+          row.rpeSum += rpe
+          row.rpeCount += 1
+          if (jugadorId && playerIds.has(jugadorId)) {
+            const p = attendanceByPlayer.get(jugadorId)
+            if (p) {
+              p.rpeSum += rpe
+              p.rpeCount += 1
+            }
+          }
+        }
+        attendanceByTraining.set(entrenamientoId, row)
+      }
     }
   }
 
@@ -523,7 +555,6 @@ export async function loadTrainingStatsDashboardData({
     }))
 
   const denominatorAttendance = completedTrainings.length
-  const playerById = new Map(jugadores.map((j) => [j.usuarioId, j]))
 
   const byRpe = jugadores
     .map((j) => {

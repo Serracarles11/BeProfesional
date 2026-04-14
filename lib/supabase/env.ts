@@ -1,5 +1,6 @@
 const SUPABASE_URL_KEY = 'NEXT_PUBLIC_SUPABASE_URL'
 const SUPABASE_ANON_KEY = 'NEXT_PUBLIC_SUPABASE_ANON_KEY'
+const SUPABASE_SERVICE_ROLE_KEY = 'SUPABASE_SERVICE_ROLE_KEY'
 
 function getEnvValue(name: string): string | null {
   const value = process.env[name]?.trim()
@@ -35,4 +36,15 @@ export function getSupabaseEnv() {
   }
 
   return { url, anonKey }
+}
+
+export function getSupabaseServiceRoleEnv() {
+  const url = getEnvValue(SUPABASE_URL_KEY)
+  const serviceRoleKey = getEnvValue(SUPABASE_SERVICE_ROLE_KEY)
+
+  if (!url || !serviceRoleKey || isPlaceholderValue(url)) {
+    return null
+  }
+
+  return { url, serviceRoleKey }
 }

@@ -72,10 +72,6 @@ export function MetricsGrid({ metrics, wellbeing, isSaving, onUpdateWellbeing }:
     return () => window.removeEventListener('pointerdown', handlePointerDown)
   }, [isAttendanceMenuOpen])
 
-  useEffect(() => {
-    setIsAttendanceMenuOpen(false)
-  }, [wellbeing.attendanceTrainingId])
-
   return (
     <div className="grid gap-4 md:grid-cols-3">
       {metrics.map((metric) => {

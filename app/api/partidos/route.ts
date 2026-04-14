@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
 
 const STAFF_ROLE_TOKENS = ['ENTREN', 'COACH', 'TECN', 'ADMIN', 'AUX', 'DELEG', 'STAFF']
@@ -7,15 +8,13 @@ const EVENT_GOAL = 'GOL'
 const EVENT_ASSIST = 'ASISTENCIA'
 const EVENT_YELLOW = 'AMARILLA'
 const EVENT_RED = 'ROJA'
-const LEGACY_EVENT_YELLOW = 'TARJETA_AMARILLA'
-const LEGACY_EVENT_RED = 'TARJETA_ROJA'
 const PLAYER_STAT_EVENT_TYPES = [
   EVENT_GOAL,
   EVENT_ASSIST,
   EVENT_YELLOW,
   EVENT_RED,
-  LEGACY_EVENT_YELLOW,
-  LEGACY_EVENT_RED,
+  'TARJETA_AMARILLA',
+  'TARJETA_ROJA',
 ]
 
 type MembershipRow = {
@@ -85,6 +84,13 @@ type SubmitStatsBody = {
 
 function createErrorResponse(message: string, status = 500) {
   return NextResponse.json({ ok: false, error: message }, { status })
+}
+
+function getErrorMessage(
+  error: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null | undefined,
+  fallback: string
+) {
+  return [error?.message, error?.details, error?.hint, error?.code].filter(Boolean).join(' | ') || fallback
 }
 
 function normalizeText(value: string | null | undefined) {
@@ -240,6 +246,24 @@ function isUniqueViolation(error: { code?: string | null; message?: string | nul
   const code = error?.code ?? ''
   const message = error?.message?.toLowerCase() ?? ''
   return code === '23505' || message.includes('duplicate key') || message.includes('unique constraint')
+}
+
+function isRlsViolation(error: { code?: string | null; message?: string | null } | null | undefined) {
+  const code = error?.code ?? ''
+  const message = error?.message?.toLowerCase() ?? ''
+  return code === '42501' || message.includes('row-level security policy')
+}
+
+async function insertEventRowsWithFallback(
+  supabase: Awaited<ReturnType<typeof createSupabaseRouteHandler>>,
+  eventRows: Record<string, unknown>[]
+) {
+  if (eventRows.length === 0) return { error: null }
+
+  const directInsert = await supabase.from('eventos_partido').insert(eventRows)
+  if (!directInsert.error) return { error: null }
+
+  return { error: directInsert.error }
 }
 
 async function resolveParticipantPlayerColumn(
@@ -475,6 +499,8 @@ function getSubmissionFromRows(
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseRouteHandler()
+    const adminSupabase = createSupabaseAdmin()
+    const db = adminSupabase ?? supabase
     const {
       data: { user },
       error: authError,
@@ -532,8 +558,8 @@ export async function GET(request: NextRequest) {
     const viewerIsPlayer = isPlayerRole(role)
 
     const [teamResult, teamMembersResult] = await Promise.all([
-      supabase.from('equipos').select('id, nombre').eq('id', equipoId).maybeSingle(),
-      supabase
+      db.from('equipos').select('id, nombre').eq('id', equipoId).maybeSingle(),
+      db
         .from('miembros_equipo')
         .select('usuario_id, rol')
         .eq('equipo_id', equipoId)
@@ -557,7 +583,7 @@ export async function GET(request: NextRequest) {
     const { start: weekStart, end: weekEnd } = getWeekRange(now)
 
     const [weekMatchesResult, nextMatchResult, historyMatchesResult] = await Promise.all([
-      supabase
+      db
         .from('partidos')
         .select(
           'id, equipo_id, fecha_hora, rival_nombre, casa_fuera, lugar, competicion, estado, goles_favor, goles_contra'
@@ -566,7 +592,7 @@ export async function GET(request: NextRequest) {
         .gte('fecha_hora', weekStart.toISOString())
         .lte('fecha_hora', weekEnd.toISOString())
         .order('fecha_hora', { ascending: true }),
-      supabase
+      db
         .from('partidos')
         .select(
           'id, equipo_id, fecha_hora, rival_nombre, casa_fuera, lugar, competicion, estado, goles_favor, goles_contra'
@@ -576,7 +602,7 @@ export async function GET(request: NextRequest) {
         .order('fecha_hora', { ascending: true })
         .limit(1)
         .maybeSingle(),
-      supabase
+      db
         .from('partidos')
         .select(
           'id, equipo_id, fecha_hora, rival_nombre, casa_fuera, lugar, competicion, estado, goles_favor, goles_contra'
@@ -602,8 +628,8 @@ export async function GET(request: NextRequest) {
 
     const featuredMatchIds = featuredMatch ? [featuredMatch.id] : []
     const [participantsResult, eventsResult] = await Promise.all([
-      readParticipants(supabase, featuredMatchIds),
-      readEvents(supabase, featuredMatchIds),
+      readParticipants(db, featuredMatchIds),
+      readEvents(db, featuredMatchIds),
     ])
 
     const participants = participantsResult.rows
@@ -658,6 +684,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseRouteHandler()
+    const adminSupabase = createSupabaseAdmin()
+    const db = adminSupabase ?? supabase
     const {
       data: { user },
       error: authError,
@@ -680,7 +708,7 @@ export async function POST(request: NextRequest) {
       return createErrorResponse('Estadisticas invalidas.', 400)
     }
 
-    const matchResult = await supabase
+    const matchResult = await db
       .from('partidos')
       .select('id, equipo_id, fecha_hora, estado')
       .eq('id', matchId)
@@ -725,12 +753,12 @@ export async function POST(request: NextRequest) {
       return createErrorResponse('Solo puedes registrar estadisticas despues del partido.', 400)
     }
 
-    const participantColumn = await resolveParticipantPlayerColumn(supabase)
+    const participantColumn = await resolveParticipantPlayerColumn(db)
     if (!participantColumn) {
       return createErrorResponse('No se pudo resolver la estructura de participantes.', 500)
     }
 
-    const existingParticipantResult = await supabase
+    const existingParticipantResult = await db
       .from('participantes_partido')
       .select('id')
       .eq('partido_id', matchId)
@@ -749,13 +777,17 @@ export async function POST(request: NextRequest) {
         : null
 
     if (existingParticipantId) {
-      const updateResult = await supabase
+      const updateResult = await db
         .from('participantes_partido')
         .update({ minutos_jugados: minutes })
         .eq('id', existingParticipantId)
 
       if (updateResult.error) {
-        return createErrorResponse('No se pudieron actualizar tus minutos.', 500)
+        console.error('POST /api/partidos - participant update failed:', updateResult.error)
+        return createErrorResponse(
+          `No se pudieron actualizar tus minutos. ${getErrorMessage(updateResult.error, '')}`.trim(),
+          isRlsViolation(updateResult.error) ? 403 : 500
+        )
       }
     } else {
       const insertPayload: Record<string, unknown> = {
@@ -766,11 +798,11 @@ export async function POST(request: NextRequest) {
         [participantColumn]: user.id,
       }
 
-      const insertResult = await supabase.from('participantes_partido').insert(insertPayload)
+      const insertResult = await db.from('participantes_partido').insert(insertPayload)
       if (insertResult.error) {
         if (isUniqueViolation(insertResult.error)) {
           // If another process/user already created this participant row, update minutes instead of failing.
-          const recoverUpdate = await supabase
+          const recoverUpdate = await db
             .from('participantes_partido')
             .update({ minutos_jugados: minutes })
             .eq('partido_id', matchId)
@@ -788,21 +820,27 @@ export async function POST(request: NextRequest) {
           if (!recoverUpdate.error) {
             // Avoid returning early so goals/cards are still persisted below.
           } else {
-            return createErrorResponse('No se pudo registrar tu participacion.', 500)
+            return createErrorResponse(
+              `No se pudo registrar tu participacion. ${getErrorMessage(recoverUpdate.error, '')}`.trim(),
+              isRlsViolation(recoverUpdate.error) ? 403 : 500
+            )
           }
         } else {
           console.error('POST /api/partidos - participant insert failed:', insertResult.error)
-          return createErrorResponse('No se pudo registrar tu participacion.', 500)
+          return createErrorResponse(
+            `No se pudo registrar tu participacion. ${getErrorMessage(insertResult.error, '')}`.trim(),
+            isRlsViolation(insertResult.error) ? 403 : 500
+          )
         }
       }
     }
 
-    const eventColumns = await resolveEventColumns(supabase)
+    const eventColumns = await resolveEventColumns(db)
     if (!eventColumns) {
       return createErrorResponse('No se pudo resolver la estructura de eventos.', 500)
     }
 
-    const removeResult = await supabase
+    const removeResult = await db
       .from('eventos_partido')
       .delete()
       .eq('partido_id', matchId)
@@ -810,7 +848,11 @@ export async function POST(request: NextRequest) {
       .in('tipo', PLAYER_STAT_EVENT_TYPES)
 
     if (removeResult.error) {
-      return createErrorResponse('No se pudieron actualizar tus eventos.', 500)
+      console.error('POST /api/partidos - remove events failed:', removeResult.error)
+      return createErrorResponse(
+        `No se pudieron actualizar tus eventos. ${getErrorMessage(removeResult.error, '')}`.trim(),
+        isRlsViolation(removeResult.error) ? 403 : 500
+      )
     }
 
     const eventRows: Record<string, unknown>[] = []
@@ -824,10 +866,6 @@ export async function POST(request: NextRequest) {
           [eventColumns.player]: user.id,
         }
 
-        if (type === EVENT_ASSIST && eventColumns.related) {
-          eventPayload[eventColumns.related] = user.id
-        }
-
         eventRows.push(eventPayload)
       }
     }
@@ -838,9 +876,13 @@ export async function POST(request: NextRequest) {
     pushEventRows(EVENT_RED, redCards)
 
     if (eventRows.length > 0) {
-      const insertEventsResult = await supabase.from('eventos_partido').insert(eventRows)
+      const insertEventsResult = await insertEventRowsWithFallback(db, eventRows)
       if (insertEventsResult.error) {
-        return createErrorResponse('No se pudieron registrar tus estadisticas de partido.', 500)
+        console.error('POST /api/partidos - insert events failed:', insertEventsResult.error)
+        return createErrorResponse(
+          `No se pudieron registrar tus estadisticas de partido. ${getErrorMessage(insertEventsResult.error, '')}`.trim(),
+          isRlsViolation(insertEventsResult.error) ? 403 : 500
+        )
       }
     }
 

@@ -13,6 +13,25 @@ function createErrorResponse(message: string, status = 500) {
   return NextResponse.json({ ok: false, error: message }, { status })
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (!error || typeof error !== 'object') return fallback
+  const payload = error as { message?: string; details?: string; hint?: string; code?: string }
+  return [payload.message, payload.details, payload.hint, payload.code].filter(Boolean).join(' | ') || fallback
+}
+
+function isPresentAttendanceState(estado: unknown) {
+  if (typeof estado !== 'string') return false
+  const normalized = estado
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+
+  if (!normalized) return false
+  if (normalized.includes('AUSEN') || normalized.includes('NO_ASIST') || normalized.includes('FALTA')) return false
+  return normalized.includes('ASIST') || normalized.includes('PRES') || normalized === 'CONFIRMADO' || normalized === 'OK'
+}
+
 function getMadridDateKey(date: Date) {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Madrid',
@@ -109,23 +128,55 @@ async function buildWellbeingResponse(
     return audience.includes(userId)
   })
 
-  const attendanceRowsResult = visibleTrainings.length > 0
-    ? await supabase
-        .from('entrenamiento_asistencias')
-        .select('entrenamiento_id, usuario_id, asiste')
-        .eq('equipo_id', equipoId)
-        .in('entrenamiento_id', visibleTrainings.map((training) => training.id))
-    : { data: [], error: null }
+  let attendanceRows: Array<{ entrenamiento_id: string; usuario_id: string; asiste: boolean }> = []
 
-  if (attendanceRowsResult.error) {
-    return null
+  if (visibleTrainings.length > 0) {
+    const currentAttendanceResult = await supabase
+      .from('entrenamiento_asistencias')
+      .select('entrenamiento_id, usuario_id, asiste')
+      .eq('equipo_id', equipoId)
+      .in('entrenamiento_id', visibleTrainings.map((training) => training.id))
+
+    if (!currentAttendanceResult.error) {
+      attendanceRows = (currentAttendanceResult.data ?? []) as Array<{
+        entrenamiento_id: string
+        usuario_id: string
+        asiste: boolean
+      }>
+    } else {
+      const legacyAttendanceResult = await supabase
+        .from('asistencia_entrenamientos')
+        .select('entrenamiento_id, jugador_id, estado')
+        .in('entrenamiento_id', visibleTrainings.map((training) => training.id))
+
+      if (legacyAttendanceResult.error) {
+        console.error('buildWellbeingResponse attendance error:', {
+          current: currentAttendanceResult.error,
+          legacy: legacyAttendanceResult.error,
+        })
+        return null
+      }
+
+      attendanceRows = ((legacyAttendanceResult.data ?? []) as Array<Record<string, unknown>>).flatMap((row) => {
+        const entrenamientoId = typeof row.entrenamiento_id === 'string' ? row.entrenamiento_id : null
+        const usuarioId = typeof row.jugador_id === 'string' ? row.jugador_id : null
+        if (!entrenamientoId || !usuarioId) return []
+        return [
+          {
+            entrenamiento_id: entrenamientoId,
+            usuario_id: usuarioId,
+            asiste: isPresentAttendanceState(row.estado),
+          },
+        ]
+      })
+    }
   }
 
   const attendanceByTraining = new Map<
     string,
     Array<{ entrenamiento_id: string; usuario_id: string; asiste: boolean }>
   >()
-  for (const row of attendanceRowsResult.data ?? []) {
+  for (const row of attendanceRows) {
     const bucket = attendanceByTraining.get(row.entrenamiento_id) ?? []
     bucket.push(row)
     attendanceByTraining.set(row.entrenamiento_id, bucket)
@@ -254,7 +305,8 @@ export async function POST(request: NextRequest) {
         })
 
       if (todaySaveError) {
-        return createErrorResponse('No se pudo guardar el estado diario.', 500)
+        console.error('Wellbeing daily save error:', todaySaveError)
+        return createErrorResponse(`No se pudo guardar el estado diario. ${getErrorMessage(todaySaveError, '')}`.trim(), 500)
       }
     }
 
@@ -277,7 +329,7 @@ export async function POST(request: NextRequest) {
         return createErrorResponse('El entrenamiento no existe.', 404)
       }
 
-      const { error: attendanceSaveError } = await supabase
+      const currentAttendanceSave = await supabase
         .from('entrenamiento_asistencias')
         .upsert(
           {
@@ -292,8 +344,49 @@ export async function POST(request: NextRequest) {
           }
         )
 
-      if (attendanceSaveError) {
-        return createErrorResponse('No se pudo guardar la asistencia del entrenamiento.', 500)
+      if (currentAttendanceSave.error) {
+        const legacyAttendanceSave = await supabase
+          .from('asistencia_entrenamientos')
+          .upsert(
+            {
+              entrenamiento_id: trainingId,
+              jugador_id: user.id,
+              estado: attendingTraining ? 'ASISTE' : 'NO_ASISTE',
+            },
+            {
+              onConflict: 'entrenamiento_id,jugador_id',
+            }
+          )
+
+        if (legacyAttendanceSave.error) {
+          console.error('Attendance save error:', {
+            current: currentAttendanceSave.error,
+            legacy: legacyAttendanceSave.error,
+          })
+          return createErrorResponse(
+            `No se pudo guardar la asistencia del entrenamiento. ${getErrorMessage(currentAttendanceSave.error, '')}`.trim(),
+            500
+          )
+        }
+      }
+
+      const wellbeingAttendanceSync = await supabase
+        .from('home_bienestar_diario')
+        .upsert(
+          {
+            equipo_id: equipoId,
+            usuario_id: user.id,
+            fecha: todayDateKey,
+            asiste_entrenamiento: attendingTraining,
+            actualizado_en: nowIso,
+          },
+          {
+            onConflict: 'equipo_id,usuario_id,fecha',
+          }
+        )
+
+      if (wellbeingAttendanceSync.error) {
+        console.error('Wellbeing attendance sync error:', wellbeingAttendanceSync.error)
       }
     }
 
