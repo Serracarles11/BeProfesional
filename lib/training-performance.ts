@@ -415,7 +415,7 @@ async function loadParticipantsWithOptionalMinutes(
 
   const response = await supabase
     .from('participantes_partido')
-    .select('usuario_id, partido_id, minutos_jugados')
+    .select('jugador_id, partido_id, minutos_jugados')
     .in('partido_id', matchIds)
 
   if (!response.error) {
@@ -423,7 +423,7 @@ async function loadParticipantsWithOptionalMinutes(
       source: 'db',
       rows: (response.data ?? [])
         .map((row) => ({
-          usuario_id: typeof row.usuario_id === 'string' ? row.usuario_id : '',
+          usuario_id: typeof row.jugador_id === 'string' ? row.jugador_id : '',
           partido_id: typeof row.partido_id === 'string' ? row.partido_id : '',
           minutos_jugados: toNumber(row.minutos_jugados),
         }))

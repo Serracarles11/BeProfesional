@@ -29,7 +29,7 @@ const MENU_ITEMS = [
   { label: 'Matches', href: '/partidos', icon: CalendarDays },
   { label: 'Chats', href: '/chat', icon: MessageSquare },
   { label: 'Reports', href: '/estadisticas', icon: BarChart3 },
-  { label: 'Play Maker', href: '/play-maker', icon: Sparkles },
+  { label: 'AI Coach', href: '/play-maker', icon: Sparkles },
 ]
 
 export function LeftNavigation({

@@ -13,8 +13,6 @@ const PLAYER_STAT_EVENT_TYPES = [
   EVENT_ASSIST,
   EVENT_YELLOW,
   EVENT_RED,
-  'TARJETA_AMARILLA',
-  'TARJETA_ROJA',
 ]
 
 type MembershipRow = {
@@ -26,11 +24,25 @@ type MembershipRow = {
 type TeamRow = {
   id: string
   nombre: string | null
+  logo_url?: string | null
 }
 
 type TeamMemberRow = {
   usuario_id: string
   rol: string | null
+  dorsal?: number | null
+  perfiles?:
+    | {
+        nombre: string | null
+        foto_url?: string | null
+        posicion?: string | null
+      }
+    | {
+        nombre: string | null
+        foto_url?: string | null
+        posicion?: string | null
+      }[]
+    | null
 }
 
 type MatchRow = {
@@ -75,6 +87,7 @@ type EventRelatedColumn = 'usuario_relacionado_id' | 'jugador_relacionado_id'
 
 type SubmitStatsBody = {
   matchId?: unknown
+  playerId?: unknown
   minutes?: unknown
   goals?: unknown
   assists?: unknown
@@ -450,6 +463,21 @@ function mapMatchForClient(match: MatchRow) {
   }
 }
 
+function getMemberName(raw: TeamMemberRow['perfiles']) {
+  const profile = Array.isArray(raw) ? raw[0] : raw
+  if (!profile?.nombre) return null
+  return String(profile.nombre)
+}
+
+function getMemberProfile(raw: TeamMemberRow['perfiles']) {
+  const profile = Array.isArray(raw) ? raw[0] : raw
+  return {
+    name: typeof profile?.nombre === 'string' ? profile.nombre : null,
+    avatarUrl: typeof profile?.foto_url === 'string' ? profile.foto_url : null,
+    position: typeof profile?.posicion === 'string' ? profile.posicion : null,
+  }
+}
+
 function getSubmissionFromRows(
   userId: string,
   participants: ParticipantRow[],
@@ -511,6 +539,7 @@ export async function GET(request: NextRequest) {
     }
 
     const requestedTeamId = request.nextUrl.searchParams.get('equipo')?.trim() ?? null
+    const requestedMatchId = request.nextUrl.searchParams.get('matchId')?.trim() ?? null
 
     const membershipsResult = await supabase
       .from('miembros_equipo')
@@ -539,6 +568,14 @@ export async function GET(request: NextRequest) {
           canSubmit: false,
           isOpenForStats: false,
           mySubmission: null,
+          playerSubmissions: [],
+          totals: {
+            goals: 0,
+            assists: 0,
+            yellows: 0,
+            reds: 0,
+            minutes: 0,
+          },
         },
         history: [],
       })
@@ -561,7 +598,7 @@ export async function GET(request: NextRequest) {
       db.from('equipos').select('id, nombre').eq('id', equipoId).maybeSingle(),
       db
         .from('miembros_equipo')
-        .select('usuario_id, rol')
+        .select('usuario_id, rol, dorsal, perfiles(nombre, foto_url, posicion)')
         .eq('equipo_id', equipoId)
         .eq('estado', 'ACTIVO'),
     ])
@@ -578,6 +615,7 @@ export async function GET(request: NextRequest) {
     const totalPlayers = teamMembers.reduce((count, member) => {
       return isPlayerRole(member.rol) ? count + 1 : count
     }, 0)
+    const playerMembers = teamMembers.filter((member) => isPlayerRole(member.rol))
 
     const now = new Date()
     const { start: weekStart, end: weekEnd } = getWeekRange(now)
@@ -623,7 +661,12 @@ export async function GET(request: NextRequest) {
       ? null
       : (nextMatchResult.data as MatchRow)
 
-    const featuredMatch = pickWeekFeatured(weekMatches, now) ?? nextMatch ?? historyMatches[0] ?? null
+    const selectedMatch =
+      requestedMatchId
+        ? [...weekMatches, ...historyMatches].find((match) => match.id === requestedMatchId) ?? null
+        : null
+
+    const featuredMatch = selectedMatch ?? pickWeekFeatured(weekMatches, now) ?? nextMatch ?? historyMatches[0] ?? null
     const history = historyMatches.filter((match) => match.id !== featuredMatch?.id)
 
     const featuredMatchIds = featuredMatch ? [featuredMatch.id] : []
@@ -657,6 +700,31 @@ export async function GET(request: NextRequest) {
     const mySubmission = featuredMatch
       ? getSubmissionFromRows(user.id, participants, events, featuredMatch.id)
       : null
+    const playerSubmissions =
+      featuredMatch && viewerIsCoach
+        ? playerMembers.map((member, index) => {
+            const profile = getMemberProfile(member.perfiles)
+            return {
+              playerId: member.usuario_id,
+              name: profile.name ?? `Jugador ${index + 1}`,
+              avatarUrl: profile.avatarUrl,
+              position: profile.position,
+              dorsal: typeof member.dorsal === 'number' ? member.dorsal : null,
+              submission: getSubmissionFromRows(member.usuario_id, participants, events, featuredMatch.id),
+            }
+          })
+        : []
+    const totals = playerSubmissions.reduce(
+      (acc, player) => {
+        acc.goals += player.submission?.goals ?? 0
+        acc.assists += player.submission?.assists ?? 0
+        acc.yellows += player.submission?.yellowCards ?? 0
+        acc.reds += player.submission?.redCards ?? 0
+        acc.minutes += player.submission?.minutes ?? 0
+        return acc
+      },
+      { goals: 0, assists: 0, yellows: 0, reds: 0, minutes: 0 }
+    )
 
     return NextResponse.json({
       ok: true,
@@ -669,9 +737,11 @@ export async function GET(request: NextRequest) {
         totalPlayers,
         submittedPlayers,
         progressPct,
-        canSubmit: viewerIsPlayer,
+        canSubmit: viewerIsPlayer || viewerIsCoach,
         isOpenForStats: featuredIsOpen,
         mySubmission,
+        playerSubmissions,
+        totals,
       },
       history: history.map(mapMatchForClient),
     })
@@ -697,6 +767,7 @@ export async function POST(request: NextRequest) {
 
     const body = (await request.json()) as SubmitStatsBody
     const matchId = typeof body.matchId === 'string' ? body.matchId.trim() : ''
+    const requestedPlayerId = typeof body.playerId === 'string' ? body.playerId.trim() : ''
     const minutes = parseMinutes(body.minutes)
     const goals = parseCounter(body.goals)
     const assists = parseCounter(body.assists)
@@ -741,8 +812,35 @@ export async function POST(request: NextRequest) {
       return createErrorResponse('No perteneces al equipo de este partido.', 403)
     }
 
-    if (!isPlayerRole(membershipResult.data.rol)) {
-      return createErrorResponse('Solo los jugadores pueden registrar estadisticas.', 403)
+    const viewerIsPlayer = isPlayerRole(membershipResult.data.rol)
+    const viewerIsCoach = isCoachRole(membershipResult.data.rol)
+
+    if (!viewerIsPlayer && !viewerIsCoach) {
+      return createErrorResponse('No tienes permiso para editar estadisticas.', 403)
+    }
+
+    const targetPlayerId = viewerIsCoach ? requestedPlayerId : user.id
+    if (!targetPlayerId) {
+      return createErrorResponse('Debes seleccionar un jugador.', 400)
+    }
+
+    if (viewerIsCoach) {
+      const targetMembership = await supabase
+        .from('miembros_equipo')
+        .select('usuario_id')
+        .eq('equipo_id', match.equipo_id)
+        .eq('usuario_id', targetPlayerId)
+        .eq('estado', 'ACTIVO')
+        .eq('rol', 'JUGADOR')
+        .maybeSingle()
+
+      if (targetMembership.error) {
+        return createErrorResponse('No se pudo validar el jugador seleccionado.', 500)
+      }
+
+      if (!targetMembership.data) {
+        return createErrorResponse('El jugador seleccionado no pertenece al equipo.', 404)
+      }
     }
 
     const now = new Date()
@@ -762,7 +860,7 @@ export async function POST(request: NextRequest) {
       .from('participantes_partido')
       .select('id')
       .eq('partido_id', matchId)
-      .eq(participantColumn, user.id)
+      .eq(participantColumn, targetPlayerId)
       .order('id', { ascending: true })
       .limit(1)
 
@@ -795,7 +893,7 @@ export async function POST(request: NextRequest) {
         convocado: true,
         titular: false,
         minutos_jugados: minutes,
-        [participantColumn]: user.id,
+        [participantColumn]: targetPlayerId,
       }
 
       const insertResult = await db.from('participantes_partido').insert(insertPayload)
@@ -806,7 +904,7 @@ export async function POST(request: NextRequest) {
             .from('participantes_partido')
             .update({ minutos_jugados: minutes })
             .eq('partido_id', matchId)
-            .eq(participantColumn, user.id)
+            .eq(participantColumn, targetPlayerId)
 
           if (!recoverUpdate.error) {
             // Participant row recovered, continue with event upsert.
@@ -844,7 +942,7 @@ export async function POST(request: NextRequest) {
       .from('eventos_partido')
       .delete()
       .eq('partido_id', matchId)
-      .eq(eventColumns.player, user.id)
+      .eq(eventColumns.player, targetPlayerId)
       .in('tipo', PLAYER_STAT_EVENT_TYPES)
 
     if (removeResult.error) {
@@ -863,7 +961,7 @@ export async function POST(request: NextRequest) {
           partido_id: matchId,
           tipo: type,
           minuto: index + 1,
-          [eventColumns.player]: user.id,
+          [eventColumns.player]: targetPlayerId,
         }
 
         eventRows.push(eventPayload)

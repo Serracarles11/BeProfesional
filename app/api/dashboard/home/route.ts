@@ -201,6 +201,11 @@ type TeamAttendanceRow = {
   asiste: boolean
 }
 
+type MatchParticipantRow = {
+  partido_id: string
+  player_id: string
+}
+
 type InviteCodeRow = {
   codigo: string | null
   rol_asignado: string | null
@@ -463,6 +468,47 @@ function isYellowCardEvent(value: string | null | undefined) {
 
 function logOptionalQueryError(context: string, error: unknown) {
   console.error(`Home optional query failed: ${context}`, error)
+}
+
+async function loadMatchParticipants(
+  supabase: Awaited<ReturnType<typeof createSupabaseRouteHandler>>,
+  matchIds: string[]
+): Promise<MatchParticipantRow[]> {
+  if (matchIds.length === 0) return []
+
+  const byJugadorId = await supabase
+    .from('participantes_partido')
+    .select('partido_id, jugador_id')
+    .in('partido_id', matchIds)
+
+  if (!byJugadorId.error) {
+    return (byJugadorId.data ?? [])
+      .map((row) => ({
+        partido_id: typeof row.partido_id === 'string' ? row.partido_id : '',
+        player_id: typeof row.jugador_id === 'string' ? row.jugador_id : '',
+      }))
+      .filter((row) => row.partido_id && row.player_id)
+  }
+
+  const byUsuarioId = await supabase
+    .from('participantes_partido')
+    .select('partido_id, usuario_id')
+    .in('partido_id', matchIds)
+
+  if (!byUsuarioId.error) {
+    return (byUsuarioId.data ?? [])
+      .map((row) => ({
+        partido_id: typeof row.partido_id === 'string' ? row.partido_id : '',
+        player_id: typeof row.usuario_id === 'string' ? row.usuario_id : '',
+      }))
+      .filter((row) => row.partido_id && row.player_id)
+  }
+
+  logOptionalQueryError('participantes_partido', {
+    jugador_id: byJugadorId.error,
+    usuario_id: byUsuarioId.error,
+  })
+  return []
 }
 
 export async function GET(request: NextRequest) {
@@ -767,25 +813,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    let participations:
-      | Array<{
-          partido_id: string
-        }>
-      | [] = []
-
-    if (matchIds.length > 0) {
-      const participationsResult = await supabase
-        .from('participantes_partido')
-        .select('partido_id')
-        .eq('usuario_id', user.id)
-        .in('partido_id', matchIds)
-
-      if (participationsResult.error) {
-        logOptionalQueryError('participantes_partido', participationsResult.error)
-      } else {
-        participations = participationsResult.data ?? []
-      }
-    }
+    const participations = (await loadMatchParticipants(supabase, matchIds)).filter(
+      (row) => row.player_id === user.id
+    )
 
     let wins = 0
     let draws = 0

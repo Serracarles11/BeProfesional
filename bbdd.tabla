@@ -133,6 +133,27 @@ CREATE TABLE public.ejercicios_entrenamiento (
   CONSTRAINT ejercicios_entrenamiento_entrenamiento_id_fkey FOREIGN KEY (entrenamiento_id) REFERENCES public.entrenamientos_equipo(id),
   CONSTRAINT ejercicios_entrenamiento_ejercicio_id_fkey FOREIGN KEY (ejercicio_id) REFERENCES public.ejercicios(id)
 );
+CREATE TABLE public.entrenamiento_asistencias (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  equipo_id uuid NOT NULL,
+  entrenamiento_id uuid NOT NULL,
+  usuario_id uuid NOT NULL,
+  asiste boolean NOT NULL,
+  actualizado_en timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT entrenamiento_asistencias_pkey PRIMARY KEY (id),
+  CONSTRAINT entrenamiento_asistencias_equipo_id_fkey FOREIGN KEY (equipo_id) REFERENCES public.equipos(id),
+  CONSTRAINT entrenamiento_asistencias_entrenamiento_id_fkey FOREIGN KEY (entrenamiento_id) REFERENCES public.entrenamientos_equipo(id),
+  CONSTRAINT entrenamiento_asistencias_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.perfiles(id)
+);
+CREATE TABLE public.entrenamiento_destinatarios (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  entrenamiento_id uuid NOT NULL,
+  usuario_id uuid NOT NULL,
+  creado_en timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT entrenamiento_destinatarios_pkey PRIMARY KEY (id),
+  CONSTRAINT entrenamiento_destinatarios_entrenamiento_id_fkey FOREIGN KEY (entrenamiento_id) REFERENCES public.entrenamientos_equipo(id),
+  CONSTRAINT entrenamiento_destinatarios_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.perfiles(id)
+);
 CREATE TABLE public.entrenamientos_equipo (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   equipo_id uuid NOT NULL,
@@ -178,6 +199,22 @@ CREATE TABLE public.eventos_partido (
   CONSTRAINT eventos_partido_jugador_relacionado_id_fkey FOREIGN KEY (jugador_relacionado_id) REFERENCES public.perfiles(id),
   CONSTRAINT eventos_partido_jugador_externo_relacionado_id_fkey FOREIGN KEY (jugador_externo_relacionado_id) REFERENCES public.jugadores_externos(id),
   CONSTRAINT eventos_partido_jugador_externo_id_fkey FOREIGN KEY (jugador_externo_id) REFERENCES public.jugadores_externos(id)
+);
+CREATE TABLE public.home_bienestar_diario (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  equipo_id uuid NOT NULL,
+  usuario_id uuid NOT NULL,
+  fecha date NOT NULL,
+  estado_mental smallint CHECK (estado_mental IS NULL OR estado_mental >= 1 AND estado_mental <= 10),
+  fatiga smallint CHECK (fatiga IS NULL OR fatiga >= 1 AND fatiga <= 10),
+  asiste_entrenamiento boolean,
+  creado_en timestamp with time zone NOT NULL DEFAULT now(),
+  actualizado_en timestamp with time zone NOT NULL DEFAULT now(),
+  estado_mental_actualizado_en timestamp with time zone,
+  fatiga_actualizada_en timestamp with time zone,
+  CONSTRAINT home_bienestar_diario_pkey PRIMARY KEY (id),
+  CONSTRAINT home_bienestar_diario_equipo_id_fkey FOREIGN KEY (equipo_id) REFERENCES public.equipos(id),
+  CONSTRAINT home_bienestar_diario_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.perfiles(id)
 );
 CREATE TABLE public.ia_conversaciones (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -392,6 +429,18 @@ CREATE TABLE public.players (
   yellows_total integer NOT NULL DEFAULT 0,
   starts_total integer NOT NULL DEFAULT 0,
   CONSTRAINT players_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.playmaker_plays (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  usuario_id uuid NOT NULL,
+  equipo_id uuid,
+  titulo text NOT NULL,
+  draft jsonb NOT NULL,
+  creado_en timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  actualizado_en timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT playmaker_plays_pkey PRIMARY KEY (id),
+  CONSTRAINT playmaker_plays_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES auth.users(id),
+  CONSTRAINT playmaker_plays_equipo_id_fkey FOREIGN KEY (equipo_id) REFERENCES public.equipos(id)
 );
 CREATE TABLE public.registros_actividad (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
