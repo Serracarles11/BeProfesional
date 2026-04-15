@@ -1,5 +1,6 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { enrichDraftWithExerciseDb } from '@/lib/exercisedb'
 import { getServerOpenAiConfig, getServerOpenAiKeyError } from '@/lib/openai-server'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
 import { buildRoutineDetails, buildRoutineSummary, normalizeRoutineDraft, type RoutineEditorDraft, type RoutineExerciseRow } from '@/lib/playmaker/routines'
@@ -224,12 +225,14 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = parsed as Record<string, unknown>
-    const draft = normalizeRoutineDraft((payload.draft as Partial<RoutineEditorDraft> | undefined) ?? undefined)
-    draft.origin = 'ai'
+    const nextDraft = normalizeRoutineDraft((payload.draft as Partial<RoutineEditorDraft> | undefined) ?? undefined)
+    nextDraft.origin = 'ai'
 
-    if (!draft.title.trim() || draft.blocks.length === 0) {
+    if (!nextDraft.title.trim() || nextDraft.blocks.length === 0) {
       return errorResponse('La IA devolvio una rutina incompleta.', 502)
     }
+
+    const draft = await enrichDraftWithExerciseDb(nextDraft)
 
     return NextResponse.json({
       ok: true,

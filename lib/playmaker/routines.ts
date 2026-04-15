@@ -1,4 +1,6 @@
-﻿export type RoutineOrigin = 'manual' | 'ai'
+import type { ExerciseDbEnrichment } from '@/lib/exercisedb-types'
+
+export type RoutineOrigin = 'manual' | 'ai'
 
 export type RoutineMaterialMeta = {
   order?: number
@@ -16,6 +18,7 @@ export type RoutineMaterialMeta = {
   instructions?: string
   coachingPoints?: string[]
   progression?: string
+  exerciseData?: ExerciseDbEnrichment
 }
 
 export type RoutineExerciseRow = {
@@ -47,6 +50,7 @@ export type RoutineBlock = {
   progression: string
   notes: string
   difficulty: number | null
+  exerciseData: ExerciseDbEnrichment | null
 }
 
 export type RoutineSummary = {
@@ -87,6 +91,7 @@ export type RoutineEditorBlock = {
   coachingPoints: string[]
   progression: string
   notes: string
+  exerciseData?: ExerciseDbEnrichment | null
 }
 
 export type RoutineEditorDraft = {
@@ -127,11 +132,60 @@ export function serializeRoutineMaterial(meta: RoutineMaterialMeta) {
   return JSON.stringify(meta)
 }
 
+function parseStringArray(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function parseExerciseData(value: unknown): ExerciseDbEnrichment | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const parsed = value as Record<string, unknown>
+  const exerciseId = typeof parsed.exerciseId === 'string' ? parsed.exerciseId.trim() : ''
+  const name = typeof parsed.name === 'string' ? parsed.name.trim() : ''
+  if (!exerciseId || !name) return undefined
+
+  const relatedExercises = Array.isArray(parsed.relatedExercises)
+    ? parsed.relatedExercises
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null
+          const related = item as Record<string, unknown>
+          const relatedId = typeof related.exerciseId === 'string' ? related.exerciseId.trim() : ''
+          const relatedName = typeof related.name === 'string' ? related.name.trim() : ''
+          if (!relatedId || !relatedName) return null
+          return { exerciseId: relatedId, name: relatedName }
+        })
+        .filter((item): item is ExerciseDbEnrichment['relatedExercises'][number] => Boolean(item))
+    : []
+
+  return {
+    source: 'exercisedb',
+    exerciseId,
+    name,
+    overview: typeof parsed.overview === 'string' ? parsed.overview.trim() : '',
+    instructions: parseStringArray(parsed.instructions),
+    imageUrl: typeof parsed.imageUrl === 'string' && parsed.imageUrl.trim() ? parsed.imageUrl.trim() : null,
+    gifUrl: typeof parsed.gifUrl === 'string' && parsed.gifUrl.trim() ? parsed.gifUrl.trim() : null,
+    videoUrl: typeof parsed.videoUrl === 'string' && parsed.videoUrl.trim() ? parsed.videoUrl.trim() : null,
+    bodyParts: parseStringArray(parsed.bodyParts),
+    targetMuscles: parseStringArray(parsed.targetMuscles),
+    secondaryMuscles: parseStringArray(parsed.secondaryMuscles),
+    equipments: parseStringArray(parsed.equipments),
+    exerciseType: typeof parsed.exerciseType === 'string' && parsed.exerciseType.trim() ? parsed.exerciseType.trim() : null,
+    exerciseTips: parseStringArray(parsed.exerciseTips),
+    variations: parseStringArray(parsed.variations),
+    keywords: parseStringArray(parsed.keywords),
+    relatedExercises,
+  }
+}
+
 export function parseRoutineMaterial(value: string | null | undefined): RoutineMaterialMeta {
   if (!value) return {}
 
   try {
-    const parsed = JSON.parse(value) as RoutineMaterialMeta
+    const parsed = JSON.parse(value) as RoutineMaterialMeta & { exerciseData?: unknown }
     return {
       order: typeof parsed.order === 'number' ? parsed.order : undefined,
       load: typeof parsed.load === 'string' ? parsed.load : undefined,
@@ -150,6 +204,7 @@ export function parseRoutineMaterial(value: string | null | undefined): RoutineM
         ? parsed.coachingPoints.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean)
         : undefined,
       progression: typeof parsed.progression === 'string' ? parsed.progression : undefined,
+      exerciseData: parseExerciseData(parsed.exerciseData),
     }
   } catch {
     return {
@@ -210,6 +265,7 @@ function parseBlock(row: RoutineExerciseRow): RoutineBlock {
     progression: meta.progression ?? pickLine(description, 'Progresion') ?? '',
     notes: pickLine(description, 'Notas'),
     difficulty: row.dificultad,
+    exerciseData: meta.exerciseData ?? null,
   }
 }
 
@@ -257,6 +313,7 @@ function sanitizeBlock(input: Partial<RoutineEditorBlock>, fallbackPhase: string
       : [],
     progression: typeof input.progression === 'string' ? input.progression.trim() : '',
     notes: typeof input.notes === 'string' ? input.notes.trim() : '',
+    exerciseData: parseExerciseData(input.exerciseData) ?? null,
   }
 }
 
@@ -311,8 +368,60 @@ export function routineDetailToEditorDraft(detail: RoutineDetail): RoutineEditor
       coachingPoints: block.coachingPoints,
       progression: block.progression,
       notes: block.notes,
+      exerciseData: block.exerciseData,
     })),
   })
+}
+
+function firstNonEmpty(...values: Array<string | null | undefined>) {
+  return values.find((value) => typeof value === 'string' && value.trim())?.trim() ?? ''
+}
+
+function splitIntoLines(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((item) => item.replace(/^\d+\.\s*/, '').trim())
+    .filter(Boolean)
+}
+
+export function mergeRoutineBlockWithExerciseData(block: RoutineEditorBlock, exerciseData: ExerciseDbEnrichment): RoutineEditorBlock {
+  const bodyParts = exerciseData.bodyParts.join(', ')
+  const primaryMuscles = exerciseData.targetMuscles.join(', ')
+  const secondaryMuscles = exerciseData.secondaryMuscles.join(', ')
+  const equipments = exerciseData.equipments.join(', ')
+
+  return {
+    ...block,
+    name: firstNonEmpty(block.name, exerciseData.name),
+    purpose: firstNonEmpty(block.purpose, exerciseData.overview),
+    setup: firstNonEmpty(
+      block.setup,
+      equipments ? `Equipamiento: ${equipments}.` : '',
+      bodyParts ? `Zona corporal principal: ${bodyParts}.` : ''
+    ),
+    instructions: firstNonEmpty(block.instructions, exerciseData.instructions.join('\n')),
+    coachingPoints: block.coachingPoints.length > 0 ? block.coachingPoints : exerciseData.exerciseTips,
+    progression: firstNonEmpty(block.progression, exerciseData.variations.join('\n')),
+    notes: firstNonEmpty(
+      block.notes,
+      [
+        primaryMuscles ? `Musculatura principal: ${primaryMuscles}.` : '',
+        secondaryMuscles ? `Musculatura secundaria: ${secondaryMuscles}.` : '',
+        exerciseData.exerciseType ? `Tipo de ejercicio: ${exerciseData.exerciseType}.` : '',
+      ]
+        .filter(Boolean)
+        .join(' ')
+    ),
+    exerciseData,
+  }
+}
+
+export function inferExerciseDataFallbacks(block: RoutineEditorBlock) {
+  return {
+    instructions: splitIntoLines(block.instructions),
+    exerciseTips: block.coachingPoints,
+    variations: splitIntoLines(block.progression),
+  }
 }
 
 export function buildRoutineDetails(rows: RoutineExerciseRow[]) {
@@ -352,6 +461,7 @@ export function buildRoutineDetails(rows: RoutineExerciseRow[]) {
       const description =
         objective ||
         blocks.find((block) => block.purpose)?.purpose ||
+        blocks.find((block) => block.exerciseData?.overview)?.exerciseData?.overview ||
         blocks.find((block) => block.notes)?.notes ||
         firstRow.descripcion ||
         'Rutina del equipo.'

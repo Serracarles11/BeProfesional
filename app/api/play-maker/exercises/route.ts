@@ -1,5 +1,6 @@
 ﻿import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
+import type { ExerciseDbEnrichment } from '@/lib/exercisedb-types'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
 import { buildRoutineObjective, serializeRoutineMaterial, type RoutineOrigin } from '@/lib/playmaker/routines'
@@ -18,6 +19,7 @@ type ExerciseBlock = {
   coachingPoints?: unknown
   progression?: unknown
   notes?: unknown
+  exerciseData?: unknown
 }
 
 type RequestBody = {
@@ -64,6 +66,55 @@ function parseCoachingPoints(value: unknown) {
 
 function parseOrigin(value: unknown): RoutineOrigin {
   return value === 'ai' ? 'ai' : 'manual'
+}
+
+function parseExerciseStringArray(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function parseExerciseData(value: unknown): ExerciseDbEnrichment | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const parsed = value as Record<string, unknown>
+  const exerciseId = parseString(parsed.exerciseId)
+  const name = parseString(parsed.name)
+  if (!exerciseId || !name) return undefined
+
+  const relatedExercises = Array.isArray(parsed.relatedExercises)
+    ? parsed.relatedExercises
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null
+          const related = item as Record<string, unknown>
+          const relatedId = parseString(related.exerciseId)
+          const relatedName = parseString(related.name)
+          if (!relatedId || !relatedName) return null
+          return { exerciseId: relatedId, name: relatedName }
+        })
+        .filter((item): item is ExerciseDbEnrichment['relatedExercises'][number] => Boolean(item))
+    : []
+
+  return {
+    source: 'exercisedb',
+    exerciseId,
+    name,
+    overview: parseString(parsed.overview),
+    instructions: parseExerciseStringArray(parsed.instructions),
+    imageUrl: parseString(parsed.imageUrl) || null,
+    gifUrl: parseString(parsed.gifUrl) || null,
+    videoUrl: parseString(parsed.videoUrl) || null,
+    bodyParts: parseExerciseStringArray(parsed.bodyParts),
+    targetMuscles: parseExerciseStringArray(parsed.targetMuscles),
+    secondaryMuscles: parseExerciseStringArray(parsed.secondaryMuscles),
+    equipments: parseExerciseStringArray(parsed.equipments),
+    exerciseType: parseString(parsed.exerciseType) || null,
+    exerciseTips: parseExerciseStringArray(parsed.exerciseTips),
+    variations: parseExerciseStringArray(parsed.variations),
+    keywords: parseExerciseStringArray(parsed.keywords),
+    relatedExercises,
+  }
 }
 
 function toDifficulty(category: string, origin: RoutineOrigin) {
@@ -203,6 +254,7 @@ function buildRows(args: {
       const coachingPoints = parseCoachingPoints(block.coachingPoints)
       const progression = parseString(block.progression)
       const notes = parseString(block.notes)
+      const exerciseData = parseExerciseData(block.exerciseData)
 
       if (!name) return null
 
@@ -246,6 +298,7 @@ function buildRows(args: {
           instructions,
           coachingPoints,
           progression,
+          exerciseData,
         }),
         creado_por: userId,
       }
