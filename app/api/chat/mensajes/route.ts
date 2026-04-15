@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { getServerOpenAiConfig, getServerOpenAiKeyError } from '@/lib/openai-server'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
 import { decodeChatContent, encodeChatContent } from '@/lib/chat/envelope'
 
@@ -176,10 +177,11 @@ async function generateAiReply(
   userId: string,
   userText: string
 ) {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    return 'Ahora mismo la IA no esta configurada. Falta OPENAI_API_KEY.'
+  const openAiConfig = getServerOpenAiConfig()
+  if (!openAiConfig) {
+    return getServerOpenAiKeyError()
   }
+  const apiKey = openAiConfig.apiKey
 
   const openai = new OpenAI({ apiKey })
   const context: Array<{ role: 'user' | 'assistant'; content: string }> = chatHistory

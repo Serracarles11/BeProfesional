@@ -592,6 +592,7 @@ export default function Home() {
         <LeftNavigation
           equipoId={payload.equipo.id}
           teamName={teamName}
+          isCoach={isCoach}
           isCodesActive={isInviteCodesOpen}
           onOpenCodes={() => setIsInviteCodesOpen(true)}
           isSettingsActive={isSettingsOpen}

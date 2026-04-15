@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
+import CoachPlayMakerClient from './CoachPlayMakerClient'
 import TrainingAssistantClient from './PlayMakerClient'
 import { createSupabaseServer } from '@/lib/supabase/server'
+import { buildRoutineDetails, buildRoutineSummary, type RoutineExerciseRow } from '@/lib/playmaker/routines'
 
 type SearchParamsInput = Record<string, string | string[] | undefined>
 
@@ -112,17 +114,7 @@ export default async function PlayMakerPage({
     session.user.email?.split('@')[0] ??
     'Jugador'
 
-  let exercises: Array<{
-    id: string
-    nombre: string
-    descripcion: string | null
-    tipo: string | null
-    objetivo: string | null
-    duracion_estimada_min: number | null
-    dificultad: number | null
-    material: string | null
-  }> = []
-
+  let routines: ReturnType<typeof buildRoutineSummary>[] = []
   let upcomingTrainings: Array<{
     id: string
     fecha: string
@@ -135,12 +127,13 @@ export default async function PlayMakerPage({
   if (activeTeam) {
     const exercisesResult = await supabase
       .from('ejercicios')
-      .select('id, nombre, descripcion, tipo, objetivo, duracion_estimada_min, dificultad, material')
+      .select('id, nombre, descripcion, tipo, objetivo, duracion_estimada_min, dificultad, material, creado_en')
       .or(`equipo_id.eq.${activeTeam.id},equipo_id.is.null`)
       .order('creado_en', { ascending: false })
-      .limit(12)
+      .limit(100)
 
-    exercises = (exercisesResult.data ?? []) as typeof exercises
+    const exerciseRows = (exercisesResult.data ?? []) as RoutineExerciseRow[]
+    routines = buildRoutineDetails(exerciseRows).map(buildRoutineSummary)
 
     const trainingsResult = await supabase
       .from('entrenamientos_equipo')
@@ -176,13 +169,17 @@ export default async function PlayMakerPage({
     }
   }
 
+  if (isCoach) {
+    return <CoachPlayMakerClient />
+  }
+
   return (
     <TrainingAssistantClient
       equipo={activeTeam}
       role={role}
       isCoach={isCoach}
       playerName={playerName}
-      exercises={exercises}
+      routines={routines}
       upcomingTrainings={upcomingTrainings}
     />
   )

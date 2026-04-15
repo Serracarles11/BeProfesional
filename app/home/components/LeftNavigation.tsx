@@ -17,6 +17,7 @@ import { isActivePath, withEquipo } from '../utils'
 type LeftNavigationProps = {
   equipoId?: string
   teamName: string
+  isCoach?: boolean
   isCodesActive?: boolean
   onOpenCodes?: () => void
   isSettingsActive?: boolean
@@ -35,12 +36,16 @@ const MENU_ITEMS = [
 export function LeftNavigation({
   equipoId,
   teamName,
+  isCoach = false,
   isCodesActive = false,
   onOpenCodes,
   isSettingsActive = false,
   onOpenSettings,
 }: LeftNavigationProps) {
   const pathname = usePathname()
+  const menuItems = MENU_ITEMS.map((item) =>
+    item.href === '/play-maker' ? { ...item, label: isCoach ? 'IA Maker' : 'AI Coach' } : item
+  )
 
   return (
     <aside className="hidden h-screen w-64 shrink-0 border-r border-[#dfe3e8] bg-[#f4f7fc] p-4 xl:flex xl:flex-col">
@@ -50,7 +55,7 @@ export function LeftNavigation({
       </div>
 
       <nav className="space-y-1">
-        {MENU_ITEMS.map((item) => {
+        {menuItems.map((item) => {
           const active = isActivePath(pathname, item.href)
           const Icon = item.icon
 

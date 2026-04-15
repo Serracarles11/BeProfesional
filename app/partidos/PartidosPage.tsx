@@ -461,7 +461,7 @@ function CoachMatchReview({
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-[1700px]">
-      <LeftNavigation equipoId={payload.equipoId ?? undefined} teamName={payload.teamName} />
+      <LeftNavigation equipoId={payload.equipoId ?? undefined} teamName={payload.teamName} isCoach={payload.isCoach} />
 
       <section className="min-w-0 flex-1 bg-[#f7f9fe] px-4 pb-24 pt-8 md:px-8 md:pb-8 xl:px-10">
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -649,7 +649,7 @@ function PlayerPartidosView({
   return (
     <>
       <div className="mx-auto flex min-h-screen w-full max-w-[1700px]">
-        <LeftNavigation equipoId={payload.equipoId ?? undefined} teamName={payload.teamName} />
+        <LeftNavigation equipoId={payload.equipoId ?? undefined} teamName={payload.teamName} isCoach={payload.isCoach} />
 
         <main className="w-full px-4 pb-24 pt-8 md:px-8 md:pb-8 xl:px-10">
           <header className="mx-auto mb-8 w-full max-w-6xl">

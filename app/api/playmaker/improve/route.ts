@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { getServerOpenAiConfig, getServerOpenAiKeyError } from '@/lib/openai-server'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
 import { buildPlaymakerAnalysisInput } from '@/lib/playmaker/analysis-engine'
 import {
@@ -163,8 +164,9 @@ Reglas:
 
 export async function POST(request: NextRequest) {
   try {
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) return errorResponse('OPENAI_API_KEY no configurada.', 500, 'OPENAI_KEY_MISSING')
+    const openAiConfig = getServerOpenAiConfig()
+    if (!openAiConfig) return errorResponse(getServerOpenAiKeyError(), 500, 'OPENAI_KEY_MISSING')
+    const apiKey = openAiConfig.apiKey
 
     const body = (await request.json()) as RequestBody
     if (!isBoardDraftPayload(body.draft)) return errorResponse('El tablero recibido no es valido.', 400, 'INVALID_BODY')

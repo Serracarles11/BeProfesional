@@ -116,6 +116,7 @@ function ChatPageContent() {
   const [error, setError] = useState('')
   const [teamId, setTeamId] = useState<string | null>(requestedTeamId)
   const [teamName, setTeamName] = useState('Equipo')
+  const [isCoach, setIsCoach] = useState(false)
   const [channels, setChannels] = useState<ChatChannel[]>([])
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -192,6 +193,7 @@ function ChatPageContent() {
 
       setTeamId(data.equipoId)
       setTeamName(data.teamName || 'Equipo')
+      setIsCoach(data.isCoach)
       setChannels(data.channels)
       setSelectedChatId(data.activeChatId)
 
@@ -321,7 +323,7 @@ function ChatPageContent() {
   return (
     <div className="h-screen overflow-hidden bg-[#f7f9fe] text-[#181c20]">
       <main className="mx-auto flex h-full w-full max-w-[1700px]">
-        <LeftNavigation equipoId={teamId ?? undefined} teamName={teamName} />
+        <LeftNavigation equipoId={teamId ?? undefined} teamName={teamName} isCoach={isCoach} />
 
         <section className="flex min-w-0 flex-1 overflow-hidden">
           <div className="hidden w-[360px] shrink-0 border-r border-[#dfe3e8] bg-[#f7f9fe] md:flex md:flex-col">

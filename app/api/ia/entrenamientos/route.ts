@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { getServerOpenAiConfig, getServerOpenAiKeyError } from '@/lib/openai-server'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
 import { loadTrainingStatsDashboardData, normalizeTrainingInsightPayload } from '@/lib/training-stats'
 
@@ -75,10 +76,11 @@ function buildModelInput(stats: Awaited<ReturnType<typeof loadTrainingStatsDashb
 
 export async function POST(request: NextRequest) {
   try {
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      return errorResponse('OPENAI_API_KEY no configurada.', 500, 'OPENAI_KEY_MISSING')
+    const openAiConfig = getServerOpenAiConfig()
+    if (!openAiConfig) {
+      return errorResponse(getServerOpenAiKeyError(), 500)
     }
+    const apiKey = openAiConfig.apiKey
 
     const body = (await request.json()) as RequestBody
     const equipoId = typeof body.equipoId === 'string' ? body.equipoId.trim() : ''

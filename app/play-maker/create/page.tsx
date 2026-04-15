@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import CreateExerciseClient from './CreateExerciseClient'
+import { buildRoutineDetails, type RoutineExerciseRow } from '@/lib/playmaker/routines'
 
 type SearchParamsInput = Record<string, string | string[] | undefined>
 
@@ -50,6 +51,9 @@ export default async function CreateExercisePage({
   const requestedTeamId = Array.isArray(resolvedSearchParams.equipo)
     ? resolvedSearchParams.equipo[0]
     : resolvedSearchParams.equipo
+  const requestedRoutineId = Array.isArray(resolvedSearchParams.routine)
+    ? resolvedSearchParams.routine[0]
+    : resolvedSearchParams.routine
 
   const supabase = await createSupabaseServer()
   const {
@@ -78,17 +82,19 @@ export default async function CreateExercisePage({
     ? equipos.find((team) => team.id === requestedTeamId) ?? equipos[0] ?? null
     : equipos[0] ?? null
 
-  const profileResult = await supabase
-    .from('perfiles')
-    .select('nombre')
-    .eq('id', userId)
-    .maybeSingle()
+  let initialRoutine = null
 
-  const playerName =
-    profileResult.data?.nombre ??
-    (typeof session.user.user_metadata?.nombre === 'string' ? session.user.user_metadata.nombre : null) ??
-    session.user.email?.split('@')[0] ??
-    'Usuario'
+  if (activeTeam && requestedRoutineId) {
+    const rowsResult = await supabase
+      .from('ejercicios')
+      .select('id, nombre, descripcion, tipo, objetivo, duracion_estimada_min, dificultad, material, creado_en')
+      .eq('equipo_id', activeTeam.id)
+      .ilike('objetivo', `routine::${requestedRoutineId}::%`)
+      .order('creado_en', { ascending: true })
 
-  return <CreateExerciseClient equipo={activeTeam} playerName={playerName} />
+    const rows = (rowsResult.data ?? []) as RoutineExerciseRow[]
+    initialRoutine = buildRoutineDetails(rows)[0] ?? null
+  }
+
+  return <CreateExerciseClient equipo={activeTeam} initialRoutine={initialRoutine} />
 }

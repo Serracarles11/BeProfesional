@@ -4,23 +4,19 @@ import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import {
   Bell,
-  Bookmark,
-  Brain,
   ChevronDown,
   Dumbbell,
   FileText,
   Play,
   Plus,
   Search,
-  SendHorizontal,
   Settings,
   Sparkles,
-  User,
-  Zap,
 } from 'lucide-react'
 import { Manrope, Plus_Jakarta_Sans } from 'next/font/google'
 import { LeftNavigation } from '@/app/home/components/LeftNavigation'
 import { withEquipo } from '@/app/home/utils'
+import type { RoutineSummary } from '@/lib/playmaker/routines'
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -33,17 +29,6 @@ const manrope = Manrope({
   variable: '--font-manrope',
   weight: ['400', '500', '600', '700'],
 })
-
-type ExerciseItem = {
-  id: string
-  nombre: string
-  descripcion: string | null
-  tipo: string | null
-  objetivo: string | null
-  duracion_estimada_min: number | null
-  dificultad: number | null
-  material: string | null
-}
 
 type TrainingItem = {
   id: string
@@ -66,7 +51,7 @@ type TrainingAssistantClientProps = {
   role: string | null
   isCoach: boolean
   playerName: string
-  exercises: ExerciseItem[]
+  routines: RoutineSummary[]
   upcomingTrainings: TrainingItem[]
 }
 
@@ -84,10 +69,10 @@ function normalizeText(value: string | null | undefined) {
     .toUpperCase()
 }
 
-function resolveCategory(exercise: ExerciseItem): FilterCategory {
-  const type = normalizeText(exercise.tipo)
-  const objective = normalizeText(exercise.objetivo)
-  const description = normalizeText(exercise.descripcion)
+function resolveCategory(routine: RoutineSummary): FilterCategory {
+  const type = normalizeText(routine.category)
+  const objective = normalizeText(routine.title)
+  const description = normalizeText(routine.description)
   const pool = `${type} ${objective} ${description}`
 
   if (pool.includes('REHAB') || pool.includes('RECUP') || pool.includes('LESION')) {
@@ -139,53 +124,23 @@ function cardTheme(category: FilterCategory) {
   }
 }
 
-function formatTrainingDate(training: TrainingItem) {
-  const source = training.hora_inicio ? `${training.fecha}T${training.hora_inicio}` : `${training.fecha}T12:00:00`
-  const date = new Date(source)
-  if (Number.isNaN(date.getTime())) return training.fecha
-
-  return date.toLocaleDateString('es-ES', {
-    day: '2-digit',
-    month: 'short',
-  })
-}
-
 export default function TrainingAssistantClient({
   equipo,
   role,
   isCoach,
   playerName,
-  exercises,
+  routines,
   upcomingTrainings,
 }: TrainingAssistantClientProps) {
   const [activeTab, setActiveTab] = useState<AssistantTab>('LIBRARY')
   const [activeFilter, setActiveFilter] = useState<FilterCategory>('Todos')
   const [query, setQuery] = useState('')
   const [sortBy, setSortBy] = useState<'popular' | 'recent' | 'difficulty'>('popular')
-  const [aiPrompt, setAiPrompt] = useState('')
-  const [aiMessages, setAiMessages] = useState([
-    {
-      id: 'assistant-1',
-      sender: 'assistant' as const,
-      content: `Hola, ${playerName}. He analizado tu biblioteca actual. ¿Prefieres una rutina de recuperacion, potencia explosiva o trabajo de resistencia para hoy?`,
-    },
-    {
-      id: 'user-1',
-      sender: 'user' as const,
-      content: 'Quiero mejorar mi salto vertical y la potencia explosiva, pero sin pasar de 45 minutos.',
-    },
-    {
-      id: 'assistant-2',
-      sender: 'assistant' as const,
-      content:
-        'Entendido. Estoy preparando una rutina enfocada en triple extension, fuerza reactiva y produccion rapida de fuerza. Puedes revisar la vista previa en el panel derecho.',
-    },
-  ])
 
-  const visibleExercises = useMemo(() => {
-    const filtered = exercises.filter((exercise) => {
-      const category = resolveCategory(exercise)
-      const haystack = `${exercise.nombre} ${exercise.descripcion ?? ''} ${exercise.objetivo ?? ''} ${exercise.material ?? ''}`.toLowerCase()
+  const visibleRoutines = useMemo(() => {
+    const filtered = routines.filter((routine) => {
+      const category = resolveCategory(routine)
+      const haystack = `${routine.title} ${routine.description} ${routine.phase} ${routine.category}`.toLowerCase()
       const queryMatch = query.trim() ? haystack.includes(query.trim().toLowerCase()) : true
       const filterMatch = activeFilter === 'Todos' ? true : category === activeFilter
       return queryMatch && filterMatch
@@ -193,42 +148,41 @@ export default function TrainingAssistantClient({
 
     return [...filtered].sort((left, right) => {
       if (sortBy === 'difficulty') {
-        return (right.dificultad ?? 0) - (left.dificultad ?? 0)
+        return right.difficulty - left.difficulty
       }
       if (sortBy === 'recent') {
-        return (right.duracion_estimada_min ?? 0) - (left.duracion_estimada_min ?? 0)
+        return right.duration - left.duration
       }
-      return left.nombre.localeCompare(right.nombre, 'es')
+      return left.title.localeCompare(right.title, 'es')
     })
-  }, [activeFilter, exercises, query, sortBy])
+  }, [activeFilter, query, routines, sortBy])
 
   const heroCopy = isCoach
     ? 'Optimiza la planificacion del grupo con una biblioteca de ejercicios conectada a tu equipo.'
     : 'Optimiza tu rendimiento fisico con rutinas conectadas a tu equipo y sesiones preparadas por profesionales.'
 
-  const previewExercises = useMemo(() => {
-    return (visibleExercises.length > 0 ? visibleExercises : exercises).slice(0, 4)
-  }, [exercises, visibleExercises])
+  const previewRoutines = useMemo(() => {
+    return (visibleRoutines.length > 0 ? visibleRoutines : routines).slice(0, 4)
+  }, [routines, visibleRoutines])
 
   const previewDuration = useMemo(() => {
-    return previewExercises.reduce((acc, exercise) => acc + (exercise.duracion_estimada_min ?? 10), 0)
-  }, [previewExercises])
+    return previewRoutines.reduce((acc, routine) => acc + routine.duration, 0)
+  }, [previewRoutines])
 
   const previewVolume = useMemo(() => {
-    const estimated = previewExercises.reduce((acc, exercise) => {
-      const difficulty = exercise.dificultad ?? 3
-      return acc + difficulty * (exercise.duracion_estimada_min ?? 10) * 18
+    const estimated = previewRoutines.reduce((acc, routine) => {
+      return acc + routine.difficulty * Math.max(routine.duration, 10) * 18
     }, 0)
     return `${(estimated / 1000).toFixed(1)}K KG`
-  }, [previewExercises])
+  }, [previewRoutines])
 
   const previewIntensity = useMemo(() => {
     const avgDifficulty =
-      previewExercises.reduce((acc, exercise) => acc + (exercise.dificultad ?? 3), 0) / Math.max(previewExercises.length, 1)
+      previewRoutines.reduce((acc, routine) => acc + routine.difficulty, 0) / Math.max(previewRoutines.length, 1)
     if (avgDifficulty >= 4) return 'HIGH'
     if (avgDifficulty >= 3) return 'MEDIUM'
     return 'LOW'
-  }, [previewExercises])
+  }, [previewRoutines])
 
   const suggestionChips = useMemo(() => {
     const derived = [
@@ -241,46 +195,12 @@ export default function TrainingAssistantClient({
     return derived.slice(0, 4)
   }, [upcomingTrainings])
 
-  function buildAiReply(prompt: string) {
-    const normalized = normalizeText(prompt)
-
-    if (normalized.includes('EXPLOS') || normalized.includes('SALTO') || normalized.includes('POTENC')) {
-      return 'Perfecto. Ajusto la rutina hacia potencia explosiva, con una base de fuerza y un bloque final de pliometria controlada para mantenerla por debajo de 45 minutos.'
-    }
-    if (normalized.includes('RECUP') || normalized.includes('LEG') || normalized.includes('PIERNA')) {
-      return 'En ese caso priorizo una rutina de descarga: movilidad de cadera, activacion ligera y trabajo regenerativo para bajar fatiga sin perder estimulo.'
-    }
-    if (normalized.includes('CARDIO') || normalized.includes('ZONE 2') || normalized.includes('ZONA 2')) {
-      return 'Voy a orientar la propuesta a una sesion aerobica estable con bloques de zona 2 y un cierre corto de core para mejorar eficiencia sin elevar demasiado la carga.'
-    }
-
-    return 'He refinado la propuesta con tus indicaciones. Mantengo una estructura equilibrada entre activacion, bloque principal y cierre, usando los ejercicios disponibles en tu biblioteca.'
-  }
-
-  function submitAiPrompt(nextPrompt: string) {
-    const value = nextPrompt.trim()
-    if (!value) return
-
-    setAiMessages((current) => [
-      ...current,
-      {
-        id: `user-${Date.now()}`,
-        sender: 'user',
-        content: value,
-      },
-      {
-        id: `assistant-${Date.now()}-reply`,
-        sender: 'assistant',
-        content: buildAiReply(value),
-      },
-    ])
-    setAiPrompt('')
-  }
+  const aiCreateHref = withEquipo('/play-maker/create', equipo?.id)
 
   return (
     <div className={`${plusJakarta.variable} ${manrope.variable} min-h-screen bg-[#f7f9fe] [font-family:var(--font-manrope)] text-[#181c20]`}>
       <div className="mx-auto flex min-h-screen w-full max-w-[1700px]">
-        <LeftNavigation equipoId={equipo?.id} teamName={equipo?.nombre ?? 'Equipo'} />
+        <LeftNavigation equipoId={equipo?.id} teamName={equipo?.nombre ?? 'Equipo'} isCoach={isCoach} />
 
         <main className="min-w-0 flex-1">
           <header
@@ -364,7 +284,7 @@ export default function TrainingAssistantClient({
                     {heroCopy}
                   </p>
                   <p className="mt-3 text-sm font-semibold uppercase tracking-[0.18em] text-[#727785]">
-                    {equipo?.nombre ?? 'Equipo'} · {role ?? 'Jugador'}
+                    {equipo?.nombre ?? 'Equipo'} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· {role ?? 'Jugador'}
                   </p>
                 </div>
               </section>
@@ -446,16 +366,20 @@ export default function TrainingAssistantClient({
                     </div>
                   </Link>
 
-                  {visibleExercises.length > 0 ? (
-                    visibleExercises.map((exercise, index) => {
-                      const category = resolveCategory(exercise)
+                  {visibleRoutines.length > 0 ? (
+                    visibleRoutines.map((routine, index) => {
+                      const category = resolveCategory(routine)
                       const theme = cardTheme(category)
                       const featured = index === 1
+                      const viewHref = withEquipo(`/play-maker/routine/${routine.id}`, equipo?.id)
+                      const editHref = equipo?.id
+                        ? `/play-maker/create?equipo=${encodeURIComponent(equipo.id)}&routine=${encodeURIComponent(routine.id)}`
+                        : `/play-maker/create?routine=${encodeURIComponent(routine.id)}`
 
                       if (featured) {
                         return (
                           <article
-                            key={exercise.id}
+                            key={routine.id}
                             className="relative overflow-hidden rounded-lg border border-[#181c20] bg-[#181c20] text-white transition-all duration-500 hover:-translate-y-1 hover:shadow-xl"
                           >
                             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(26,115,232,0.45),transparent_55%)]" />
@@ -467,22 +391,28 @@ export default function TrainingAssistantClient({
                                 <Sparkles className="h-5 w-5 text-white/40" />
                               </div>
                               <h3 className="mb-4 text-4xl font-black uppercase italic leading-[0.9] tracking-tighter [font-family:var(--font-plus-jakarta)]">
-                                {exercise.nombre.split(' ').slice(0, 2).join(' ')}
+                                {routine.title.split(' ').slice(0, 2).join(' ')}
                                 <br />
-                                <span className="text-[#1A73E8]">{exercise.nombre.split(' ').slice(2).join(' ') || 'Focus'}</span>
+                                <span className="text-[#1A73E8]">{routine.title.split(' ').slice(2).join(' ') || 'Focus'}</span>
                               </h3>
                               <p className="mb-8 max-w-[260px] text-sm font-medium leading-relaxed text-white/70">
-                                {exercise.descripcion || exercise.objetivo || 'Rutina especializada conectada a tu biblioteca de entrenamientos.'}
+                                {routine.description || routine.phase || 'Rutina especializada conectada a tu biblioteca de entrenamientos.'}
                               </p>
                               <div className="mt-auto space-y-6">
                                 <div className="grid grid-cols-2 gap-4">
-                                  <InfoMini label="Duracion" value={`${exercise.duracion_estimada_min ?? 20} min`} dark />
-                                  <InfoMini label="Intensidad" value={difficultyLabel(exercise.dificultad)} dark />
+                                  <InfoMini label="Duracion" value={`${routine.duration || 20} min`} dark />
+                                  <InfoMini label="Intensidad" value={difficultyLabel(routine.difficulty)} dark />
                                 </div>
-                                <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-white py-4 text-xs font-extrabold tracking-widest text-[#181c20] transition-all hover:bg-[#d6e3ff] hover:text-[#1A73E8]">
-                                  <span>COMENZAR AHORA</span>
-                                  <Play className="h-4 w-4" />
-                                </button>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <Link href={viewHref} className="flex w-full items-center justify-center gap-2 rounded-lg bg-white py-4 text-xs font-extrabold tracking-widest text-[#181c20] transition-all hover:bg-[#d6e3ff] hover:text-[#1A73E8]">
+                                    <span>VER</span>
+                                    <FileText className="h-4 w-4" />
+                                  </Link>
+                                  <Link href={editHref} className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 py-4 text-xs font-extrabold tracking-widest text-white transition-all hover:bg-white/20">
+                                    <span>EDITAR</span>
+                                    <Play className="h-4 w-4" />
+                                  </Link>
+                                </div>
                               </div>
                             </div>
                           </article>
@@ -491,16 +421,19 @@ export default function TrainingAssistantClient({
 
                       return (
                         <article
-                          key={exercise.id}
+                          key={routine.id}
                           className="group flex flex-col overflow-hidden rounded-lg border border-[#ebeef3] bg-white transition-all duration-500 hover:-translate-y-1 premium-card-shadow"
                         >
                           <div className={`relative h-60 overflow-hidden bg-gradient-to-br ${theme.gradient}`}>
                             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(26,115,232,0.22),transparent_50%)]" />
+                            {routine.imageUrls[0] ? (
+                              <img src={routine.imageUrls[0]} alt={routine.title} className="absolute inset-0 h-full w-full object-cover opacity-25" />
+                            ) : null}
                             <div className="absolute left-4 top-4 flex gap-2">
                               <span className={`rounded-md px-3 py-1 text-[9px] font-extrabold uppercase tracking-widest ${theme.badgeClass}`}>
                                 {theme.badge}
                               </span>
-                              {exercise.dificultad && exercise.dificultad >= 4 ? (
+                              {routine.difficulty >= 4 ? (
                                 <span className="rounded-md bg-[#ffe170] px-3 py-1 text-[9px] font-extrabold uppercase tracking-widest text-[#221b00]">
                                   Elite
                                 </span>
@@ -508,8 +441,8 @@ export default function TrainingAssistantClient({
                             </div>
                             <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
                               <div className="flex gap-4">
-                                <InfoStack label="Tiempo" value={`${exercise.duracion_estimada_min ?? 20} min`} />
-                                <InfoStack label="Nivel" value={difficultyLabel(exercise.dificultad)} />
+                                <InfoStack label="Tiempo" value={`${routine.duration ?? 20} min`} />
+                                <InfoStack label="Nivel" value={difficultyLabel(routine.difficulty)} />
                               </div>
                               <div className="rounded-lg bg-white/30 p-2 text-white backdrop-blur-md">
                                 <span className="material-symbols-outlined text-lg">{theme.icon}</span>
@@ -519,20 +452,26 @@ export default function TrainingAssistantClient({
 
                           <div className="flex flex-1 flex-col p-6">
                             <h3 className="mb-2 text-xl font-extrabold tracking-tight text-[#181c20] transition-colors group-hover:text-[#1A73E8] [font-family:var(--font-plus-jakarta)]">
-                              {exercise.nombre}
+                              {routine.title}
                             </h3>
                             <p className="mb-8 text-sm font-medium leading-relaxed text-[#44474E]/80">
-                              {exercise.descripcion || exercise.objetivo || 'Ejercicio conectado a tu biblioteca del equipo.'}
+                              {routine.description || routine.phase || 'Rutina conectada a tu biblioteca del equipo.'}
                             </p>
                             <div className="mt-auto flex items-center justify-between gap-4 border-t border-[#f1f4f9] pt-4">
                               <div className="flex items-center gap-1.5 text-[#44474E]">
                                 <Dumbbell className="h-4 w-4 text-[#1A73E8]" />
-                                <span className="text-xs font-bold">{intensityLabel(exercise.dificultad)}</span>
+                                <span className="text-xs font-bold">{intensityLabel(routine.difficulty)}</span>
                               </div>
-                              <button className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#1A73E8] to-[#0056b3] px-6 py-3 text-xs font-bold text-white shadow-lg shadow-[#1A73E8]/20 transition-all hover:-translate-y-0.5">
-                                <span>INICIAR SESION</span>
-                                <Play className="h-4 w-4" />
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <Link href={viewHref} className="flex items-center justify-center gap-2 rounded-lg border border-[#d6e3ff] px-4 py-3 text-xs font-bold text-[#1A73E8] transition-all hover:bg-[#eef4ff]">
+                                  <span>VER</span>
+                                  <FileText className="h-4 w-4" />
+                                </Link>
+                                <Link href={editHref} className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#1A73E8] to-[#0056b3] px-4 py-3 text-xs font-bold text-white shadow-lg shadow-[#1A73E8]/20 transition-all hover:-translate-y-0.5">
+                                  <span>EDITAR</span>
+                                  <Play className="h-4 w-4" />
+                                </Link>
+                              </div>
                             </div>
                           </div>
                         </article>
@@ -547,171 +486,91 @@ export default function TrainingAssistantClient({
                 </div>
               </>
             ) : activeTab === 'AI_COACH' ? (
-              <div className="flex flex-col gap-6 md:flex-row">
-                <section className="flex min-h-[680px] flex-1 flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_20px_40px_rgba(0,93,182,0.06)]">
+              <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1.4fr_0.9fr]">
+                <section className="overflow-hidden rounded-[28px] bg-white shadow-[0_20px_40px_rgba(0,93,182,0.06)]">
                   <div className="border-b border-[#dfe3e8]/60 px-8 py-8">
                     <div className="mb-2 flex items-center gap-2 text-[#005db6]">
                       <Sparkles className="h-5 w-5" />
-                      <span className="text-sm font-bold uppercase tracking-[0.18em]">Neural Training Engine</span>
+                      <span className="text-sm font-bold uppercase tracking-[0.18em]">AI Coach Integrado</span>
                     </div>
                     <h3 className="text-3xl font-extrabold tracking-tight text-[#181c20] [font-family:var(--font-plus-jakarta)]">
-                      AI Routine Assistant
+                      Genera la rutina dentro del creador real
                     </h3>
-                    <p className="mt-2 text-sm font-medium text-slate-500">
-                      Tu asistente de rendimiento, conectado a la biblioteca del equipo y a los proximos entrenamientos.
+                    <p className="mt-2 max-w-2xl text-sm font-medium text-slate-500">
+                      La generacion por IA ahora vive en el creador de rutinas. La IA construye una sesion completa, la deja editable y mantiene el contexto para que puedas seguir refinandola antes de guardar.
                     </p>
                   </div>
 
-                  <div className="flex-1 space-y-6 overflow-y-auto p-8">
-                    {aiMessages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={`flex gap-4 ${message.sender === 'user' ? 'flex-row-reverse' : ''}`}
-                      >
-                        <div
-                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                            message.sender === 'user' ? 'bg-[#759efd]' : 'bg-[#005db6]'
-                          }`}
-                        >
-                          {message.sender === 'user' ? (
-                            <User className="h-4 w-4 text-white" />
+                  <div className="grid gap-8 px-8 py-8 lg:grid-cols-[1.1fr_0.9fr]">
+                    <div className="space-y-6">
+                      <div className="rounded-[24px] border border-[#dbe7ff] bg-[linear-gradient(135deg,rgba(26,115,232,0.08),rgba(255,255,255,0.98))] p-6">
+                        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#1A73E8]">Flujo real</p>
+                        <div className="mt-4 space-y-4 text-sm text-[#334155]">
+                          <p>1. Pides una sesion completa a la IA.</p>
+                          <p>2. La rutina aparece en el creador con fases, bloques y detalles editables.</p>
+                          <p>3. Sigues chateando para ajustar intensidad, duracion, jugadores o ejercicios concretos.</p>
+                          <p>4. Guardas la rutina como una normal. Si viene de IA, se muestra como <strong>Hecha por IA</strong>.</p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#727785]">Prompts rapidos</p>
+                        <div className="flex flex-wrap gap-2">
+                          {suggestionChips.map((chip) => (
+                            <Link key={chip} href={aiCreateHref} className="rounded-full border border-[#005db6]/20 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-[#005db6] transition-all hover:bg-[#005db6] hover:text-white">
+                              {chip}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="rounded-[24px] bg-gradient-to-br from-[#005db6] to-[#2b5bb5] p-7 text-white shadow-xl shadow-blue-900/20">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-100">Rutina editable con IA</p>
+                        <h4 className="mt-3 text-2xl font-extrabold tracking-tight [font-family:var(--font-plus-jakarta)]">Lista para generar, ajustar y guardar</h4>
+                        <div className="mt-6 grid grid-cols-3 gap-4">
+                          <AiStat label="Duration" value={`${previewDuration || 0} MIN`} />
+                          <AiStat label="Volume" value={previewVolume} bordered />
+                          <AiStat label="Intensity" value={previewIntensity} />
+                        </div>
+                        <Link href={aiCreateHref} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-4 text-xs font-bold uppercase tracking-widest text-[#005db6] transition hover:bg-[#e8f0fe]">
+                          <Sparkles className="h-4 w-4" />
+                          <span>Abrir creador con IA</span>
+                        </Link>
+                      </div>
+
+                      <div className="rounded-[24px] bg-white p-6 shadow-[0_20px_40px_rgba(0,93,182,0.06)]">
+                        <h5 className="mb-6 px-2 text-xs font-bold uppercase tracking-widest text-slate-400">Biblioteca disponible para la IA</h5>
+                        <div className="space-y-4">
+                          {previewRoutines.length > 0 ? (
+                            previewRoutines.map((routine) => (
+                              <div key={routine.id} className="group flex items-center gap-4 rounded-2xl p-3 transition-colors hover:bg-[#f1f4f9]">
+                                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#d6e3ff] to-[#ebeef3] text-[#005db6]">
+                                  <Dumbbell className="h-6 w-6" />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-sm font-bold text-[#181c20]">{routine.title}</p>
+                                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{routine.blockCount} bloques x {routine.duration ?? 10} min</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-xs font-bold text-[#005db6]">{routine.category || difficultyLabel(routine.difficulty)}</p>
+                                </div>
+                              </div>
+                            ))
                           ) : (
-                            <Brain className="h-4 w-4 text-white" />
+                            <EmptyState title="Sin biblioteca" description="Carga rutinas para que la IA tenga mas contexto al generar nuevas sesiones." compact />
                           )}
                         </div>
-                        <div
-                          className={`max-w-[85%] rounded-2xl p-5 text-sm font-medium leading-relaxed ${
-                            message.sender === 'user'
-                              ? 'bg-[#005db6] text-white shadow-lg shadow-blue-500/10'
-                              : 'bg-[#ebeef3] text-[#181c20]'
-                          }`}
-                        >
-                          {message.content}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="bg-[#f1f4f9]/70 p-6">
-                    <div className="mb-4 flex flex-wrap gap-2">
-                      {suggestionChips.map((chip) => (
-                        <button
-                          key={chip}
-                          type="button"
-                          onClick={() => submitAiPrompt(chip)}
-                          className="rounded-full border border-[#005db6]/20 bg-white px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-[#005db6] transition-all hover:bg-[#005db6] hover:text-white"
-                        >
-                          {chip}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="relative">
-                      <input
-                        value={aiPrompt}
-                        onChange={(event) => setAiPrompt(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault()
-                            submitAiPrompt(aiPrompt)
-                          }
-                        }}
-                        className="w-full rounded-2xl border-0 bg-white py-4 pl-6 pr-16 text-sm font-medium text-[#181c20] placeholder:text-slate-400 shadow-sm outline-none ring-0 focus:ring-2 focus:ring-[#005db6]"
-                        placeholder="Refina tu peticion, por ejemplo: anade mas pliometria"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => submitAiPrompt(aiPrompt)}
-                        className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl bg-[#005db6] text-white transition-colors hover:bg-[#2b5bb5]"
-                      >
-                        <SendHorizontal className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="flex w-full flex-col gap-6 md:w-[420px]">
-                  <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#005db6] to-[#2b5bb5] p-8 text-white shadow-xl shadow-blue-900/20">
-                    <div className="absolute -bottom-10 -right-8 opacity-10">
-                      <Dumbbell className="h-40 w-40" />
-                    </div>
-                    <div className="relative z-10">
-                      <div className="mb-6 flex items-start justify-between">
-                        <span className="rounded-full bg-[#ffe170] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#221b00]">
-                          Elite Tier Routine
-                        </span>
-                        <Zap className="h-5 w-5" />
-                      </div>
-                      <h4 className="text-2xl font-extrabold tracking-tight [font-family:var(--font-plus-jakarta)]">
-                        Kinetic Jump Pro
-                      </h4>
-                      <p className="mt-1 text-xs font-medium uppercase tracking-widest text-blue-100">
-                        Phase 1: Force Accumulation
-                      </p>
-
-                      <div className="mt-8 grid grid-cols-3 gap-4">
-                        <AiStat label="Duration" value={`${previewDuration || 42} MIN`} />
-                        <AiStat label="Volume" value={previewVolume} bordered />
-                        <AiStat label="Intensity" value={previewIntensity} />
                       </div>
                     </div>
-                  </div>
-
-                  <div className="flex-1 rounded-[28px] bg-white p-6 shadow-[0_20px_40px_rgba(0,93,182,0.06)]">
-                    <h5 className="mb-6 px-2 text-xs font-bold uppercase tracking-widest text-slate-400">
-                      Exercise Sequence
-                    </h5>
-                    <div className="space-y-4">
-                      {previewExercises.length > 0 ? (
-                        previewExercises.map((exercise) => (
-                          <div
-                            key={exercise.id}
-                            className="group flex items-center gap-4 rounded-2xl p-3 transition-colors hover:bg-[#f1f4f9]"
-                          >
-                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#d6e3ff] to-[#ebeef3] text-[#005db6]">
-                              <Dumbbell className="h-6 w-6" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm font-bold text-[#181c20]">{exercise.nombre}</p>
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                                {Math.max(3, exercise.dificultad ?? 3)} sets x {exercise.duracion_estimada_min ?? 10} min
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-xs font-bold text-[#005db6]">
-                                {exercise.material || difficultyLabel(exercise.dificultad)}
-                              </p>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <EmptyState
-                          title="Sin secuencia generada"
-                          description="Carga ejercicios en tu biblioteca para que AI Coach pueda construir una preview real."
-                          compact
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 pb-4">
-                    <Link
-                      href={withEquipo('/play-maker/create', equipo?.id)}
-                      className="flex items-center justify-center gap-2 rounded-2xl bg-[#005db6] py-4 text-xs font-bold uppercase tracking-widest text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-[#2b5bb5]"
-                    >
-                      <Bookmark className="h-4 w-4" />
-                      <span>Save to My Routines</span>
-                    </Link>
-                    <button className="flex items-center justify-center gap-2 rounded-2xl bg-[#e5e8ed] py-4 text-xs font-bold uppercase tracking-widest text-[#181c20] transition-all hover:bg-[#dfe3e8]">
-                      <FileText className="h-4 w-4" />
-                      <span>Export as PDF</span>
-                    </button>
                   </div>
                 </section>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-8 xl:grid-cols-3">
-                <StatusCard title="Carga semanal" value={`${Math.min(exercises.length * 8, 100)}%`} helper="Basado en la biblioteca activa" />
-                <StatusCard title="Variedad de trabajo" value={`${new Set(exercises.map(resolveCategory)).size}/3`} helper="Categorias activas" />
+                <StatusCard title="Carga semanal" value={`${Math.min(routines.length * 8, 100)}%`} helper="Basado en la biblioteca activa" />
+                <StatusCard title="Variedad de trabajo" value={`${new Set(routines.map(resolveCategory)).size}/3`} helper="Categorias activas" />
                 <StatusCard title="Sesiones proximas" value={String(upcomingTrainings.length)} helper="Visible para tu perfil" />
               </div>
             )}
