@@ -10,6 +10,8 @@ type PlaymakerDraftPayload = {
 
 type PlaymakerRow = {
   id: string
+  usuario_id: string
+  equipo_id: string | null
   titulo: string
   draft: PlaymakerDraftPayload
   actualizado_en: string
@@ -56,7 +58,7 @@ function mapPlayRow(row: PlaymakerRow) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseRouteHandler()
     const {
@@ -68,9 +70,59 @@ export async function GET() {
       return createErrorResponse('No autorizado', 401)
     }
 
+    const playId = normalizeUuid(request.nextUrl.searchParams.get('playId'))
+    const equipoId = normalizeUuid(request.nextUrl.searchParams.get('equipo'))
+
+    if (request.nextUrl.searchParams.has('playId') && !playId) {
+      return createErrorResponse('playId invalido.', 400)
+    }
+
+    if (playId) {
+      const result = await supabase
+        .from('playmaker_plays')
+        .select('id, usuario_id, equipo_id, titulo, draft, actualizado_en')
+        .eq('id', playId)
+        .maybeSingle()
+
+      if (result.error) {
+        return createErrorResponse('No se pudo cargar la jugada compartida.', 500, result.error.message)
+      }
+
+      const play = result.data as PlaymakerRow | null
+      if (!play || !isPlaymakerDraftPayload(play.draft)) {
+        return createErrorResponse('La jugada compartida no existe.', 404)
+      }
+
+      const isOwner = play.usuario_id === user.id
+      const sharedTeamId = equipoId ?? play.equipo_id
+      let isTeamMember = false
+
+      if (!isOwner && sharedTeamId && play.equipo_id === sharedTeamId) {
+        const membershipResult = await supabase
+          .from('miembros_equipo')
+          .select('id')
+          .eq('equipo_id', sharedTeamId)
+          .eq('usuario_id', user.id)
+          .eq('estado', 'ACTIVO')
+          .maybeSingle()
+
+        if (membershipResult.error) {
+          return createErrorResponse('No se pudo validar el equipo de la jugada.', 500)
+        }
+
+        isTeamMember = Boolean(membershipResult.data)
+      }
+
+      if (!isOwner && !isTeamMember) {
+        return createErrorResponse('No tienes acceso a esta jugada compartida.', 403)
+      }
+
+      return NextResponse.json({ ok: true, play: mapPlayRow(play) })
+    }
+
     const result = await supabase
       .from('playmaker_plays')
-      .select('id, titulo, draft, actualizado_en')
+      .select('id, usuario_id, equipo_id, titulo, draft, actualizado_en')
       .eq('usuario_id', user.id)
       .order('actualizado_en', { ascending: false })
 
@@ -134,7 +186,7 @@ export async function POST(request: NextRequest) {
         .update(basePayload)
         .eq('id', playId)
         .eq('usuario_id', user.id)
-        .select('id, titulo, draft, actualizado_en')
+        .select('id, usuario_id, equipo_id, titulo, draft, actualizado_en')
         .maybeSingle()
 
       if (updateResult.error) {
@@ -153,7 +205,7 @@ export async function POST(request: NextRequest) {
           id: playId ?? undefined,
           ...basePayload,
         })
-        .select('id, titulo, draft, actualizado_en')
+        .select('id, usuario_id, equipo_id, titulo, draft, actualizado_en')
         .single()
 
       if (insertResult.error || !insertResult.data) {

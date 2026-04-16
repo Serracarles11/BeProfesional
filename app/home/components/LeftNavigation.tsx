@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import {
   BarChart3,
   CalendarDays,
@@ -43,9 +43,14 @@ export function LeftNavigation({
   onOpenSettings,
 }: LeftNavigationProps) {
   const pathname = usePathname()
-  const menuItems = MENU_ITEMS.map((item) =>
-    item.href === '/play-maker' ? { ...item, label: isCoach ? 'IA Maker' : 'AI Coach' } : item
-  )
+  const searchParams = useSearchParams()
+  const playMakerMode = searchParams.get('mode')
+  const menuItems = isCoach
+    ? [
+        ...MENU_ITEMS,
+        { label: 'IA Maker', href: '/play-maker?mode=maker', icon: Sparkles },
+      ]
+    : MENU_ITEMS
 
   return (
     <aside className="hidden h-screen w-64 shrink-0 border-r border-[#dfe3e8] bg-[#f4f7fc] p-4 xl:flex xl:flex-col">
@@ -56,7 +61,12 @@ export function LeftNavigation({
 
       <nav className="space-y-1">
         {menuItems.map((item) => {
-          const active = isActivePath(pathname, item.href)
+          const isMakerItem = item.href.includes('mode=maker')
+          const active = isMakerItem
+            ? pathname === '/play-maker' && playMakerMode === 'maker'
+            : item.href === '/play-maker'
+              ? isActivePath(pathname, item.href) && playMakerMode !== 'maker'
+              : isActivePath(pathname, item.href)
           const Icon = item.icon
 
           return (

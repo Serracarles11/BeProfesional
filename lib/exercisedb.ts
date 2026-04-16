@@ -3,14 +3,15 @@ import type { ExerciseCatalogSearchResult, ExerciseDbEnrichment, ExerciseDbRelat
 import { mergeRoutineBlockWithExerciseData, normalizeRoutineDraft, type RoutineEditorDraft } from '@/lib/playmaker/routines'
 
 const EXERCISEDB_BASE_URL =
-  process.env.EXERCISEDB_BASE_URL?.trim() || 'https://edb-with-videos-and-images-by-ascendapi.p.rapidapi.com'
+  process.env.EXERCISEDB_BASE_URL?.trim() || 'https://exercisedb.p.rapidapi.com'
 const EXERCISEDB_HOST =
-  process.env.EXERCISEDB_RAPIDAPI_HOST?.trim() || 'edb-with-videos-and-images-by-ascendapi.p.rapidapi.com'
+  process.env.EXERCISEDB_RAPIDAPI_HOST?.trim() || 'exercisedb.p.rapidapi.com'
 const EXERCISEDB_KEY = process.env.EXERCISEDB_RAPIDAPI_KEY?.trim() || ''
 
 const detailCache = new Map<string, ExerciseDbEnrichment>()
 const searchCache = new Map<string, ExerciseCatalogSearchResult[]>()
 const translationCache = new Map<string, string>()
+const searchTranslationCache = new Map<string, string>()
 
 const DEFAULT_OVERVIEW = 'Sin descripción disponible.'
 const DEFAULT_INSTRUCTIONS = 'Sin instrucciones disponibles.'
@@ -92,6 +93,47 @@ const EXERCISE_TYPE_TRANSLATIONS: Record<string, string> = {
   strongman: 'strongman',
 }
 
+const SPANISH_EXERCISE_SEARCH_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/\belevaciones?\s+laterales?\b/gi, 'lateral raise'],
+  [/\belevacion\s+lateral\b/gi, 'lateral raise'],
+  [/\bpress\s+militar\b/gi, 'shoulder press'],
+  [/\bsentadillas?\b/gi, 'squat'],
+  [/\bflexiones?\b/gi, 'push up'],
+  [/\bdominadas?\b/gi, 'pull up'],
+  [/\bzancadas?\b/gi, 'lunge'],
+  [/\bplanchas?\b/gi, 'plank'],
+  [/\babdominales?\b/gi, 'sit up'],
+  [/\bcurl\s+de\s+biceps\b/gi, 'biceps curl'],
+  [/\bpeso\s+muerto\b/gi, 'deadlift'],
+  [/\bremo\b/gi, 'row'],
+  [/\bgemelos?\b/gi, 'calf raise'],
+]
+
+const GENERIC_SEARCH_WORDS = new Set([
+  'hombro',
+  'hombros',
+  'shoulder',
+  'shoulders',
+  'pecho',
+  'chest',
+  'espalda',
+  'back',
+  'pierna',
+  'piernas',
+  'leg',
+  'legs',
+  'brazo',
+  'brazos',
+  'arm',
+  'arms',
+  'abdomen',
+  'abs',
+  'gluteo',
+  'gluteos',
+  'glute',
+  'glutes',
+])
+
 function normalizeKey(value: string) {
   return value
     .normalize('NFD')
@@ -125,6 +167,7 @@ function uniqueStrings(values: string[]) {
 }
 
 function toStringArray(value: unknown) {
+  if (typeof value === 'string') return uniqueStrings([cleanText(value)].filter(Boolean))
   if (!Array.isArray(value)) return []
   return uniqueStrings(
     value
@@ -148,6 +191,92 @@ function translateMappedValue(value: string, dictionary: Record<string, string>)
 
 function translateArray(values: string[], dictionary: Record<string, string>) {
   return uniqueStrings(values.map((item) => translateMappedValue(item, dictionary)).filter(Boolean))
+}
+
+function buildExerciseImageUrl(exerciseId: string, resolution = 180) {
+  return `/api/play-maker/exercise-image?exerciseId=${encodeURIComponent(exerciseId)}&resolution=${resolution}`
+}
+
+function applySearchReplacements(value: string) {
+  return SPANISH_EXERCISE_SEARCH_REPLACEMENTS.reduce(
+    (current, [pattern, replacement]) => current.replace(pattern, replacement),
+    value
+  )
+}
+
+function normalizeSearchCandidate(value: string) {
+  return cleanText(value)
+    .replace(/[,_/]+/g, ' ')
+    .replace(/\braises\b/gi, 'raise')
+    .replace(/\bpushups\b/gi, 'push up')
+    .replace(/\bpullups\b/gi, 'pull up')
+    .replace(/\bsitups\b/gi, 'sit up')
+    .split(/\s+/)
+    .filter((word) => word && !GENERIC_SEARCH_WORDS.has(normalizeKey(word)))
+    .join(' ')
+    .trim()
+}
+
+async function translateSearchQueryToEnglish(value: string) {
+  const input = cleanText(value)
+  if (!input) return ''
+  const key = input.toLowerCase()
+  if (searchTranslationCache.has(key)) return searchTranslationCache.get(key) as string
+
+  try {
+    const url = new URL('https://translate.googleapis.com/translate_a/single')
+    url.searchParams.set('client', 'gtx')
+    url.searchParams.set('sl', 'auto')
+    url.searchParams.set('tl', 'en')
+    url.searchParams.set('dt', 't')
+    url.searchParams.set('q', input)
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        Accept: 'application/json,text/plain,*/*',
+      },
+      next: { revalidate: 60 * 60 * 24 * 14 },
+    })
+
+    if (!response.ok) {
+      searchTranslationCache.set(key, input)
+      return input
+    }
+
+    const data = (await response.json()) as unknown
+    const translated = Array.isArray(data) && Array.isArray(data[0])
+      ? data[0]
+          .map((item) => (Array.isArray(item) && typeof item[0] === 'string' ? item[0] : ''))
+          .join('')
+          .trim()
+      : ''
+
+    const result = translated || input
+    searchTranslationCache.set(key, result)
+    return result
+  } catch {
+    searchTranslationCache.set(key, input)
+    return input
+  }
+}
+
+async function buildSearchCandidates(query: string) {
+  const original = cleanText(query)
+  const replaced = applySearchReplacements(original)
+  const translated = await translateSearchQueryToEnglish(replaced)
+  const normalized = normalizeSearchCandidate(translated)
+  const replacedNormalized = normalizeSearchCandidate(replaced)
+  const originalNormalized = normalizeSearchCandidate(original)
+
+  const baseCandidates = uniqueStrings([
+    normalized,
+    replacedNormalized,
+    originalNormalized,
+    normalized.replace(/\blateral raise\b/i, 'dumbbell lateral raise'),
+    normalized.replace(/\blateral raise\b/i, 'cable lateral raise'),
+  ].filter(Boolean))
+
+  return baseCandidates
 }
 
 function splitIntoSentences(value: string) {
@@ -282,6 +411,9 @@ async function fetchExerciseDbJson(pathname: string, searchParams?: Record<strin
 
 function extractDataArray(payload: unknown) {
   if (Array.isArray(payload)) return payload
+  if (payload && typeof payload === 'object' && Array.isArray((payload as { value?: unknown[] }).value)) {
+    return (payload as { value: unknown[] }).value
+  }
   if (payload && typeof payload === 'object' && Array.isArray((payload as { data?: unknown[] }).data)) {
     return (payload as { data: unknown[] }).data
   }
@@ -313,7 +445,7 @@ async function translateDetail(payload: Record<string, unknown>): Promise<Exerci
   const rawTargetMuscles = pickArray(payload, ['targetMuscles', 'target'])
   const rawSecondaryMuscles = pickArray(payload, ['secondaryMuscles'])
   const rawEquipments = pickArray(payload, ['equipments', 'equipment'])
-  const rawExerciseType = pickNullableString(payload, ['exerciseType', 'type'])
+  const rawExerciseType = pickNullableString(payload, ['exerciseType', 'type', 'category'])
 
   const [name, overview, instructions, exerciseTips, variations, keywords] = await Promise.all([
     translateText(rawName),
@@ -337,8 +469,8 @@ async function translateDetail(payload: Record<string, unknown>): Promise<Exerci
     name,
     overview: overview || DEFAULT_OVERVIEW,
     instructions: instructions.length > 0 ? instructions : [DEFAULT_INSTRUCTIONS],
-    imageUrl: parseNullableString(payload.imageUrl),
-    gifUrl: parseNullableString(payload.gifUrl),
+    imageUrl: parseNullableString(payload.imageUrl ?? payload.image) ?? buildExerciseImageUrl(exerciseId),
+    gifUrl: parseNullableString(payload.gifUrl ?? payload.gif),
     videoUrl: parseNullableString(payload.videoUrl),
     bodyParts,
     targetMuscles,
@@ -377,13 +509,16 @@ export async function searchExerciseCatalog(query: string): Promise<ExerciseCata
   const cacheKey = normalizedQuery.toLowerCase()
   if (searchCache.has(cacheKey)) return searchCache.get(cacheKey) as ExerciseCatalogSearchResult[]
 
-  const payload = await fetchExerciseDbJson('/api/v1/exercises', {
-    name: normalizedQuery,
-    limit: '8',
-    offset: '0',
-  })
+  const candidates = await buildSearchCandidates(normalizedQuery)
+  let rows: unknown[] = []
+  for (const candidate of candidates) {
+    const payload = await fetchExerciseDbJson(`/exercises/name/${encodeURIComponent(candidate)}`, {
+      limit: '8',
+    })
+    rows = extractDataArray(payload)
+    if (rows.length > 0) break
+  }
 
-  const rows = extractDataArray(payload)
   const mapped: ExerciseCatalogSearchResult[] = (
     await Promise.all(
       rows.map(async (row): Promise<ExerciseCatalogSearchResult | null> => {
@@ -421,7 +556,7 @@ export async function getExerciseCatalogDetailById(exerciseId: string): Promise<
   if (!normalizedId) return null
   if (detailCache.has(normalizedId)) return detailCache.get(normalizedId) as ExerciseDbEnrichment
 
-  const payload = await fetchExerciseDbJson(`/api/v1/exercises/${encodeURIComponent(normalizedId)}`)
+  const payload = await fetchExerciseDbJson(`/exercises/exercise/${encodeURIComponent(normalizedId)}`)
   const objectPayload = extractDataObject(payload)
   if (!objectPayload) return null
 
@@ -442,12 +577,16 @@ export async function findExerciseCatalogDetailByName(name: string): Promise<Exe
     if (detail) return detail
   }
 
-  const payload = await fetchExerciseDbJson('/api/v1/exercises/search', {
-    query: normalizedName,
-    limit: '5',
-  })
+  const candidates = await buildSearchCandidates(normalizedName)
+  let rows: unknown[] = []
+  for (const candidate of candidates) {
+    const payload = await fetchExerciseDbJson(`/exercises/name/${encodeURIComponent(candidate)}`, {
+      limit: '5',
+    })
+    rows = extractDataArray(payload)
+    if (rows.length > 0) break
+  }
 
-  const rows = extractDataArray(payload)
   for (const row of rows) {
     if (!row || typeof row !== 'object') continue
     const detail = await translateDetail(row as Record<string, unknown>)

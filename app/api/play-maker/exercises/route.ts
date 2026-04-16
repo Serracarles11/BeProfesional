@@ -410,3 +410,62 @@ export async function PUT(request: NextRequest) {
     return errorResponse(error instanceof Error ? error.message : 'Error interno del servidor.', 500)
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createSupabaseRouteHandler()
+    const admin = createSupabaseAdmin()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return errorResponse('No autorizado.', 401)
+    }
+
+    const url = new URL(request.url)
+    const equipoId = parseString(url.searchParams.get('equipoId'))
+    const routineId = parseString(url.searchParams.get('routineId'))
+
+    if (!equipoId) return errorResponse('equipoId es obligatorio.')
+    if (!routineId) return errorResponse('routineId es obligatorio.')
+
+    const membership = await validateMembership(supabase, user.id, equipoId)
+    if (!membership) return errorResponse('No tienes acceso a este equipo.', 403)
+    if (!admin) {
+      return errorResponse(
+        'Falta una SUPABASE_SERVICE_ROLE_KEY valida para eliminar rutinas en ejercicios.',
+        500
+      )
+    }
+
+    const existingResult = await admin
+      .from('ejercicios')
+      .select('id')
+      .eq('equipo_id', equipoId)
+      .ilike('objetivo', `routine::${routineId}::%`)
+
+    if (existingResult.error) {
+      return errorResponse('No se pudo cargar la rutina.', 500)
+    }
+
+    const existingIds = (existingResult.data ?? []).map((row) => row.id)
+    if (existingIds.length === 0) {
+      return errorResponse('La rutina no existe.', 404)
+    }
+
+    const deleteResult = await admin.from('ejercicios').delete().in('id', existingIds)
+    if (deleteResult.error) {
+      return errorResponse('No se pudo eliminar la rutina.', 500)
+    }
+
+    return NextResponse.json({
+      ok: true,
+      deletedRoutineId: routineId,
+      deleted: existingIds.length,
+    })
+  } catch (error) {
+    return errorResponse(error instanceof Error ? error.message : 'Error interno del servidor.', 500)
+  }
+}

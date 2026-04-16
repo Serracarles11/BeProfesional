@@ -766,12 +766,56 @@ export default function PlayMakerClient() {
     if (!sharedPlayId || hasHandledSharedPlay || !hasLoadedSavedPlaysStorage) return
 
     const targetPlay = savedPlays.find((play) => play.id === sharedPlayId)
-    if (!targetPlay) return
+    if (targetPlay) {
+      setHasHandledSharedPlay(true)
+      setActiveTab('MY')
+      openSavedPlay(targetPlay)
+      return
+    }
 
-    setHasHandledSharedPlay(true)
-    setActiveTab('MY')
-    openSavedPlay(targetPlay)
-  }, [sharedPlayId, hasHandledSharedPlay, hasLoadedSavedPlaysStorage, savedPlays])
+    let cancelled = false
+    const targetSharedPlayId = sharedPlayId
+
+    async function loadSharedPlay() {
+      try {
+        const params = new URLSearchParams({ playId: targetSharedPlayId })
+        if (equipoId) params.set('equipo', equipoId)
+
+        const response = await fetch(`/api/playmaker/plays?${params.toString()}`, {
+          credentials: 'same-origin',
+          cache: 'no-store',
+        })
+        const payload = (await response.json()) as PlaymakerApiResponse
+
+        if (!response.ok || !payload.ok || !payload.play || !isSavedPlay(payload.play)) {
+          throw new Error(payload.error ?? 'No se pudo abrir la jugada compartida.')
+        }
+
+        if (cancelled) return
+
+        const sharedPlay = {
+          ...payload.play,
+          draft: normalizeDraft(payload.play.draft),
+        }
+
+        setHasHandledSharedPlay(true)
+        setActiveTab('MY')
+        upsertSavedPlayState(sharedPlay)
+        openSavedPlay(sharedPlay)
+      } catch (error) {
+        if (!cancelled) {
+          setHasHandledSharedPlay(true)
+          setSaveNotice(error instanceof Error ? error.message : 'No se pudo abrir la jugada compartida.')
+        }
+      }
+    }
+
+    void loadSharedPlay()
+
+    return () => {
+      cancelled = true
+    }
+  }, [equipoId, sharedPlayId, hasHandledSharedPlay, hasLoadedSavedPlaysStorage, savedPlays])
 
   useEffect(() => {
     if (!isEditorOpen) return
@@ -1392,6 +1436,7 @@ export default function PlayMakerClient() {
     try {
       const targetEquipoId = equipoId ?? searchParams.get('equipo') ?? ''
       const params = new URLSearchParams()
+      params.set('mode', 'maker')
       if (targetEquipoId) params.set('equipo', targetEquipoId)
       params.set('playId', sharePlay.id)
       const playUrl =

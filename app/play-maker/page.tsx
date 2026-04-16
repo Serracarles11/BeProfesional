@@ -66,6 +66,12 @@ export default async function PlayMakerPage({
   const requestedTeamId = Array.isArray(resolvedSearchParams.equipo)
     ? resolvedSearchParams.equipo[0]
     : resolvedSearchParams.equipo
+  const requestedMode = Array.isArray(resolvedSearchParams.mode)
+    ? resolvedSearchParams.mode[0]
+    : resolvedSearchParams.mode
+  const requestedPlayId = Array.isArray(resolvedSearchParams.playId)
+    ? resolvedSearchParams.playId[0]
+    : resolvedSearchParams.playId
 
   const supabase = await createSupabaseServer()
   const {
@@ -169,7 +175,7 @@ export default async function PlayMakerPage({
     }
   }
 
-  if (isCoach) {
+  if (requestedMode === 'maker' || requestedPlayId) {
     return <CoachPlayMakerClient />
   }
 

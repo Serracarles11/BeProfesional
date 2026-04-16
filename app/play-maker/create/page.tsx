@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import CreateExerciseClient from './CreateExerciseClient'
 import { buildRoutineDetails, type RoutineExerciseRow } from '@/lib/playmaker/routines'
+import { findExerciseCatalogDetailByName, getExerciseCatalogDetailById } from '@/lib/exercisedb'
 
 type SearchParamsInput = Record<string, string | string[] | undefined>
 
@@ -54,6 +55,12 @@ export default async function CreateExercisePage({
   const requestedRoutineId = Array.isArray(resolvedSearchParams.routine)
     ? resolvedSearchParams.routine[0]
     : resolvedSearchParams.routine
+  const requestedExerciseId = Array.isArray(resolvedSearchParams.exerciseId)
+    ? resolvedSearchParams.exerciseId[0]
+    : resolvedSearchParams.exerciseId
+  const requestedExerciseName = Array.isArray(resolvedSearchParams.exerciseName)
+    ? resolvedSearchParams.exerciseName[0]
+    : resolvedSearchParams.exerciseName
 
   const supabase = await createSupabaseServer()
   const {
@@ -96,5 +103,13 @@ export default async function CreateExercisePage({
     initialRoutine = buildRoutineDetails(rows)[0] ?? null
   }
 
-  return <CreateExerciseClient equipo={activeTeam} initialRoutine={initialRoutine} />
+  const initialExercise = !initialRoutine
+    ? requestedExerciseId
+      ? await getExerciseCatalogDetailById(requestedExerciseId).catch(() => null)
+      : requestedExerciseName
+        ? await findExerciseCatalogDetailByName(requestedExerciseName).catch(() => null)
+        : null
+    : null
+
+  return <CreateExerciseClient equipo={activeTeam} initialRoutine={initialRoutine} initialExercise={initialExercise} />
 }

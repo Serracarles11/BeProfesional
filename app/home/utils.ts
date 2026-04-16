@@ -25,7 +25,8 @@ function getStartOfWeek(date: Date) {
 
 export function withEquipo(path: string, equipoId?: string | null) {
   if (!equipoId) return path
-  return `${path}?equipo=${encodeURIComponent(equipoId)}`
+  const separator = path.includes('?') ? '&' : '?'
+  return `${path}${separator}equipo=${encodeURIComponent(equipoId)}`
 }
 
 export function isActivePath(pathname: string, basePath: string) {
