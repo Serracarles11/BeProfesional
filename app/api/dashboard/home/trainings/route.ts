@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
 
 type TrainingType = 'FISICO' | 'TECNICO' | 'TACTICO' | 'RECUPERACION'
+
+const TEAM_CHAT_TITLE_PREFIX = 'TEAM_CHAT::'
+const PRIVATE_CHAT_TITLE_PREFIX = 'PRIVATE_CHAT::'
 
 type CreateTrainingBody = {
   equipoId?: unknown
@@ -11,6 +15,7 @@ type CreateTrainingBody = {
   type?: unknown
   place?: unknown
   targetPlayerIds?: unknown
+  routineId?: unknown
 }
 
 function createErrorResponse(message: string, status = 500) {
@@ -65,6 +70,116 @@ function parseTargetPlayerIds(value: unknown) {
   return Array.from(new Set(normalized))
 }
 
+function parseRoutineId(value: unknown) {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function getTeamChatTitle(equipoId: string) {
+  return `${TEAM_CHAT_TITLE_PREFIX}${equipoId}`
+}
+
+function getPrivateChatTitle(coachId: string, playerId: string) {
+  return `${PRIVATE_CHAT_TITLE_PREFIX}${coachId}::${playerId}`
+}
+
+async function ensureChat(
+  supabase: Awaited<ReturnType<typeof createSupabaseRouteHandler>>,
+  equipoId: string,
+  title: string,
+  creatorId: string
+) {
+  const existingResult = await supabase
+    .from('chats')
+    .select('id')
+    .eq('equipo_id', equipoId)
+    .eq('titulo', title)
+    .order('creado_en', { ascending: false })
+    .limit(1)
+
+  if (existingResult.error) {
+    throw existingResult.error
+  }
+
+  const existingChat = existingResult.data?.[0]
+  if (existingChat?.id) return existingChat.id as string
+
+  const createdResult = await supabase
+    .from('chats')
+    .insert({
+      equipo_id: equipoId,
+      titulo: title,
+      creado_por: creatorId,
+    })
+    .select('id')
+    .single()
+
+  if (createdResult.error || !createdResult.data?.id) {
+    throw createdResult.error ?? new Error('No se pudo crear el chat del entrenamiento.')
+  }
+
+  return createdResult.data.id as string
+}
+
+function buildTrainingMessage(params: {
+  title: string
+  date: string
+  time: string | null
+  type: TrainingType
+  place: string | null
+  coachName: string
+  saveUrl: string | null
+}) {
+  const timeLabel = params.time ? params.time.slice(0, 5) : 'hora por confirmar'
+  const placeLabel = params.place ? `\nLugar: ${params.place}` : ''
+  const saveLabel = params.saveUrl
+    ? `\nGuardar ejercicio de ${params.coachName}: ${params.saveUrl}`
+    : ''
+  return `Nuevo entrenamiento: ${params.title}\nFecha: ${params.date} - ${timeLabel}\nTipo: ${params.type}${placeLabel}${saveLabel}`
+}
+
+async function notifyTrainingRecipients(params: {
+  supabase: Awaited<ReturnType<typeof createSupabaseRouteHandler>>
+  equipoId: string
+  coachId: string
+  targetPlayerIds: string[]
+  message: string
+}) {
+  const chatIds =
+    params.targetPlayerIds.length === 0
+      ? [
+          await ensureChat(
+            params.supabase,
+            params.equipoId,
+            getTeamChatTitle(params.equipoId),
+            params.coachId
+          ),
+        ]
+      : await Promise.all(
+          params.targetPlayerIds.map((playerId) =>
+            ensureChat(
+              params.supabase,
+              params.equipoId,
+              getPrivateChatTitle(params.coachId, playerId),
+              params.coachId
+            )
+          )
+        )
+
+  if (chatIds.length === 0) return
+
+  const { error } = await params.supabase.from('chat_mensajes').insert(
+    chatIds.map((chatId) => ({
+      chat_id: chatId,
+      emisor_id: params.coachId,
+      contenido: params.message,
+    }))
+  )
+
+  if (error) {
+    throw error
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseRouteHandler()
@@ -85,6 +200,7 @@ export async function POST(request: NextRequest) {
     const type = parseTrainingType(body.type)
     const place = typeof body.place === 'string' ? body.place.trim() : ''
     const targetPlayerIds = parseTargetPlayerIds(body.targetPlayerIds)
+    const routineId = parseRoutineId(body.routineId)
 
     if (!equipoId) return createErrorResponse('equipoId invalido.', 400)
     if (!date || !isValidDate(date)) return createErrorResponse('Fecha invalida.', 400)
@@ -187,7 +303,9 @@ export async function POST(request: NextRequest) {
       insertPayload.lugar = normalizedPlace
     }
 
-    const { error } = await supabase.from('entrenamientos_equipo').insert(insertPayload)
+    const writeClient = createSupabaseAdmin() ?? supabase
+
+    const { error } = await writeClient.from('entrenamientos_equipo').insert(insertPayload)
 
     if (error) {
       console.error('No se pudo insertar el entrenamiento en Supabase:', error)
@@ -195,7 +313,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (targetPlayerIds.length > 0) {
-      const { error: recipientsError } = await supabase.from('entrenamiento_destinatarios').insert(
+      const { error: recipientsError } = await writeClient.from('entrenamiento_destinatarios').insert(
         targetPlayerIds.map((usuarioId) => ({
           entrenamiento_id: trainingId,
           usuario_id: usuarioId,
@@ -204,9 +322,43 @@ export async function POST(request: NextRequest) {
 
       if (recipientsError) {
         console.error('No se pudieron insertar los destinatarios del entrenamiento en Supabase:', recipientsError)
-        await supabase.from('entrenamientos_equipo').delete().eq('id', trainingId)
+        await writeClient.from('entrenamientos_equipo').delete().eq('id', trainingId)
         return createErrorResponse('No se pudo asignar el entrenamiento a los jugadores seleccionados.', 500)
       }
+    }
+
+    const coachProfileResult = await supabase
+      .from('perfiles')
+      .select('nombre')
+      .eq('id', user.id)
+      .maybeSingle()
+    const coachName = coachProfileResult.data?.nombre?.trim() || 'tu entrenador'
+    const saveUrl = routineId
+      ? `/play-maker/guardar?equipo=${encodeURIComponent(equipoId)}&routine=${encodeURIComponent(routineId)}&coach=${encodeURIComponent(user.id)}`
+      : null
+
+    const trainingMessage = buildTrainingMessage({
+      title,
+      date,
+      time: startTime,
+      type,
+      place: normalizedPlace,
+      coachName,
+      saveUrl,
+    })
+
+    try {
+      await notifyTrainingRecipients({
+        supabase: writeClient,
+        equipoId,
+        coachId: user.id,
+        targetPlayerIds,
+        message: trainingMessage,
+      })
+    } catch (notificationError) {
+      console.error('No se pudo notificar el entrenamiento en el chat:', notificationError)
+      await writeClient.from('entrenamientos_equipo').delete().eq('id', trainingId)
+      return createErrorResponse('No se pudo avisar a los jugadores en el chat.', 500)
     }
 
     return NextResponse.json({

@@ -147,7 +147,7 @@ async function getChatAccess(
     return {
       access: {
         allowed: true,
-        canSend: isCoach,
+        canSend: true,
       } satisfies ChatAccess,
       chat,
     }
@@ -347,7 +347,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!access.canSend) {
-      return createErrorResponse('Solo el entrenador puede enviar mensajes privados.', 403)
+      return createErrorResponse('No puedes enviar mensajes en este chat.', 403)
     }
 
     const insertResult = await supabase

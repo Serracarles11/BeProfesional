@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Mic, PlusCircle, Search, Send, Smile } from 'lucide-react'
 import { LeftNavigation } from '@/app/home/components/LeftNavigation'
@@ -106,6 +107,45 @@ function buildDateLabel(value: string) {
   })
 }
 
+function renderMessageContent(content: string) {
+  const urlPattern = /(https?:\/\/[^\s]+|\/[A-Za-z0-9/_?=&.%:-]+)/g
+  const lines = content.split('\n')
+
+  return lines.map((line, lineIndex) => {
+    const parts: ReactNode[] = []
+    let lastIndex = 0
+
+    for (const match of line.matchAll(urlPattern)) {
+      const url = match[0]
+      const index = match.index ?? 0
+      if (index > lastIndex) {
+        parts.push(line.slice(lastIndex, index))
+      }
+      parts.push(
+        <a
+          key={`${lineIndex}-${index}-${url}`}
+          href={url}
+          className="font-extrabold underline decoration-2 underline-offset-4"
+        >
+          Abrir enlace
+        </a>
+      )
+      lastIndex = index + url.length
+    }
+
+    if (lastIndex < line.length) {
+      parts.push(line.slice(lastIndex))
+    }
+
+    return (
+      <span key={`line-${lineIndex}`}>
+        {parts.length > 0 ? parts : line}
+        {lineIndex < lines.length - 1 ? <br /> : null}
+      </span>
+    )
+  })
+}
+
 function ChatPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -128,6 +168,7 @@ function ChatPageContent() {
   const [channelPreviews, setChannelPreviews] = useState<Record<string, ChannelPreview>>({})
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const selectedChatIdRef = useRef<string | null>(null)
 
   const activeChannel = useMemo(
     () => channels.find((channel) => channel.id === selectedChatId) ?? null,
@@ -140,7 +181,11 @@ function ChatPageContent() {
     return channels.filter((channel) => channel.label.toLowerCase().includes(search))
   }, [channels, channelSearch])
 
-  const loadMessages = useCallback(async (chatId: string, silent = false) => {
+  useEffect(() => {
+    selectedChatIdRef.current = selectedChatId
+  }, [selectedChatId])
+
+  const loadMessages = useCallback(async (chatId: string, silent = false, previewOnly = false) => {
     if (!chatId) return
     if (!silent) setIsLoadingMessages(true)
 
@@ -154,8 +199,10 @@ function ChatPageContent() {
         throw new Error(data.ok ? 'No se pudo cargar el chat.' : data.error)
       }
 
-      setMessages(data.messages)
-      setCanSend(data.canSend)
+      if (!previewOnly && selectedChatIdRef.current === chatId) {
+        setMessages(data.messages)
+        setCanSend(data.canSend)
+      }
 
       const lastMessage = data.messages[data.messages.length - 1]
       setChannelPreviews((current) => ({
@@ -173,6 +220,11 @@ function ChatPageContent() {
       if (!silent) setIsLoadingMessages(false)
     }
   }, [])
+
+  const loadChannelPreviews = useCallback(async (chatIds: string[], activeChatId: string | null) => {
+    const uniqueChatIds = Array.from(new Set(chatIds)).filter((chatId) => chatId !== activeChatId)
+    await Promise.all(uniqueChatIds.map((chatId) => loadMessages(chatId, true, true)))
+  }, [loadMessages])
 
   const loadBootstrap = useCallback(async () => {
     setStatus('loading')
@@ -196,6 +248,11 @@ function ChatPageContent() {
       setIsCoach(data.isCoach)
       setChannels(data.channels)
       setSelectedChatId(data.activeChatId)
+      selectedChatIdRef.current = data.activeChatId
+      setCanSend(
+        data.channels.find((channel) => channel.id === data.activeChatId)?.canSend ?? false
+      )
+      setStatus('ready')
 
       if (data.activeChatId) {
         await loadMessages(data.activeChatId)
@@ -204,12 +261,15 @@ function ChatPageContent() {
         setCanSend(false)
       }
 
-      setStatus('ready')
+      void loadChannelPreviews(
+        data.channels.map((channel) => channel.id),
+        data.activeChatId
+      )
     } catch (loadError) {
       setStatus('error')
       setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar el chat.')
     }
-  }, [loadMessages, requestedChatId, requestedTeamId])
+  }, [loadChannelPreviews, loadMessages, requestedChatId, requestedTeamId])
 
   useEffect(() => {
     void loadBootstrap()
@@ -229,6 +289,9 @@ function ChatPageContent() {
 
   const selectChannel = async (chatId: string) => {
     setSelectedChatId(chatId)
+    selectedChatIdRef.current = chatId
+    setMessages([])
+    setCanSend(channels.find((channel) => channel.id === chatId)?.canSend ?? false)
     setError('')
     await loadMessages(chatId)
   }
@@ -431,7 +494,7 @@ function ChatPageContent() {
                 </div>
               )}
 
-              {isLoadingMessages ? (
+              {isLoadingMessages && messages.length === 0 ? (
                 <p className="text-sm text-[#727785]">Cargando mensajes...</p>
               ) : messages.length === 0 ? (
                 <p className="text-sm text-[#727785]">No hay mensajes en este canal.</p>
@@ -465,7 +528,7 @@ function ChatPageContent() {
                                 : 'rounded-bl-none bg-[#e5e8ed] text-[#181c20]',
                             ].join(' ')}
                           >
-                            {message.content}
+                            {renderMessageContent(message.content)}
                           </div>
                           <p className={message.isMine ? 'mr-2 text-right text-[10px] font-bold text-[#727785]' : 'ml-2 text-[10px] font-bold text-[#727785]'}>
                             {formatMessageHour(message.createdAt)}
@@ -482,7 +545,7 @@ function ChatPageContent() {
             <footer className="border-t border-[#dfe3e8] bg-white/90 p-4 backdrop-blur-md md:p-6">
               {!canSend ? (
                 <p className="text-xs font-semibold text-[#727785]">
-                  Solo el entrenador puede enviar mensajes en este chat privado.
+                  No puedes enviar mensajes en este chat.
                 </p>
               ) : (
                 <div className="flex items-end gap-3 rounded-2xl border border-[#c1c6d6]/20 bg-[#f1f4f9] p-2">

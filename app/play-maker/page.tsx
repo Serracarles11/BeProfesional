@@ -131,12 +131,18 @@ export default async function PlayMakerPage({
   }> = []
 
   if (activeTeam) {
-    const exercisesResult = await supabase
+    let exercisesQuery = supabase
       .from('ejercicios')
       .select('id, nombre, descripcion, tipo, objetivo, duracion_estimada_min, dificultad, material, creado_en')
       .or(`equipo_id.eq.${activeTeam.id},equipo_id.is.null`)
       .order('creado_en', { ascending: false })
       .limit(100)
+
+    if (!isCoach) {
+      exercisesQuery = exercisesQuery.eq('creado_por', userId)
+    }
+
+    const exercisesResult = await exercisesQuery
 
     const exerciseRows = (exercisesResult.data ?? []) as RoutineExerciseRow[]
     routines = buildRoutineDetails(exerciseRows).map(buildRoutineSummary)

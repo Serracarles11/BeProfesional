@@ -306,6 +306,7 @@ export default function TrainingAssistantClient({
           type: mapRoutineToTrainingType(sendRoutine),
           place: sendPlace.trim(),
           targetPlayerIds: audienceMode === 'all' ? [] : selectedPlayerIds,
+          routineId: sendRoutine.id,
         }),
       })
       const payload = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null

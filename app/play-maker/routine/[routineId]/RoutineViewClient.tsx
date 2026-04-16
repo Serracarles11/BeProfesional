@@ -65,16 +65,51 @@ function getBlockTag(block: RoutineBlock) {
   return 'Technical'
 }
 
-function buildCoachingCues(notes: string) {
-  const normalized = notes.trim()
-  if (!normalized) return ['Sin notas especificas para este ejercicio.']
+function splitDetailText(value: string) {
+  const normalized = value.trim()
+  if (!normalized) return []
 
-  const split = normalized
+  const items = normalized
     .split(/\r?\n|[.;](?=\s|$)/)
     .map((item) => item.trim())
     .filter(Boolean)
 
-  return split.length > 0 ? split : [normalized]
+  return items.length > 0 ? items : [normalized]
+}
+
+function buildDetailSections(block: RoutineBlock) {
+  return [
+    {
+      title: 'Objetivo',
+      items: splitDetailText(block.purpose),
+      tone: 'primary' as const,
+    },
+    {
+      title: 'Montaje',
+      items: splitDetailText(block.setup),
+      tone: 'neutral' as const,
+    },
+    {
+      title: 'Consignas',
+      items: splitDetailText(block.instructions),
+      tone: 'primary' as const,
+    },
+    {
+      title: 'Puntos de coaching',
+      items: block.coachingPoints.length > 0 ? block.coachingPoints : [],
+      tone: 'neutral' as const,
+    },
+    {
+      title: 'Progresion o variante',
+      items: splitDetailText(block.progression),
+      tone: 'muted' as const,
+    },
+    {
+      title: 'Notas',
+      items: splitDetailText(block.notes),
+      tone: 'muted' as const,
+    },
+  ].filter((section) => section.items.length > 0)
 }
 
 function totalVolume(blocks: RoutineBlock[]) {
@@ -158,41 +193,40 @@ export default function RoutineViewClient({ equipo, routine }: RoutineViewClient
           </div>
         </div>
 
-        <article className="mx-auto flex min-h-[297mm] w-full max-w-[210mm] flex-col overflow-hidden bg-white p-12 shadow-[0_20px_50px_rgba(0,0,0,0.12)] print:min-h-0 print:max-w-none print:shadow-none">
-          <header className="mb-10 flex items-start justify-between gap-8">
+        <article className="mx-auto flex min-h-[297mm] w-full max-w-[210mm] flex-col overflow-hidden bg-white p-10 text-[#111827] shadow-[0_20px_50px_rgba(0,0,0,0.12)] print:min-h-0 print:max-w-none print:p-10 print:shadow-none">
+          <header className="mb-9 flex items-start justify-between gap-8 border-b border-[#d8dee8] pb-7">
             <div className="max-w-2xl">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="rounded-full bg-[#005db6]/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#005db6]">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="rounded-md border border-[#005db6] bg-white px-3 py-1 text-[10px] font-black uppercase text-[#005db6]">
                   {primaryTag}
                 </span>
-                <span className="h-2 w-2 rounded-full bg-[#eab308]" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#a16207]">
+                <span className="rounded-md border border-[#d8dee8] bg-[#f8fafc] px-3 py-1 text-[10px] font-black uppercase text-[#374151]">
                   {levelLabel}
                 </span>
               </div>
 
-              <h1 className="mb-2 text-4xl font-extrabold leading-tight tracking-tight [font-family:var(--font-plus-jakarta)]">
-                {equipo.nombre}: <br />
-                <span className="text-[#005db6]">{routine.title}</span>
+              <h1 className="mb-2 text-[2.15rem] font-extrabold leading-tight tracking-normal text-[#111827] [font-family:var(--font-plus-jakarta)]">
+                {equipo.nombre}
+                <span className="mt-1 block text-[#005db6]">{routine.title}</span>
               </h1>
             </div>
 
             <div className="text-right">
-              <div className="mb-2 ml-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#005db6] text-white">
-                <Bolt className="h-8 w-8" />
+              <div className="mb-2 ml-auto flex h-14 w-14 items-center justify-center rounded-xl border border-[#005db6] bg-white text-[#005db6]">
+                <Bolt className="h-7 w-7" />
               </div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Emitido: {issuedAt}</p>
+              <p className="text-[10px] font-black uppercase text-[#4b5563]">Emitido: {issuedAt}</p>
             </div>
           </header>
 
-          <section className="mb-10 grid grid-cols-4 gap-4 rounded-3xl border-l-4 border-[#005db6] bg-[#f1f4f9] p-6">
+          <section className="mb-8 grid grid-cols-4 gap-4 rounded-xl border border-[#d8dee8] bg-white p-5">
             <MetaItem label="Equipo" value={equipo.nombre} />
             <MetaItem label="Categoria" value={routine.category || equipo.categoria || 'Sin categoria'} />
             <MetaItem label="Fases" value={routine.phases.join(' / ') || routine.phase || 'Sin fase'} />
             <MetaItem label="Duracion" value={`${routine.duration} minutos`} />
           </section>
 
-          <section className="mb-12 grid grid-cols-4 gap-4">
+          <section className="mb-10 grid grid-cols-4 gap-4">
             <SummaryPrimary icon={<Dumbbell className="h-6 w-6" />} value={String(routine.blockCount)} label="Ejercicios" />
             <SummaryNeutral icon={<Target className="h-6 w-6 text-[#005db6]" />} value={routine.category || 'Rutina'} label="Objetivo" />
             <SummaryNeutral icon={<Star className="h-6 w-6 text-[#caa900]" />} value={levelLabel} label="Nivel" />
@@ -202,59 +236,67 @@ export default function RoutineViewClient({ equipo, routine }: RoutineViewClient
           <section className="space-y-8">
             {phaseSections.map((section, sectionIndex) => (
               <div key={`${section.title}-${sectionIndex}`} className="space-y-6">
-                <h3 className="mb-6 flex items-center gap-3 text-xl font-extrabold [font-family:var(--font-plus-jakarta)]">
-                  <span className="h-[2px] w-10 bg-[#005db6]" />
+                <h3 className="mb-5 flex items-center gap-3 text-lg font-extrabold text-[#111827] [font-family:var(--font-plus-jakarta)]">
+                  <span className="h-[3px] w-9 bg-[#005db6]" />
                   {`${String.fromCharCode(65 + sectionIndex)}. ${section.title.toUpperCase()}`}
                 </h3>
 
                 {section.blocks.map((block) => {
                   const globalIndex = routine.blocks.findIndex((candidate) => candidate.rowId === block.rowId)
                   const imageUrl = imageForBlock(routine, globalIndex === -1 ? 0 : globalIndex)
-                  const cues = buildCoachingCues(block.notes)
+                  const detailSections = buildDetailSections(block)
                   const borderColor = globalIndex % 2 === 0 ? 'border-[#005db6]' : 'border-[#759efd]'
 
                   return (
-                    <article key={block.rowId} className={`overflow-hidden rounded-3xl border-l-[8px] ${borderColor} bg-white shadow-[0_12px_30px_rgba(24,28,32,0.05)]`}>
+                    <article key={block.rowId} className={`overflow-hidden rounded-xl border border-[#d8dee8] border-l-[7px] ${borderColor} bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)] print:break-inside-avoid`}>
                       <div className="flex flex-col md:flex-row">
                         <div className="relative w-full md:w-64">
                           {imageUrl ? (
                             <img src={imageUrl} alt={block.name} className="h-48 w-full object-cover md:h-full" />
                           ) : (
-                            <div className="flex h-48 w-full items-center justify-center bg-gradient-to-br from-[#dfe8fb] to-[#f7f9fe] text-[#005db6] md:h-full">
+                            <div className="flex h-48 w-full items-center justify-center bg-[#eef2f7] text-[#005db6] md:h-full">
                               <Dumbbell className="h-10 w-10" />
                             </div>
                           )}
-                          <div className="absolute left-2 top-2 rounded bg-[#005db6]/90 px-2 py-1 text-xs font-black text-white">
+                          <div className="absolute left-2 top-2 rounded bg-[#005db6] px-2 py-1 text-xs font-black text-white">
                             {String(globalIndex + 1).padStart(2, '0')}
                           </div>
                         </div>
 
                         <div className="flex-1 p-6">
                           <div className="mb-4 flex items-start justify-between gap-4">
-                            <h4 className="text-2xl font-bold tracking-tight [font-family:var(--font-plus-jakarta)]">{block.name}</h4>
-                            <span className="rounded bg-[#ebeef3] px-2 py-1 text-[10px] font-black uppercase text-[#414754]">
+                            <h4 className="text-2xl font-extrabold tracking-normal text-[#111827] [font-family:var(--font-plus-jakarta)]">{block.name}</h4>
+                            <span className="shrink-0 rounded border border-[#d8dee8] bg-[#f8fafc] px-2.5 py-1 text-[10px] font-black uppercase text-[#374151]">
                               {getBlockTag(block)}
                             </span>
                           </div>
 
-                          <div className="mb-6 grid grid-cols-4 gap-4">
+                          <div className="mb-5 grid grid-cols-4 gap-3">
                             <ExerciseStat label="Series" value={block.sets || '-'} />
                             <ExerciseStat label="Repeticiones" value={block.reps || '-'} />
                             <ExerciseStat label="Descanso" value={block.rest ? `${block.rest}s` : '-'} />
                             <ExerciseStat label="Carga" value={block.load ? `${block.load}kg` : '-'} highlight />
                           </div>
 
-                          <div className="border-t border-slate-100 pt-4">
-                            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Indicaciones tecnicas</p>
-                            <ul className="space-y-1 text-sm text-[#414754]">
-                              {cues.map((cue) => (
-                                <li key={cue} className="flex items-start gap-2">
-                                  <span className="font-bold text-[#005db6]">*</span>
-                                  <span>{cue}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
+                          {detailSections.length > 0 ? (
+                            <div className="space-y-3 border-t border-[#d8dee8] pt-4">
+                              <p className="text-[11px] font-black uppercase text-[#374151]">Informacion del ejercicio</p>
+                              <div className="grid gap-3 md:grid-cols-2 print:grid-cols-2">
+                                {detailSections.map((detail) => (
+                                  <DetailSection
+                                    key={`${block.rowId}-${detail.title}`}
+                                    title={detail.title}
+                                    items={detail.items}
+                                    tone={detail.tone}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="border-t border-[#d8dee8] pt-4">
+                              <p className="text-sm font-semibold text-[#4b5563]">Sin informacion adicional para este ejercicio.</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </article>
@@ -282,19 +324,19 @@ export default function RoutineViewClient({ equipo, routine }: RoutineViewClient
 function MetaItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-      <p className="text-sm font-bold">{value}</p>
+      <p className="mb-1 text-[10px] font-black uppercase text-[#4b5563]">{label}</p>
+      <p className="text-sm font-extrabold leading-snug text-[#111827]">{value}</p>
     </div>
   )
 }
 
 function SummaryPrimary({ icon, value, label }: { icon: ReactNode; value: string; label: string }) {
   return (
-    <div className="flex aspect-square flex-col justify-between rounded-3xl bg-[#005db6] p-4 text-white shadow-lg shadow-[#005db6]/10">
+    <div className="flex aspect-square flex-col justify-between rounded-xl bg-[#005db6] p-4 text-white shadow-lg shadow-[#005db6]/10">
       <div>{icon}</div>
       <div>
         <p className="text-3xl font-black">{value}</p>
-        <p className="text-[10px] font-bold uppercase opacity-80">{label}</p>
+        <p className="text-[10px] font-black uppercase text-white/90">{label}</p>
       </div>
     </div>
   )
@@ -302,11 +344,11 @@ function SummaryPrimary({ icon, value, label }: { icon: ReactNode; value: string
 
 function SummaryNeutral({ icon, value, label }: { icon: ReactNode; value: string; label: string }) {
   return (
-    <div className="flex aspect-square flex-col justify-between rounded-3xl border border-[#c1c6d6]/30 bg-white p-4">
+    <div className="flex aspect-square flex-col justify-between rounded-xl border border-[#d8dee8] bg-white p-4">
       <div>{icon}</div>
       <div>
-        <p className="text-lg font-black leading-tight">{value}</p>
-        <p className="text-[10px] font-bold uppercase text-slate-400">{label}</p>
+        <p className="text-lg font-black leading-tight text-[#111827]">{value}</p>
+        <p className="text-[10px] font-black uppercase text-[#4b5563]">{label}</p>
       </div>
     </div>
   )
@@ -314,11 +356,11 @@ function SummaryNeutral({ icon, value, label }: { icon: ReactNode; value: string
 
 function SummaryMuted({ icon, value, label }: { icon: ReactNode; value: string; label: string }) {
   return (
-    <div className="flex aspect-square flex-col justify-between rounded-3xl bg-[#dfe3e8] p-4">
+    <div className="flex aspect-square flex-col justify-between rounded-xl border border-[#d8dee8] bg-[#f3f6fa] p-4 text-[#111827]">
       <div>{icon}</div>
       <div>
         <p className="text-lg font-black leading-tight">{value}</p>
-        <p className="text-[10px] font-bold uppercase text-slate-400">{label}</p>
+        <p className="text-[10px] font-black uppercase text-[#4b5563]">{label}</p>
       </div>
     </div>
   )
@@ -326,9 +368,41 @@ function SummaryMuted({ icon, value, label }: { icon: ReactNode; value: string; 
 
 function ExerciseStat({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className={`rounded-xl p-3 text-center ${highlight ? 'bg-[#005db6]/10' : 'bg-[#f1f4f9]'}`}>
-      <p className={`mb-1 text-[10px] font-bold uppercase ${highlight ? 'text-[#005db6]' : 'text-slate-400'}`}>{label}</p>
-      <p className="text-lg font-black text-[#005db6]">{value}</p>
+    <div className={`rounded-lg border p-3 text-center ${highlight ? 'border-[#005db6] bg-white' : 'border-[#d8dee8] bg-[#f8fafc]'}`}>
+      <p className={`mb-1 text-[10px] font-black uppercase ${highlight ? 'text-[#005db6]' : 'text-[#4b5563]'}`}>{label}</p>
+      <p className="text-lg font-black text-[#111827]">{value}</p>
+    </div>
+  )
+}
+
+function DetailSection({
+  title,
+  items,
+  tone,
+}: {
+  title: string
+  items: string[]
+  tone: 'primary' | 'neutral' | 'muted'
+}) {
+  const toneClass =
+    tone === 'primary'
+      ? 'border-l-[#005db6] bg-white'
+      : tone === 'neutral'
+        ? 'border-l-[#64748b] bg-white'
+        : 'border-l-[#9ca3af] bg-white'
+  const markerClass = tone === 'primary' ? 'text-[#005db6]' : tone === 'neutral' ? 'text-[#374151]' : 'text-[#6b7280]'
+
+  return (
+    <div className={`rounded-lg border border-[#d8dee8] border-l-4 p-4 ${toneClass}`}>
+      <p className="mb-2 text-[11px] font-black uppercase text-[#111827]">{title}</p>
+      <ul className="space-y-1.5 text-[13px] leading-relaxed text-[#1f2937]">
+        {items.map((item) => (
+          <li key={item} className="flex items-start gap-2">
+            <span className={`mt-0.5 font-black ${markerClass}`}>-</span>
+            <span className="font-medium">{item}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
@@ -337,7 +411,7 @@ function FooterItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-[9px] font-bold text-[#005db6]">{label}</span>
-      <span className="text-[9px] font-bold">{value}</span>
+      <span className="text-[9px] font-bold text-[#111827]">{value}</span>
     </div>
   )
 }

@@ -254,7 +254,7 @@ export async function GET(request: NextRequest) {
           id: privateChat.id,
           kind: 'private',
           label: 'Privado - Entrenador',
-          canSend: false,
+          canSend: true,
         })
       }
     }
@@ -285,4 +285,3 @@ export async function GET(request: NextRequest) {
 export async function POST() {
   return createErrorResponse('Operacion no soportada en este endpoint.', 405)
 }
-
