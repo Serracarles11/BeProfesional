@@ -1,6 +1,7 @@
 import type { ExerciseDbEnrichment } from '@/lib/exercisedb-types'
 
 export type RoutineOrigin = 'manual' | 'ai'
+export type RoutineVisibility = 'public' | 'private'
 
 export type RoutineMaterialMeta = {
   order?: number
@@ -19,6 +20,9 @@ export type RoutineMaterialMeta = {
   coachingPoints?: string[]
   progression?: string
   exerciseData?: ExerciseDbEnrichment
+  communityLikes?: string[]
+  communityVisibility?: RoutineVisibility
+  communityCloneCount?: number
 }
 
 export type RoutineExerciseRow = {
@@ -70,6 +74,11 @@ export type RoutineSummary = {
   playerCount: string
   origin: RoutineOrigin
   createdAt: string | null
+  likeCount: number
+  likedByViewer: boolean
+  likeUserIds: string[]
+  cloneCount: number
+  visibility: RoutineVisibility
 }
 
 export type RoutineDetail = RoutineSummary & {
@@ -205,6 +214,14 @@ export function parseRoutineMaterial(value: string | null | undefined): RoutineM
         : undefined,
       progression: typeof parsed.progression === 'string' ? parsed.progression : undefined,
       exerciseData: parseExerciseData(parsed.exerciseData),
+      communityLikes: Array.isArray(parsed.communityLikes)
+        ? parsed.communityLikes.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean)
+        : undefined,
+      communityVisibility: parsed.communityVisibility === 'public' ? 'public' : parsed.communityVisibility === 'private' ? 'private' : undefined,
+      communityCloneCount:
+        typeof parsed.communityCloneCount === 'number' && Number.isFinite(parsed.communityCloneCount)
+          ? Math.max(0, Math.floor(parsed.communityCloneCount))
+          : undefined,
     }
   } catch {
     return {
@@ -453,6 +470,9 @@ export function buildRoutineDetails(rows: RoutineExerciseRow[]) {
       const phases = Array.from(new Set(blocks.map((block) => block.phase.trim()).filter(Boolean)))
       const phase = phases.join(' / ') || firstMaterial.phase || pickLine(firstRow.descripcion ?? '', 'Fase')
       const origin = firstMaterial.origin ?? 'manual'
+      const likeUserIds = Array.from(new Set(firstMaterial.communityLikes ?? []))
+      const visibility = firstMaterial.communityVisibility ?? 'private'
+      const cloneCount = firstMaterial.communityCloneCount ?? 0
       const trainingCategory = normalizeDisplayCategory(firstMaterial.trainingCategory || pickLine(firstRow.descripcion ?? '', 'Categoria') || firstRow.tipo)
       const displayCategory = origin === 'ai' ? 'Hecha por IA' : trainingCategory
       const objective = firstMaterial.objective ?? pickLine(firstRow.descripcion ?? '', 'Objetivo general') ?? ''
@@ -483,6 +503,11 @@ export function buildRoutineDetails(rows: RoutineExerciseRow[]) {
         playerCount,
         origin,
         createdAt: firstRow.creado_en ?? null,
+        likeCount: likeUserIds.length,
+        likedByViewer: false,
+        likeUserIds,
+        cloneCount,
+        visibility,
         blocks,
       } satisfies RoutineDetail
     })
@@ -511,5 +536,10 @@ export function buildRoutineSummary(detail: RoutineDetail): RoutineSummary {
     playerCount: detail.playerCount,
     origin: detail.origin,
     createdAt: detail.createdAt,
+    likeCount: detail.likeCount,
+    likedByViewer: detail.likedByViewer,
+    likeUserIds: detail.likeUserIds,
+    cloneCount: detail.cloneCount,
+    visibility: detail.visibility,
   }
 }

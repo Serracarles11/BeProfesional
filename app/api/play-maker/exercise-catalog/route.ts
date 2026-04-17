@@ -99,6 +99,7 @@ export async function GET(request: NextRequest) {
           .from('ejercicios')
           .select('id, nombre, descripcion, tipo, objetivo, duracion_estimada_min, dificultad, material, creado_en')
           .eq('equipo_id', equipoId)
+          .eq('creado_por', user.id)
           .ilike('nombre', `%${query}%`)
           .order('creado_en', { ascending: false })
           .limit(5)

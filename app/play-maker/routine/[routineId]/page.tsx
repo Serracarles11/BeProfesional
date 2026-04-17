@@ -70,6 +70,7 @@ export default async function RoutineViewPage({
     .from('ejercicios')
     .select('id, nombre, descripcion, tipo, objetivo, duracion_estimada_min, dificultad, material, creado_en')
     .eq('equipo_id', activeTeam.id)
+    .eq('creado_por', session.user.id)
     .ilike('objetivo', `routine::${resolvedParams.routineId}::%`)
     .order('creado_en', { ascending: true })
 

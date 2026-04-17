@@ -6,15 +6,21 @@ import { useRouter } from 'next/navigation'
 import {
   Bell,
   ChevronDown,
+  Copy,
   Dumbbell,
+  Eye,
   FileText,
+  Globe2,
+  Heart,
   Loader2,
+  LockKeyhole,
   Play,
   Plus,
   Search,
   SendHorizontal,
   Settings,
   Sparkles,
+  Star,
   Trash2,
   X,
 } from 'lucide-react'
@@ -58,10 +64,11 @@ type TrainingAssistantClientProps = {
   isCoach: boolean
   playerName: string
   routines: RoutineSummary[]
+  publicRoutines: RoutineSummary[]
   upcomingTrainings: TrainingItem[]
 }
 
-type AssistantTab = 'LIBRARY' | 'AI_COACH' | 'PHYSICAL_STATUS'
+type AssistantTab = 'LIBRARY' | 'AI_COACH' | 'EXERCISES'
 type FilterCategory = 'Todos' | 'Estiramientos' | 'Rendimiento Fisico' | 'Rehabilitacion'
 type AudienceMode = 'all' | 'selected'
 type TeamPlayerOption = {
@@ -102,6 +109,14 @@ function difficultyLabel(value: number | null) {
   return 'Expert'
 }
 
+function formatNumber(value: number) {
+  if (value >= 1000) {
+    const formatted = (value / 1000).toFixed(value >= 10000 ? 0 : 1).replace('.0', '')
+    return `${formatted}k`
+  }
+  return String(value)
+}
+
 function getLocalDateKey(date: Date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -123,6 +138,7 @@ export default function TrainingAssistantClient({
   isCoach,
   playerName,
   routines,
+  publicRoutines,
   upcomingTrainings,
 }: TrainingAssistantClientProps) {
   const router = useRouter()
@@ -131,6 +147,7 @@ export default function TrainingAssistantClient({
   const [query, setQuery] = useState('')
   const [sortBy, setSortBy] = useState<'popular' | 'recent' | 'difficulty'>('popular')
   const [localRoutines, setLocalRoutines] = useState<RoutineSummary[]>(routines)
+  const [localPublicRoutines, setLocalPublicRoutines] = useState<RoutineSummary[]>(publicRoutines)
   const [catalogResults, setCatalogResults] = useState<ExerciseCatalogSearchResult[]>([])
   const [isCatalogLoading, setIsCatalogLoading] = useState(false)
   const [catalogError, setCatalogError] = useState('')
@@ -148,7 +165,7 @@ export default function TrainingAssistantClient({
   const [isSendingRoutine, setIsSendingRoutine] = useState(false)
   const [sendError, setSendError] = useState('')
   const [sendSuccess, setSendSuccess] = useState('')
-
+  const [savingVisibilityIds, setSavingVisibilityIds] = useState<string[]>([])
   const visibleRoutines = useMemo(() => {
     const filtered = localRoutines.filter((routine) => {
       const category = resolveCategory(routine)
@@ -169,13 +186,29 @@ export default function TrainingAssistantClient({
     })
   }, [activeFilter, localRoutines, query, sortBy])
 
-  const heroCopy = isCoach
-    ? 'Optimiza la planificacion del grupo con una biblioteca de ejercicios conectada a tu equipo.'
-    : 'Optimiza tu rendimiento fisico con rutinas conectadas a tu equipo y sesiones preparadas por profesionales.'
-
   const previewRoutines = useMemo(() => {
     return (visibleRoutines.length > 0 ? visibleRoutines : localRoutines).slice(0, 4)
   }, [localRoutines, visibleRoutines])
+
+  const visiblePublicRoutines = useMemo(() => {
+    const filtered = localPublicRoutines.filter((routine) => {
+      const category = resolveCategory(routine)
+      const haystack = `${routine.title} ${routine.description} ${routine.phase} ${routine.category}`.toLowerCase()
+      const queryMatch = query.trim() ? haystack.includes(query.trim().toLowerCase()) : true
+      const filterMatch = activeFilter === 'Todos' ? true : category === activeFilter
+      return queryMatch && filterMatch
+    })
+
+    return [...filtered].sort((left, right) => {
+      if (sortBy === 'difficulty') return right.difficulty - left.difficulty
+      if (sortBy === 'recent') {
+        const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0
+        const rightTime = right.createdAt ? new Date(right.createdAt).getTime() : 0
+        return rightTime - leftTime
+      }
+      return right.likeCount - left.likeCount
+    })
+  }, [activeFilter, localPublicRoutines, query, sortBy])
 
   const previewDuration = useMemo(() => {
     return previewRoutines.reduce((acc, routine) => acc + routine.duration, 0)
@@ -325,6 +358,128 @@ export default function TrainingAssistantClient({
     }
   }
 
+  async function toggleRoutineVisibility(routine: RoutineSummary) {
+    if (!equipo?.id || savingVisibilityIds.includes(routine.id)) return
+
+    const nextVisibility = routine.visibility === 'public' ? 'private' : 'public'
+    setSavingVisibilityIds((current) => [...current, routine.id])
+    setLocalRoutines((current) =>
+      current.map((item) => (item.id === routine.id ? { ...item, visibility: nextVisibility } : item))
+    )
+
+    try {
+      const response = await fetch('/api/play-maker/exercise-visibility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          equipoId: equipo.id,
+          routineId: routine.id,
+          visibility: nextVisibility,
+        }),
+      })
+      const payload = (await response.json().catch(() => null)) as {
+        ok?: boolean
+        error?: string
+        routineId?: string
+        visibility?: 'public' | 'private'
+      } | null
+
+      if (!response.ok || !payload?.ok || payload.routineId !== routine.id || !payload.visibility) {
+        throw new Error(payload?.error || 'No se pudo guardar la visibilidad.')
+      }
+
+      setLocalRoutines((current) =>
+        current.map((item) => (item.id === routine.id ? { ...item, visibility: payload.visibility! } : item))
+      )
+      setLocalPublicRoutines((current) => {
+        if (payload.visibility === 'public') {
+          const nextRoutine = { ...routine, visibility: 'public' as const }
+          const exists = current.some((item) => item.id === routine.id)
+          return exists
+            ? current.map((item) => (item.id === routine.id ? nextRoutine : item))
+            : [nextRoutine, ...current]
+        }
+
+        return current.filter((item) => item.id !== routine.id)
+      })
+    } catch {
+      setLocalRoutines((current) =>
+        current.map((item) => (item.id === routine.id ? { ...item, visibility: routine.visibility } : item))
+      )
+    } finally {
+      setSavingVisibilityIds((current) => current.filter((id) => id !== routine.id))
+    }
+  }
+
+  async function toggleRoutineLike(routine: RoutineSummary) {
+    if (!equipo?.id) return
+
+    const nextLiked = !routine.likedByViewer
+    const applyState = (items: RoutineSummary[]) =>
+      items.map((item) =>
+        item.id === routine.id
+          ? {
+              ...item,
+              likedByViewer: nextLiked,
+              likeCount: Math.max(0, item.likeCount + (nextLiked ? 1 : -1)),
+            }
+          : item
+      )
+
+    setLocalRoutines(applyState)
+    setLocalPublicRoutines(applyState)
+
+    try {
+      const response = await fetch('/api/play-maker/exercise-likes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          equipoId: equipo.id,
+          routineId: routine.id,
+          liked: nextLiked,
+        }),
+      })
+      const payload = (await response.json().catch(() => null)) as {
+        ok?: boolean
+        routineId?: string
+        likedByViewer?: boolean
+        likeCount?: number
+      } | null
+
+      if (!response.ok || !payload?.ok || payload.routineId !== routine.id) {
+        throw new Error('No se pudo guardar el like.')
+      }
+
+      const reconcile = (items: RoutineSummary[]) =>
+        items.map((item) =>
+          item.id === routine.id
+            ? {
+                ...item,
+                likedByViewer: Boolean(payload.likedByViewer),
+                likeCount: Math.max(0, Number(payload.likeCount ?? item.likeCount)),
+              }
+            : item
+        )
+
+      setLocalRoutines(reconcile)
+      setLocalPublicRoutines(reconcile)
+    } catch {
+      const rollback = (items: RoutineSummary[]) =>
+        items.map((item) =>
+          item.id === routine.id
+            ? {
+                ...item,
+                likedByViewer: routine.likedByViewer,
+                likeCount: routine.likeCount,
+              }
+            : item
+        )
+
+      setLocalRoutines(rollback)
+      setLocalPublicRoutines(rollback)
+    }
+  }
+
   useEffect(() => {
     const search = query.trim()
     if (activeTab !== 'LIBRARY' || search.length < 2 || !equipo?.id) {
@@ -385,7 +540,7 @@ export default function TrainingAssistantClient({
           <header
             className={[
               'z-30 flex h-16 items-center justify-between border-b border-[#dfe3e8] bg-white/80 px-6 backdrop-blur-md lg:px-10',
-              activeTab === 'PHYSICAL_STATUS' ? 'sticky top-0' : 'relative',
+              activeTab === 'EXERCISES' ? 'sticky top-0' : 'relative',
             ].join(' ')}
           >
             <div className="flex items-center gap-4">
@@ -420,7 +575,7 @@ export default function TrainingAssistantClient({
           <nav
             className={[
               'z-20 flex h-14 items-center border-b border-[#e5e8ed] bg-[#f7f9fe]/90 px-6 backdrop-blur-md lg:px-10',
-              activeTab === 'PHYSICAL_STATUS' ? 'sticky top-16' : 'relative',
+              activeTab === 'EXERCISES' ? 'sticky top-16' : 'relative',
             ].join(' ')}
           >
             <div className="flex items-center gap-8">
@@ -441,26 +596,26 @@ export default function TrainingAssistantClient({
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab('PHYSICAL_STATUS')}
-                className={`h-full px-1 text-sm tracking-tight ${activeTab === 'PHYSICAL_STATUS' ? 'font-bold text-[#1A73E8]' : 'font-semibold text-[#44474E]/70'}`}
+                onClick={() => setActiveTab('EXERCISES')}
+                className={`h-full px-1 text-sm tracking-tight ${activeTab === 'EXERCISES' ? 'font-bold text-[#1A73E8]' : 'font-semibold text-[#44474E]/70'}`}
               >
-                Physical Status
+                Ejercicios
               </button>
             </div>
           </nav>
 
           <div className="mx-auto max-w-7xl px-6 pb-20 pt-12 lg:px-10">
-            {activeTab === 'PHYSICAL_STATUS' ? (
-              <section className="relative mb-14">
+            {activeTab === 'EXERCISES' ? (
+              <section className="hidden">
                 <div className="pointer-events-none absolute -right-8 -top-16 select-none text-[9rem] font-black uppercase tracking-tighter text-[#1A73E8]/5 lg:text-[15rem]">
-                  Athletic
+                  Community
                 </div>
                 <div className="relative z-10">
                   <h2 className="mb-4 text-5xl font-extrabold tracking-tight text-[#181c20] [font-family:var(--font-plus-jakarta)] lg:text-7xl">
-                    Entrenamientos <span className="italic text-[#1A73E8]">de Elite</span>
+                    Ejercicios <span className="italic text-[#1A73E8]">para compartir</span>
                   </h2>
                   <p className="max-w-2xl text-lg font-medium leading-relaxed text-[#44474E]">
-                    {heroCopy}
+                    Publica ejercicios del equipo, explora ideas de otros entrenadores y clona rutinas para adaptarlas a tu sesion.
                   </p>
                   <p className="mt-3 text-sm font-semibold uppercase tracking-[0.18em] text-[#727785]">
                     {equipo?.nombre ?? 'Equipo'} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· {role ?? 'Jugador'}
@@ -605,6 +760,8 @@ export default function TrainingAssistantClient({
                           editHref={editHref}
                           isDeleting={deletingRoutineId === routine.id}
                           onDelete={() => void deleteRoutine(routine)}
+                          isSavingVisibility={savingVisibilityIds.includes(routine.id)}
+                          onToggleVisibility={() => void toggleRoutineVisibility(routine)}
                           canSend={isCoach}
                           onSend={() => void openSendRoutineModal(routine)}
                         />
@@ -701,11 +858,16 @@ export default function TrainingAssistantClient({
                 </section>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-8 xl:grid-cols-3">
-                <StatusCard title="Carga semanal" value={`${Math.min(localRoutines.length * 8, 100)}%`} helper="Basado en la biblioteca activa" />
-                <StatusCard title="Variedad de trabajo" value={`${new Set(localRoutines.map(resolveCategory)).size}/3`} helper="Categorias activas" />
-                <StatusCard title="Sesiones proximas" value={String(upcomingTrainings.length)} helper="Visible para tu perfil" />
-              </div>
+              <ExercisesCommunityView
+                equipoId={equipo?.id}
+                teamName={equipo?.nombre ?? 'Equipo'}
+                role={role ?? 'Jugador'}
+                routines={visiblePublicRoutines}
+                allRoutines={localPublicRoutines}
+                activeFilter={activeFilter}
+                onFilterChange={setActiveFilter}
+                onToggleLike={toggleRoutineLike}
+              />
             )}
 
             <div className="mt-20 flex flex-col items-center">
@@ -903,6 +1065,8 @@ function RoutineDarkCard({
   editHref,
   isDeleting,
   onDelete,
+  isSavingVisibility,
+  onToggleVisibility,
   canSend,
   onSend,
 }: {
@@ -912,6 +1076,8 @@ function RoutineDarkCard({
   editHref: string
   isDeleting: boolean
   onDelete: () => void
+  isSavingVisibility: boolean
+  onToggleVisibility: () => void
   canSend: boolean
   onSend: () => void
 }) {
@@ -951,6 +1117,28 @@ function RoutineDarkCard({
           <DarkMetric label="Intensidad" value={difficultyLabel(routine.difficulty)} />
         </div>
 
+        <button
+          type="button"
+          onClick={onToggleVisibility}
+          disabled={isSavingVisibility}
+          className={[
+            'flex h-[46px] w-full items-center justify-center gap-2 rounded-lg border px-4 text-xs font-black uppercase tracking-widest transition disabled:cursor-wait disabled:opacity-70',
+            routine.visibility === 'public'
+              ? 'border-[#22c55e]/40 bg-[#22c55e]/15 text-[#86efac] hover:bg-[#22c55e]/22'
+              : 'border-white/16 bg-white/5 text-white/75 hover:border-white/30 hover:bg-white/12',
+          ].join(' ')}
+          aria-pressed={routine.visibility === 'public'}
+        >
+          {isSavingVisibility ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : routine.visibility === 'public' ? (
+            <Globe2 className="h-4 w-4" />
+          ) : (
+            <LockKeyhole className="h-4 w-4" />
+          )}
+          <span>{routine.visibility === 'public' ? 'Publico' : 'Privado'}</span>
+        </button>
+
         <div className="grid grid-cols-2 gap-3">
           <Link href={viewHref} className={`flex h-[50px] items-center justify-center gap-2 rounded-lg bg-white px-4 text-xs font-black uppercase tracking-widest text-[#111820] transition ${accent.primaryHoverClass}`}>
             <span>Ver</span>
@@ -987,6 +1175,7 @@ function ExerciseCatalogCard({ result, createHref }: { result: ExerciseCatalogSe
           {result.source === 'local' ? 'LOCAL' : 'EXDB'}
         </span>
         {result.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={result.imageUrl} alt={result.name} className="h-10 w-10 rounded-lg object-cover opacity-80" />
         ) : (
           <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white/60">
@@ -1056,12 +1245,285 @@ function AiStat({
   )
 }
 
-function StatusCard({ title, value, helper }: { title: string; value: string; helper: string }) {
+function ExercisesCommunityView({
+  equipoId,
+  teamName,
+  role,
+  routines,
+  allRoutines,
+  activeFilter,
+  onFilterChange,
+  onToggleLike,
+}: {
+  equipoId?: string
+  teamName: string
+  role: string
+  routines: RoutineSummary[]
+  allRoutines: RoutineSummary[]
+  activeFilter: FilterCategory
+  onFilterChange: (filter: FilterCategory) => void
+  onToggleLike: (routine: RoutineSummary) => void
+}) {
+  const createHref = withEquipo('/play-maker/create', equipoId)
+  const featured = routines[0] ?? allRoutines[0] ?? null
+  const totalMinutes = allRoutines.reduce((sum, routine) => sum + Math.max(routine.duration, 0), 0)
+  const categoryCount = new Set(allRoutines.map(resolveCategory)).size
+
   return (
-    <div className="rounded-[24px] border border-[#e5e8ed] bg-white p-8 shadow-[0_18px_35px_rgba(0,93,182,0.05)]">
-      <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#727785]">{title}</p>
-      <p className="text-4xl font-black text-[#1A73E8] [font-family:var(--font-plus-jakarta)]">{value}</p>
-      <p className="mt-3 text-sm font-medium text-[#44474E]">{helper}</p>
+    <div className="space-y-10">
+      <section className="hidden">
+        <div className="grid min-h-[420px] lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="relative z-10 flex flex-col justify-center p-7 md:p-10">
+            <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-full bg-[#ffe170] px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#221b00]">
+              <Star className="h-3.5 w-3.5 fill-current" />
+              Ejercicio destacado
+            </div>
+            <h2 className="max-w-xl text-4xl font-black tracking-tight text-white [font-family:var(--font-plus-jakarta)] md:text-6xl">
+              {featured?.title ?? 'Publica el primer ejercicio'}
+            </h2>
+            <p className="mt-5 max-w-xl text-base font-semibold leading-relaxed text-[#d6e3ff]">
+              {featured?.description ||
+                'Crea ejercicios para tu equipo, compártelos en la biblioteca y deja que otros jugadores o entrenadores los consulten desde esta zona.'}
+            </p>
+
+            <div className="mt-8 flex flex-wrap items-center gap-4">
+              <Link
+                href={createHref}
+                className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-black text-[#005db6] shadow-lg shadow-black/10 transition hover:bg-[#eef4ff]"
+              >
+                <Plus className="h-4 w-4" />
+                Crear ejercicio
+              </Link>
+              {featured ? (
+                <Link
+                  href={withEquipo(`/play-maker/routine/${featured.id}`, equipoId)}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-6 py-3 text-sm font-black text-white backdrop-blur transition hover:bg-white/20"
+                >
+                  <Eye className="h-4 w-4" />
+                  Ver detalles
+                </Link>
+              ) : null}
+            </div>
+
+            <div className="mt-9 grid max-w-lg grid-cols-3 gap-3">
+              <HeroStat label="Ejercicios" value={String(allRoutines.length)} />
+              <HeroStat label="Minutos" value={String(totalMinutes)} />
+              <HeroStat label="Categorias" value={`${categoryCount}/3`} />
+            </div>
+          </div>
+
+          <div className="relative min-h-[300px] overflow-hidden bg-[#0f172a]">
+            <TacticalExercisePreview />
+            <div className="absolute bottom-6 left-6 right-6 rounded-2xl border border-white/12 bg-black/25 p-4 text-white backdrop-blur">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ffe170]">{teamName}</p>
+              <p className="mt-1 text-sm font-bold">{role} · Biblioteca compartida</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1A73E8]">Comunidad de ejercicios</p>
+          <h3 className="mt-2 text-3xl font-extrabold tracking-tight text-[#181c20] [font-family:var(--font-plus-jakarta)]">
+            Explora, publica y reutiliza
+          </h3>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {FILTERS.map((filter) => (
+            <button
+              key={filter}
+              type="button"
+              onClick={() => onFilterChange(filter)}
+              className={[
+                'rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition',
+                activeFilter === filter
+                  ? 'bg-[#005db6] text-white shadow-[0_10px_20px_rgba(0,93,182,0.18)]'
+                  : 'border border-[#dfe3e8] bg-white text-[#5f6776] hover:bg-[#eef4ff] hover:text-[#005db6]',
+              ].join(' ')}
+            >
+              {filter}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+        <Link
+          href={createHref}
+          className="group flex min-h-[430px] flex-col justify-between rounded-[22px] border border-dashed border-[#005db6]/35 bg-white p-7 shadow-[0_18px_35px_rgba(0,93,182,0.04)] transition hover:-translate-y-0.5 hover:border-[#005db6] hover:shadow-[0_20px_45px_rgba(0,93,182,0.10)]"
+        >
+          <div>
+            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ebf2ff] text-[#005db6]">
+              <Plus className="h-7 w-7" />
+            </div>
+            <h4 className="text-2xl font-black tracking-tight text-[#181c20] [font-family:var(--font-plus-jakarta)]">
+              Subir nuevo ejercicio
+            </h4>
+            <p className="mt-3 text-sm font-semibold leading-relaxed text-[#5f6776]">
+              Crea una rutina visual, guarda sus bloques y dejala disponible para que el equipo la consulte.
+            </p>
+          </div>
+          <div className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#005db6] px-5 py-3 text-xs font-black uppercase tracking-widest text-white transition group-hover:bg-[#2b5bb5]">
+            Crear
+            <Sparkles className="h-4 w-4" />
+          </div>
+        </Link>
+
+        {routines.length > 0 ? (
+          routines.map((routine, index) => (
+            <ExerciseCommunityCard
+              key={routine.id}
+              routine={routine}
+              index={index}
+              equipoId={equipoId}
+              onToggleLike={onToggleLike}
+            />
+          ))
+        ) : (
+          <div className="flex min-h-[430px] flex-col justify-center rounded-[22px] border border-[#dfe3e8] bg-white p-7 text-center shadow-[0_18px_35px_rgba(0,93,182,0.04)] md:col-span-2 xl:col-span-2">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eef4ff] text-[#005db6]">
+              <Dumbbell className="h-7 w-7" />
+            </div>
+            <h4 className="text-2xl font-black tracking-tight text-[#181c20] [font-family:var(--font-plus-jakarta)]">
+              No hay ejercicios publicos
+            </h4>
+            <p className="mx-auto mt-3 max-w-md text-sm font-semibold leading-relaxed text-[#5f6776]">
+              Cuando alguien marque una rutina como publica desde Library aparecera aqui para todos.
+            </p>
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
+
+function ExerciseCommunityCard({
+  routine,
+  index,
+  equipoId,
+  onToggleLike,
+}: {
+  routine: RoutineSummary
+  index: number
+  equipoId?: string
+  onToggleLike: (routine: RoutineSummary) => void
+}) {
+  const category = resolveCategory(routine)
+  const cloneHref = withEquipo(`/play-maker/guardar?routine=${encodeURIComponent(routine.id)}`, equipoId)
+
+  return (
+    <article className="group overflow-hidden rounded-[22px] bg-white shadow-[0_18px_35px_rgba(0,93,182,0.04)] ring-1 ring-[#e8edf5] transition hover:-translate-y-0.5 hover:shadow-[0_24px_50px_rgba(0,93,182,0.10)]">
+      <div className="relative h-56 overflow-hidden">
+        {routine.imageUrls[0] ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={routine.imageUrls[0]}
+            alt={routine.title}
+            className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+          />
+        ) : (
+          <TacticalExercisePreview compact variant={index % 3} />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/5 to-transparent" />
+        <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between gap-3">
+          <span className="rounded-lg bg-[#005db6] px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg">
+            {category}
+          </span>
+          <button
+            type="button"
+            onClick={() => onToggleLike(routine)}
+            disabled={!equipoId}
+            aria-pressed={routine.likedByViewer}
+            aria-label={routine.likedByViewer ? 'Quitar like' : 'Dar like'}
+            className={[
+              'inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/20 text-white backdrop-blur transition',
+              routine.likedByViewer ? 'text-[#ffe170]' : 'hover:bg-white/30',
+              !equipoId ? 'cursor-not-allowed opacity-50' : '',
+            ].join(' ')}
+          >
+            <Heart className={`h-5 w-5 ${routine.likedByViewer ? 'fill-current' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      <div className="p-6">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#727785]">
+              {difficultyLabel(routine.difficulty)} · {routine.duration} min
+            </p>
+            <h4 className="mt-2 line-clamp-2 text-xl font-black tracking-tight text-[#181c20] [font-family:var(--font-plus-jakarta)]">
+              {routine.title}
+            </h4>
+          </div>
+          <span className="shrink-0 rounded-full bg-[#d6e3ff] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#00468c]">
+            Publico
+          </span>
+        </div>
+
+        <p className="line-clamp-3 min-h-[60px] text-sm font-semibold leading-relaxed text-[#5f6776]">
+          {routine.description || routine.objective || 'Ejercicio compartido para que otros equipos puedan verlo y reutilizarlo.'}
+        </p>
+
+        <div className="mt-6 flex items-center justify-between border-y border-[#eef1f6] py-4 text-[#727785]">
+          <div className="flex items-center gap-2">
+            <Copy className="h-4 w-4" />
+            <span className="text-xs font-bold">{formatNumber(routine.cloneCount ?? 0)} clones</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Heart className={`h-4 w-4 ${routine.likedByViewer ? 'fill-current text-[#005db6]' : ''}`} />
+            <span className="text-xs font-bold">{formatNumber(routine.likeCount)} likes</span>
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <Link
+            href={cloneHref}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#005db6] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-[#2b5bb5]"
+          >
+            <Copy className="h-4 w-4" />
+            Clonar
+          </Link>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+function HeroStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+      <p className="text-[10px] font-black uppercase tracking-widest text-[#d6e3ff]">{label}</p>
+      <p className="mt-1 text-2xl font-black text-white [font-family:var(--font-plus-jakarta)]">{value}</p>
+    </div>
+  )
+}
+
+function TacticalExercisePreview({ compact = false, variant = 0 }: { compact?: boolean; variant?: number }) {
+  const homeColor = variant === 1 ? 'bg-[#ffe170]' : 'bg-[#60a5fa]'
+  const awayColor = variant === 2 ? 'bg-[#22c55e]' : 'bg-white'
+
+  return (
+    <div className={`relative h-full w-full overflow-hidden bg-[#167a4a] ${compact ? 'p-5' : 'p-8'}`}>
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:42px_42px]" />
+      <div className="relative h-full w-full rounded-2xl border-2 border-white/70">
+        <div className="absolute left-1/2 top-0 h-full w-px bg-white/60" />
+        <div className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/60" />
+        <div className="absolute left-0 top-1/2 h-28 w-16 -translate-y-1/2 border-y-2 border-r-2 border-white/60" />
+        <div className="absolute right-0 top-1/2 h-28 w-16 -translate-y-1/2 border-y-2 border-l-2 border-white/60" />
+
+        <span className={`absolute left-[22%] top-[28%] h-4 w-4 rounded-full border-2 border-white shadow-lg ${homeColor}`} />
+        <span className={`absolute left-[30%] top-[50%] h-4 w-4 rounded-full border-2 border-white shadow-lg ${homeColor}`} />
+        <span className={`absolute left-[22%] top-[70%] h-4 w-4 rounded-full border-2 border-white shadow-lg ${homeColor}`} />
+        <span className={`absolute right-[25%] top-[35%] h-4 w-4 rounded-full border-2 border-[#0f172a]/20 shadow-lg ${awayColor}`} />
+        <span className={`absolute right-[34%] top-[58%] h-4 w-4 rounded-full border-2 border-[#0f172a]/20 shadow-lg ${awayColor}`} />
+
+        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" aria-hidden="true">
+          <path d="M30 50 C42 42, 51 39, 66 35" fill="none" stroke="rgba(255,225,112,0.9)" strokeDasharray="4 4" strokeWidth="1.8" />
+          <path d="M30 50 C42 60, 52 64, 66 58" fill="none" stroke="rgba(214,227,255,0.85)" strokeWidth="1.8" />
+        </svg>
+      </div>
     </div>
   )
 }

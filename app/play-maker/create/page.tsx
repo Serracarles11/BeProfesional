@@ -96,6 +96,7 @@ export default async function CreateExercisePage({
       .from('ejercicios')
       .select('id, nombre, descripcion, tipo, objetivo, duracion_estimada_min, dificultad, material, creado_en')
       .eq('equipo_id', activeTeam.id)
+      .eq('creado_por', userId)
       .ilike('objetivo', `routine::${requestedRoutineId}::%`)
       .order('creado_en', { ascending: true })
 

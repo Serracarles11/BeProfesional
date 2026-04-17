@@ -1,11 +1,9 @@
 'use client'
 
-import Link from 'next/link'
 import { MoreVertical, Star } from 'lucide-react'
-import { getPlayerInitials, withEquipo } from '../utils'
+import { getPlayerInitials } from '../utils'
 
 type PlayerSpotlightPanelProps = {
-  equipoId?: string
   playerName: string
   position: string
   imageUrl?: string | null
@@ -13,22 +11,9 @@ type PlayerSpotlightPanelProps = {
   assists: number
   matches: number
   minutes: number
-  topSpeed: number
-  passAccuracy: number
-}
-
-function ProgressBar({ value }: { value: number }) {
-  const width = Math.max(0, Math.min(Math.round(value), 100))
-
-  return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#a9c7ff]">
-      <div className="h-full rounded-full bg-[#005db6]" style={{ width: `${width}%` }} />
-    </div>
-  )
 }
 
 export function PlayerSpotlightPanel({
-  equipoId,
   playerName,
   position,
   imageUrl,
@@ -36,8 +21,6 @@ export function PlayerSpotlightPanel({
   assists,
   matches,
   minutes,
-  topSpeed,
-  passAccuracy,
 }: PlayerSpotlightPanelProps) {
   const initials = getPlayerInitials(playerName)
 
@@ -106,35 +89,6 @@ export function PlayerSpotlightPanel({
             <StatCard label="PARTIDOS" value={matches} />
             <StatCard label="MINUTOS" value={minutes} />
           </div>
-
-          <div className="space-y-3 pt-2">
-            <div className="flex items-center justify-between text-xs font-bold">
-              <span>VELOCIDAD MAXIMA</span>
-              <span className="text-[#005db6]">{topSpeed.toFixed(1)} km/h</span>
-            </div>
-            <ProgressBar value={(topSpeed / 36) * 100} />
-
-            <div className="flex items-center justify-between pt-2 text-xs font-bold">
-              <span>PRECISION DE PASE</span>
-              <span className="text-[#005db6]">{passAccuracy}%</span>
-            </div>
-            <ProgressBar value={passAccuracy} />
-          </div>
-        </div>
-
-        <div className="mt-10 flex flex-col gap-3">
-          <Link
-            href={withEquipo('/estadisticas', equipoId)}
-            className="flex w-full items-center justify-center rounded-full bg-[#005db6] px-4 py-4 text-sm font-bold text-white shadow-xl shadow-[#005db6]/25 transition hover:shadow-[#005db6]/40"
-          >
-            Enviar Informe a Scouting
-          </Link>
-          <Link
-            href={withEquipo('/jugadores', equipoId)}
-            className="flex w-full items-center justify-center rounded-full border-2 border-[#eef2f8] bg-transparent px-4 py-4 text-sm font-bold text-[#5f6776] transition hover:bg-[#f8faff]"
-          >
-            Comparar con Plantilla
-          </Link>
         </div>
       </div>
     </section>

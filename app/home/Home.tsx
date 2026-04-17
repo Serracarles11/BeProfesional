@@ -13,9 +13,7 @@ import { PlayerSpotlightPanel } from './components/PlayerSpotlightPanel'
 import type { DashboardHomeResponse, DashboardHomeSuccess } from './types'
 import {
   buildMetrics,
-  getEstimatedTopSpeed,
   getMorningBriefingSubtitle,
-  getPassAccuracy,
   getSeasonLabel,
 } from './utils'
 
@@ -331,14 +329,12 @@ export default function Home() {
   const coachRole = isCoach ? 'ENTRENADOR' : payload.role || 'JUGADOR'
   const playerName = payload.playerSpotlight.nombre || 'Jugador'
   const playerPosition = isCoach ? 'Entrenador' : payload.playerSpotlight.posicion || 'Posicion por definir'
-  const minutesPlayed = payload.playerSpotlight.minutesPlayed || payload.playerSpotlight.matchesPlayed * 90
+  const minutesPlayed = payload.playerSpotlight.minutesPlayed
 
   const briefingSubtitle = getMorningBriefingSubtitle(payload)
   const seasonLabel = getSeasonLabel(payload)
   const metrics = buildMetrics(payload)
 
-  const passAccuracy = getPassAccuracy(payload)
-  const topSpeed = getEstimatedTopSpeed(payload)
   const inviteCodeItems = isCoach
     ? [
         { key: 'coach', label: 'Codigo entrenador', code: payload.inviteCodes.coach },
@@ -619,7 +615,6 @@ export default function Home() {
 
         <div className="xl:sticky xl:top-0 xl:h-screen xl:overflow-y-auto">
           <PlayerSpotlightPanel
-            equipoId={payload.equipo.id}
             playerName={playerName}
             position={playerPosition}
             imageUrl={payload.playerSpotlight.foto_url}
@@ -627,8 +622,6 @@ export default function Home() {
             assists={payload.playerSpotlight.assists}
             matches={payload.playerSpotlight.matchesPlayed}
             minutes={minutesPlayed}
-            topSpeed={topSpeed}
-            passAccuracy={passAccuracy}
           />
         </div>
       </main>

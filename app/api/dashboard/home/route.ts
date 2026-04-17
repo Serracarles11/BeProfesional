@@ -204,6 +204,7 @@ type TeamAttendanceRow = {
 type MatchParticipantRow = {
   partido_id: string
   player_id: string
+  minutes: number | null
 }
 
 type InviteCodeRow = {
@@ -478,7 +479,7 @@ async function loadMatchParticipants(
 
   const byJugadorId = await supabase
     .from('participantes_partido')
-    .select('partido_id, jugador_id')
+    .select('partido_id, jugador_id, minutos_jugados')
     .in('partido_id', matchIds)
 
   if (!byJugadorId.error) {
@@ -486,13 +487,17 @@ async function loadMatchParticipants(
       .map((row) => ({
         partido_id: typeof row.partido_id === 'string' ? row.partido_id : '',
         player_id: typeof row.jugador_id === 'string' ? row.jugador_id : '',
+        minutes:
+          typeof row.minutos_jugados === 'number' || typeof row.minutos_jugados === 'string'
+            ? toNumber(row.minutos_jugados)
+            : null,
       }))
       .filter((row) => row.partido_id && row.player_id)
   }
 
   const byUsuarioId = await supabase
     .from('participantes_partido')
-    .select('partido_id, usuario_id')
+    .select('partido_id, usuario_id, minutos_jugados')
     .in('partido_id', matchIds)
 
   if (!byUsuarioId.error) {
@@ -500,6 +505,10 @@ async function loadMatchParticipants(
       .map((row) => ({
         partido_id: typeof row.partido_id === 'string' ? row.partido_id : '',
         player_id: typeof row.usuario_id === 'string' ? row.usuario_id : '',
+        minutes:
+          typeof row.minutos_jugados === 'number' || typeof row.minutos_jugados === 'string'
+            ? toNumber(row.minutos_jugados)
+            : null,
       }))
       .filter((row) => row.partido_id && row.player_id)
   }
@@ -572,6 +581,7 @@ export async function GET(request: NextRequest) {
     const [
       clasificacionResult,
       finalizadosResult,
+      statMatchesResult,
       nextMatchesResult,
       calendarMatchesResult,
       teamMembersResult,
@@ -593,6 +603,12 @@ export async function GET(request: NextRequest) {
         .select('id, fecha_hora, goles_favor, goles_contra, rival_nombre')
         .eq('equipo_id', activeTeam!.id)
         .eq('estado', 'FINALIZADO')
+        .order('fecha_hora', { ascending: false }),
+      supabase
+        .from('partidos')
+        .select('id, fecha_hora')
+        .eq('equipo_id', activeTeam!.id)
+        .lte('fecha_hora', now.toISOString())
         .order('fecha_hora', { ascending: false }),
       supabase
         .from('partidos')
@@ -655,6 +671,11 @@ export async function GET(request: NextRequest) {
     const finalizados = finalizadosResult.error ? [] : finalizadosResult.data ?? []
     if (finalizadosResult.error) {
       logOptionalQueryError('partidos finalizados', finalizadosResult.error)
+    }
+
+    const statMatches = statMatchesResult.error ? [] : statMatchesResult.data ?? []
+    if (statMatchesResult.error) {
+      logOptionalQueryError('partidos disputados para estadisticas de jugador', statMatchesResult.error)
     }
 
     const nextMatches = nextMatchesResult.error ? [] : nextMatchesResult.data ?? []
@@ -790,7 +811,7 @@ export async function GET(request: NextRequest) {
     }
 
     const finalizadosChronological = [...finalizados].reverse()
-    const matchIds = finalizadosChronological.map((match) => match.id)
+    const playerStatMatchIds = statMatches.map((match) => match.id)
 
     let events:
       | Array<{
@@ -800,11 +821,11 @@ export async function GET(request: NextRequest) {
         }>
       | [] = []
 
-    if (matchIds.length > 0) {
+    if (playerStatMatchIds.length > 0) {
       const eventsResult = await supabase
         .from('eventos_partido')
         .select('tipo, jugador_id, jugador_relacionado_id')
-        .in('partido_id', matchIds)
+        .in('partido_id', playerStatMatchIds)
 
       if (eventsResult.error) {
         logOptionalQueryError('eventos_partido', eventsResult.error)
@@ -813,9 +834,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const participations = (await loadMatchParticipants(supabase, matchIds)).filter(
+    const playerParticipations = (await loadMatchParticipants(supabase, playerStatMatchIds)).filter(
       (row) => row.player_id === user.id
     )
+    const playerMatchIds = new Set(playerParticipations.map((row) => row.partido_id))
+    const playerMinutesPlayed = playerParticipations.reduce((total, row) => {
+      return total + Math.max(row.minutes ?? 0, 0)
+    }, 0)
 
     let wins = 0
     let draws = 0
@@ -930,8 +955,8 @@ export async function GET(request: NextRequest) {
       foto_url: profile?.foto_url ?? null,
       posicion: profile?.posicion ?? null,
       teamName: activeTeam!.nombre,
-      matchesPlayed: participations.length,
-      minutesPlayed: participations.length * 90,
+      matchesPlayed: playerMatchIds.size,
+      minutesPlayed: playerMinutesPlayed,
       goals: playerGoals,
       assists: playerAssists,
       avgRating: null,

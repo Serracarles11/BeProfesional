@@ -350,6 +350,7 @@ async function saveRoutine(request: NextRequest, mode: 'create' | 'update') {
       .from('ejercicios')
       .select('id')
       .eq('equipo_id', equipoId)
+      .eq('creado_por', user.id)
       .ilike('objetivo', `routine::${routineId}::%`)
 
     if (existingResult.error) {
@@ -444,6 +445,7 @@ export async function DELETE(request: NextRequest) {
       .from('ejercicios')
       .select('id')
       .eq('equipo_id', equipoId)
+      .eq('creado_por', user.id)
       .ilike('objetivo', `routine::${routineId}::%`)
 
     if (existingResult.error) {

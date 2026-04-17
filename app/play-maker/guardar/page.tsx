@@ -2,18 +2,18 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { createSupabaseServer } from '@/lib/supabase/server'
-import { buildRoutineObjective, parseRoutineObjective } from '@/lib/playmaker/routines'
+import {
+  buildRoutineDetails,
+  buildRoutineObjective,
+  parseRoutineMaterial,
+  parseRoutineObjective,
+  serializeRoutineMaterial,
+  type RoutineExerciseRow,
+} from '@/lib/playmaker/routines'
 
 type SearchParamsInput = Record<string, string | string[] | undefined>
 
-type ExerciseCopyRow = {
-  nombre: string
-  descripcion: string | null
-  tipo: string | null
-  objetivo: string | null
-  duracion_estimada_min: number | null
-  dificultad: number | null
-  material: string | null
+type ExerciseCopyRow = RoutineExerciseRow & {
   creado_por: string
 }
 
@@ -29,6 +29,42 @@ function buildPlayerRoutineId(sourceRoutineId: string, userId: string) {
 async function getCoachName(admin: NonNullable<ReturnType<typeof createSupabaseAdmin>>, coachId: string) {
   const result = await admin.from('perfiles').select('nombre').eq('id', coachId).maybeSingle()
   return result.data?.nombre?.trim() || 'tu entrenador'
+}
+
+async function incrementSourceCloneCount(
+  admin: NonNullable<ReturnType<typeof createSupabaseAdmin>>,
+  sourceRows: ExerciseCopyRow[]
+) {
+  const firstRow = [...sourceRows].sort((left, right) => {
+    const leftOrder = parseRoutineMaterial(left.material).order ?? 0
+    const rightOrder = parseRoutineMaterial(right.material).order ?? 0
+    return leftOrder - rightOrder
+  })[0]
+
+  if (!firstRow?.id) return
+
+  const material = parseRoutineMaterial(firstRow.material)
+  const nextCloneCount = Math.max(0, material.communityCloneCount ?? 0) + 1
+
+  await admin
+    .from('ejercicios')
+    .update({
+      material: serializeRoutineMaterial({
+        ...material,
+        communityCloneCount: nextCloneCount,
+      }),
+    })
+    .eq('id', firstRow.id)
+}
+
+function materialForPlayerCopy(value: string | null) {
+  const material = parseRoutineMaterial(value)
+  return serializeRoutineMaterial({
+    ...material,
+    communityLikes: [],
+    communityCloneCount: 0,
+    communityVisibility: 'private',
+  })
 }
 
 export default async function SavePlayMakerRoutinePage({
@@ -80,14 +116,29 @@ export default async function SavePlayMakerRoutinePage({
 
   const sourceResult = await admin
     .from('ejercicios')
-    .select('nombre, descripcion, tipo, objetivo, duracion_estimada_min, dificultad, material, creado_por')
+    .select('id, nombre, descripcion, tipo, objetivo, duracion_estimada_min, dificultad, material, creado_en, creado_por')
     .eq('equipo_id', equipoId)
     .ilike('objetivo', `routine::${sourceRoutineId}::%`)
     .order('creado_en', { ascending: true })
 
-  if (sourceResult.error || !sourceResult.data || sourceResult.data.length === 0) notFound()
+  if (sourceResult.error) notFound()
 
-  const sourceRows = sourceResult.data as ExerciseCopyRow[]
+  let sourceRows = (sourceResult.data ?? []) as ExerciseCopyRow[]
+  if (sourceRows.length === 0) {
+    const publicSourceResult = await admin
+      .from('ejercicios')
+      .select('id, nombre, descripcion, tipo, objetivo, duracion_estimada_min, dificultad, material, creado_en, creado_por')
+      .ilike('objetivo', `routine::${sourceRoutineId}::%`)
+      .order('creado_en', { ascending: true })
+
+    if (publicSourceResult.error || !publicSourceResult.data || publicSourceResult.data.length === 0) notFound()
+
+    const publicRows = publicSourceResult.data as ExerciseCopyRow[]
+    const publicRoutine = buildRoutineDetails(publicRows)[0] ?? null
+    if (publicRoutine?.visibility !== 'public') notFound()
+    sourceRows = publicRows
+  }
+
   const sourceTitle =
     parseRoutineObjective(sourceRows[0]?.objetivo)?.title || sourceRows[0]?.nombre || 'Entrenamiento'
   const sourceCoachId = sourceRows[0].creado_por
@@ -137,7 +188,7 @@ export default async function SavePlayMakerRoutinePage({
     objetivo: buildRoutineObjective(playerRoutineId, playerTitle),
     duracion_estimada_min: row.duracion_estimada_min,
     dificultad: row.dificultad,
-    material: row.material,
+    material: materialForPlayerCopy(row.material),
     creado_por: userId,
   }))
 
@@ -155,6 +206,8 @@ export default async function SavePlayMakerRoutinePage({
       </main>
     )
   }
+
+  await incrementSourceCloneCount(admin, sourceRows)
 
   redirect(`/play-maker/routine/${encodeURIComponent(playerRoutineId)}?equipo=${encodeURIComponent(equipoId)}`)
 }

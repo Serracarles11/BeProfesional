@@ -29,6 +29,7 @@ type RoutineViewClientProps = {
     logo_url: string | null
   }
   routine: RoutineDetail
+  canEdit?: boolean
 }
 
 function formatIssuedDate(value: string | null) {
@@ -151,7 +152,7 @@ function buildPhaseSections(blocks: RoutineBlock[]) {
   return sections
 }
 
-export default function RoutineViewClient({ equipo, routine }: RoutineViewClientProps) {
+export default function RoutineViewClient({ equipo, routine, canEdit = true }: RoutineViewClientProps) {
   const editHref = `/play-maker/create?equipo=${encodeURIComponent(equipo.id)}&routine=${encodeURIComponent(routine.id)}`
   const backHref = withEquipo('/play-maker', equipo.id)
   const issuedAt = formatIssuedDate(routine.createdAt)
@@ -182,10 +183,12 @@ export default function RoutineViewClient({ equipo, routine }: RoutineViewClient
           </div>
 
           <div className="flex items-center gap-3">
-            <Link href={editHref} className="inline-flex items-center gap-2 rounded-xl border border-[#c1c6d6] bg-white px-4 py-3 text-sm font-bold text-[#005db6] transition hover:bg-[#f7f9fe]">
-              <Pencil className="h-4 w-4" />
-              <span>Editar</span>
-            </Link>
+            {canEdit ? (
+              <Link href={editHref} className="inline-flex items-center gap-2 rounded-xl border border-[#c1c6d6] bg-white px-4 py-3 text-sm font-bold text-[#005db6] transition hover:bg-[#f7f9fe]">
+                <Pencil className="h-4 w-4" />
+                <span>Editar</span>
+              </Link>
+            ) : null}
             <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl bg-[#005db6] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#004e98]">
               <Download className="h-4 w-4" />
               <span>Exportar PDF</span>

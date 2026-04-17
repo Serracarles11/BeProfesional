@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import CoachPlayMakerClient from './CoachPlayMakerClient'
 import TrainingAssistantClient from './PlayMakerClient'
+import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { buildRoutineDetails, buildRoutineSummary, type RoutineExerciseRow } from '@/lib/playmaker/routines'
 
@@ -121,6 +122,7 @@ export default async function PlayMakerPage({
     'Jugador'
 
   let routines: ReturnType<typeof buildRoutineSummary>[] = []
+  let publicRoutines: ReturnType<typeof buildRoutineSummary>[] = []
   let upcomingTrainings: Array<{
     id: string
     fecha: string
@@ -130,22 +132,44 @@ export default async function PlayMakerPage({
     lugar: string | null
   }> = []
 
+  const admin = createSupabaseAdmin()
+  const publicExercisesResult = admin
+    ? await admin
+        .from('ejercicios')
+        .select('id, nombre, descripcion, tipo, objetivo, duracion_estimada_min, dificultad, material, creado_en')
+        .order('creado_en', { ascending: false })
+        .limit(300)
+    : { data: [], error: null }
+
+  publicRoutines = buildRoutineDetails((publicExercisesResult.data ?? []) as RoutineExerciseRow[])
+    .map((detail) => {
+      const summary = buildRoutineSummary(detail)
+      return {
+        ...summary,
+        likedByViewer: summary.likeUserIds.includes(userId),
+      }
+    })
+    .filter((routine) => routine.visibility === 'public')
+
   if (activeTeam) {
-    let exercisesQuery = supabase
+    const exercisesQuery = supabase
       .from('ejercicios')
       .select('id, nombre, descripcion, tipo, objetivo, duracion_estimada_min, dificultad, material, creado_en')
-      .or(`equipo_id.eq.${activeTeam.id},equipo_id.is.null`)
+      .eq('equipo_id', activeTeam.id)
+      .eq('creado_por', userId)
       .order('creado_en', { ascending: false })
       .limit(100)
-
-    if (!isCoach) {
-      exercisesQuery = exercisesQuery.eq('creado_por', userId)
-    }
 
     const exercisesResult = await exercisesQuery
 
     const exerciseRows = (exercisesResult.data ?? []) as RoutineExerciseRow[]
-    routines = buildRoutineDetails(exerciseRows).map(buildRoutineSummary)
+    routines = buildRoutineDetails(exerciseRows).map((detail) => {
+      const summary = buildRoutineSummary(detail)
+      return {
+        ...summary,
+        likedByViewer: summary.likeUserIds.includes(userId),
+      }
+    })
 
     const trainingsResult = await supabase
       .from('entrenamientos_equipo')
@@ -192,6 +216,7 @@ export default async function PlayMakerPage({
       isCoach={isCoach}
       playerName={playerName}
       routines={routines}
+      publicRoutines={publicRoutines}
       upcomingTrainings={upcomingTrainings}
     />
   )
