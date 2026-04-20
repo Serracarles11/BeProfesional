@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { notifyTeamMembers, notifyUsers } from '@/lib/notifications'
 import { getServerOpenAiConfig, getServerOpenAiKeyError } from '@/lib/openai-server'
+import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
 import { decodeChatContent, encodeChatContent } from '@/lib/chat/envelope'
 
@@ -170,6 +172,39 @@ function normalizeMessageContent(rawContent: string, isMine: boolean) {
 
 function isAiChatTitle(value: string) {
   return value.startsWith(AI_CHAT_TITLE_PREFIX)
+}
+
+async function notifyChatMessage(params: {
+  supabase: Awaited<ReturnType<typeof createSupabaseRouteHandler>> | NonNullable<ReturnType<typeof createSupabaseAdmin>>
+  chat: ChatRow | null
+  senderId: string
+  senderName: string
+  text: string
+}) {
+  if (!params.chat || isAiChatTitle(params.chat.titulo)) return
+
+  const payload = {
+    tipo: 'MENSAJE_CHAT',
+    titulo: params.senderName,
+    mensaje: params.text,
+    enlace: `/chat?equipo=${encodeURIComponent(params.chat.equipo_id)}`,
+  }
+
+  if (params.chat.titulo.startsWith(PRIVATE_CHAT_TITLE_PREFIX)) {
+    const participants = parsePrivateParticipants(params.chat.titulo)
+    if (!participants) return
+
+    const recipientId =
+      params.senderId === participants.coachId ? participants.playerId : participants.coachId
+    await notifyUsers(params.supabase, [recipientId], payload)
+    return
+  }
+
+  if (params.chat.titulo.startsWith(TEAM_CHAT_TITLE_PREFIX)) {
+    await notifyTeamMembers(params.supabase, params.chat.equipo_id, payload, {
+      excludeUserIds: [params.senderId],
+    })
+  }
 }
 
 async function generateAiReply(
@@ -369,8 +404,17 @@ export async function POST(request: NextRequest) {
       profileResult.error || !profileResult.data?.nombre?.trim()
         ? 'Tu'
         : profileResult.data.nombre.trim()
+    const notificationSenderName = senderName === 'Tu' ? 'Usuario' : senderName
 
     const row = insertResult.data as ChatMessageRow
+
+    await notifyChatMessage({
+      supabase: createSupabaseAdmin() ?? supabase,
+      chat,
+      senderId: user.id,
+      senderName: notificationSenderName,
+      text,
+    })
 
     if (chat && isAiChatTitle(chat.titulo)) {
       const historyResult = await supabase

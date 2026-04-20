@@ -4,15 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import {
-  Bell,
   CalendarDays,
   ChartColumn,
   ChevronRight,
   LayoutDashboard,
   MessageSquare,
   Save,
-  Search,
-  Settings,
   Users,
   X,
 } from 'lucide-react'
@@ -70,6 +67,7 @@ type MatchesPayload =
       teamName: string
       role: string | null
       isCoach: boolean
+      showingAllPlayed: boolean
       featuredMatch: MatchItem | null
       featuredMeta: {
         totalPlayers: number
@@ -165,13 +163,13 @@ function formatMatchTime(value: string) {
 
 function statusPillLabel(match: MatchItem) {
   const normalized = normalizeText(match.estado)
-  if (normalized === 'FINALIZADO') return 'Closed'
-  if (normalized === 'PROGRAMADO') return 'Scheduled'
-  return match.estado?.trim() || 'Open'
+  if (normalized === 'FINALIZADO') return 'Finalizado'
+  if (normalized === 'PROGRAMADO') return 'Programado'
+  return match.estado?.trim() || 'Abierto'
 }
 
 function featuredBadgeLabel(openForStats: boolean) {
-  return openForStats ? 'Open for Stats' : 'Match Pending'
+  return openForStats ? 'Edicion abierta' : 'Edicion cerrada'
 }
 
 function clampInt(value: number, min: number, max: number) {
@@ -188,6 +186,13 @@ function getInitials(name: string) {
 function buildReviewHref(equipoId: string | null, matchId: string) {
   const params = new URLSearchParams()
   params.set('review', matchId)
+  if (equipoId) params.set('equipo', equipoId)
+  return `/partidos?${params.toString()}`
+}
+
+function buildAllPlayedHref(equipoId: string | null) {
+  const params = new URLSearchParams()
+  params.set('all', '1')
   if (equipoId) params.set('equipo', equipoId)
   return `/partidos?${params.toString()}`
 }
@@ -330,7 +335,7 @@ function CoachPlayerRowView({
               {player.name}
             </p>
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              {player.position || 'Player'}
+              {player.position || 'Jugador'}
             </p>
           </div>
         </div>
@@ -383,41 +388,6 @@ function CoachPlayerRowView({
   )
 }
 
-function MetricPanel({
-  title,
-  badge,
-  rows,
-}: {
-  title: string
-  badge: string
-  rows: Array<{ label: string; value: number }>
-}) {
-  return (
-    <div className="rounded-xl bg-white p-8 shadow-[0px_20px_40px_rgba(0,93,182,0.02)]">
-      <div className="mb-6 flex items-center justify-between">
-        <h4 className="[font-family:var(--font-plus-jakarta)] font-bold text-[#181c20]">{title}</h4>
-        <span className="rounded bg-[#005db6]/5 px-2 py-1 text-xs font-bold text-[#005db6]">{badge}</span>
-      </div>
-      <div className="space-y-6">
-        {rows.map((row) => (
-          <div key={row.label}>
-            <div className="mb-2 flex justify-between text-xs font-bold">
-              <span className="uppercase tracking-wider text-slate-500">{row.label}</span>
-              <span className="text-[#005db6]">{row.value}%</span>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-[#a9c7ff]">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-[#005db6] to-[#2b5bb5]"
-                style={{ width: `${row.value}%` }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function CoachMatchReview({
   payload,
   featuredMatch,
@@ -467,12 +437,12 @@ function CoachMatchReview({
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <nav className="mb-2 flex items-center gap-2 text-xs text-slate-400">
-                <span>Matches</span>
+                <span>Partidos</span>
                 <ChevronRight className="h-3 w-3" />
-                <span className="font-semibold text-[#005db6]">Match Review</span>
+                <span className="font-semibold text-[#005db6]">Revision del partido</span>
               </nav>
               <h1 className="[font-family:var(--font-plus-jakarta)] text-3xl font-extrabold tracking-tight text-[#181c20]">
-                Review Match Stats:{' '}
+                Revisar estadisticas:{' '}
                 <span className="text-[#005db6]">
                   {payload.teamName} vs {featuredMatch.rival || 'Rival'}
                 </span>
@@ -485,7 +455,7 @@ function CoachMatchReview({
                 disabled={isSubmitting}
                 className="rounded-full border-2 border-slate-200 px-6 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Discard Changes
+                Descartar cambios
               </button>
               <button
                 type="button"
@@ -494,22 +464,22 @@ function CoachMatchReview({
                 className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#005db6] to-[#2b5bb5] px-8 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#005db6]/20 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Save className="h-4 w-4" />
-                {isSubmitting ? 'Saving...' : 'Finalize and Save'}
+                {isSubmitting ? 'Guardando...' : 'Finalizar y guardar'}
               </button>
             </div>
           </div>
 
           <div className="mb-10 grid grid-cols-1 gap-6 md:grid-cols-4">
-            <SummaryCard label="Total Goals" value={String(totals.goals)} helper={`${featuredMatch.golesFavor ?? totals.goals} official`} tone="primary" />
-            <SummaryCard label="Total Assists" value={String(totals.assists)} helper="In-match play" tone="primary" />
-            <SummaryCard label="Avg Rating" value={avgRating} helper="Team Consistency" tone="tertiary" />
-            <SummaryHighlight label="Participation" value={participationLabel} helper="Players with reported stats" />
+            <SummaryCard label="Goles totales" value={String(totals.goals)} helper={`${featuredMatch.golesFavor ?? totals.goals} oficial`} tone="primary" />
+            <SummaryCard label="Asistencias totales" value={String(totals.assists)} helper="Acciones registradas" tone="primary" />
+            <SummaryCard label="Media rating" value={avgRating} helper="Consistencia del equipo" tone="tertiary" />
+            <SummaryHighlight label="Participacion" value={participationLabel} helper="Jugadores con datos" />
           </div>
 
           <div className="overflow-hidden rounded-xl border border-slate-50 bg-white shadow-[0px_20px_40px_rgba(0,93,182,0.04)]">
             <div className="flex flex-col gap-4 border-b border-slate-50 px-6 py-6 md:flex-row md:items-center md:justify-between md:px-8">
               <h3 className="[font-family:var(--font-plus-jakarta)] text-lg font-bold text-[#181c20]">
-                Match Roster & Performance
+                Plantilla y rendimiento
               </h3>
               <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
                 <div className="flex -space-x-2">
@@ -525,11 +495,11 @@ function CoachMatchReview({
               <table className="w-full min-w-[900px] text-left">
                 <thead>
                   <tr className="bg-slate-50/60">
-                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-[0.1em] text-slate-400">Player</th>
-                    <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.1em] text-slate-400">Minutes</th>
-                    <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.1em] text-slate-400">Goals</th>
-                    <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.1em] text-slate-400">Assists</th>
-                    <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.1em] text-slate-400">Cards</th>
+                    <th className="px-8 py-4 text-[10px] font-black uppercase tracking-[0.1em] text-slate-400">Jugador</th>
+                    <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.1em] text-slate-400">Minutos</th>
+                    <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.1em] text-slate-400">Goles</th>
+                    <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.1em] text-slate-400">Asistencias</th>
+                    <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.1em] text-slate-400">Tarjetas</th>
                     <th className="px-8 py-4 text-[10px] font-black uppercase tracking-[0.1em] text-slate-400">Rating</th>
                   </tr>
                 </thead>
@@ -550,60 +520,8 @@ function CoachMatchReview({
                 Roster Synced
               </span>
               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                Showing {drafts.length} of {payload.featuredMeta.totalPlayers} Players
+                Mostrando {drafts.length} de {payload.featuredMeta.totalPlayers} jugadores
               </span>
-            </div>
-          </div>
-
-          <div className="mt-10 grid grid-cols-1 gap-8 md:grid-cols-2">
-            <MetricPanel
-              title="Team Stamina Load"
-              badge="High Intensity"
-              rows={[
-                {
-                  label: 'Attack Phase Efficiency',
-                  value: clampInt(Math.round((totals.goals * 18 + totals.assists * 12 + 40) / Math.max(drafts.length, 1)), 0, 100),
-                },
-                {
-                  label: 'Defensive Transition',
-                  value: clampInt(100 - totals.reds * 20 - totals.goals * 2, 35, 100),
-                },
-              ]}
-            />
-
-            <div className="rounded-xl bg-white p-8 shadow-[0px_20px_40px_rgba(0,93,182,0.02)]">
-              <div className="mb-6 flex items-center justify-between">
-                <h4 className="[font-family:var(--font-plus-jakarta)] font-bold text-[#181c20]">Match Highlights</h4>
-                <Link
-                  href={withEquipo('/estadisticas', payload.equipoId)}
-                  className="flex items-center gap-1 text-xs font-bold text-[#005db6] hover:underline"
-                >
-                  View All
-                  <ChevronRight className="h-4 w-4" />
-                </Link>
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {drafts
-                  .filter((player) => player.goals > 0 || player.assists > 0)
-                  .slice(0, 4)
-                  .map((player, index) => (
-                    <div key={player.playerId} className="rounded-lg bg-slate-50 p-3 transition-all hover:bg-[#005db6]/5">
-                      <div className="mb-2 flex aspect-video items-center justify-center rounded-md bg-gradient-to-br from-[#d6e3ff] to-[#759efd]">
-                        <span className="[font-family:var(--font-plus-jakarta)] text-2xl font-black text-[#005db6]">
-                          {player.goals > 0 ? 'GOAL' : 'ASSIST'}
-                        </span>
-                      </div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                        Highlight {index + 1}: {player.name}
-                      </p>
-                    </div>
-                  ))}
-                {drafts.filter((player) => player.goals > 0 || player.assists > 0).length === 0 ? (
-                  <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
-                    Todavia no hay acciones destacadas registradas en este partido.
-                  </div>
-                ) : null}
-              </div>
             </div>
           </div>
 
@@ -646,6 +564,37 @@ function PlayerPartidosView({
   setFormValue: (key: NumericStatsField, value: number) => void
   submitStats: () => void
 }) {
+  const liveGoalsFavor = featuredMeta?.totals.goals ?? featuredMatch?.golesFavor ?? 0
+  const liveGoalsContra = featuredMatch?.golesContra ?? 0
+  const [isAllMatchesOpen, setIsAllMatchesOpen] = useState(false)
+  const [allMatches, setAllMatches] = useState<MatchItem[]>([])
+  const [isLoadingAllMatches, setIsLoadingAllMatches] = useState(false)
+  const [allMatchesError, setAllMatchesError] = useState('')
+
+  const openAllMatches = async () => {
+    setIsAllMatchesOpen(true)
+    setAllMatchesError('')
+
+    if (allMatches.length > 0) return
+
+    setIsLoadingAllMatches(true)
+    try {
+      const query = buildAllPlayedHref(payload.equipoId).replace('/partidos', '')
+      const response = await fetch(`/api/partidos${query}`, { cache: 'no-store' })
+      const data = (await response.json()) as MatchesPayload
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.ok ? 'No se pudieron cargar los partidos.' : data.error)
+      }
+
+      setAllMatches(data.history)
+    } catch (error) {
+      setAllMatchesError(error instanceof Error ? error.message : 'No se pudieron cargar los partidos.')
+    } finally {
+      setIsLoadingAllMatches(false)
+    }
+  }
+
   return (
     <>
       <div className="mx-auto flex min-h-screen w-full max-w-[1700px]">
@@ -674,7 +623,7 @@ function PlayerPartidosView({
                       <div>
                         <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-4 py-1.5 backdrop-blur-md">
                           <span className="text-xs font-bold uppercase tracking-[0.14em]">
-                            Match of the Week
+                            Partido destacado
                           </span>
                         </div>
                         <h2 className="[font-family:var(--font-plus-jakarta)] text-4xl font-black italic tracking-tight md:text-5xl">
@@ -695,6 +644,14 @@ function PlayerPartidosView({
                         <span className="mt-4 inline-flex rounded-xl bg-[#ffe170] px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-[#221b00]">
                           {featuredMatch.competicion || 'Competicion'}
                         </span>
+                        <div className="mt-5 rounded-2xl border border-white/20 bg-white/10 px-5 py-3 backdrop-blur-md">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/70">
+                            Resultado
+                          </p>
+                          <p className="[font-family:var(--font-plus-jakarta)] text-4xl font-black leading-none text-white">
+                            {liveGoalsFavor} - {liveGoalsContra}
+                          </p>
+                        </div>
                       </div>
                     </div>
 
@@ -731,12 +688,6 @@ function PlayerPartidosView({
                             Registrar mis estadisticas
                           </button>
                         )}
-                        <Link
-                          href={withEquipo('/estadisticas', payload.equipoId)}
-                          className="rounded-full border border-white/25 bg-white/10 px-6 py-3 text-sm font-bold text-white backdrop-blur-md transition hover:bg-white/20"
-                        >
-                          Ver detalles
-                        </Link>
                       </div>
                     </div>
                   </div>
@@ -781,11 +732,11 @@ function PlayerPartidosView({
                   </p>
                 ) : !featuredMeta.isOpenForStats ? (
                   <p className="text-xs font-semibold text-[#5f6776]">
-                    Podras cargar tus datos cuando el partido haya comenzado o finalizado.
+                    Los jugadores solo pueden editar sus estadisticas durante las 48 horas posteriores al partido.
                   </p>
                 ) : (
                   <p className="text-xs font-semibold text-[#5f6776]">
-                    Tus datos se pueden actualizar para corregir minutos o tarjetas.
+                    Tus datos se pueden actualizar dentro de la ventana de 48 horas.
                   </p>
                 )}
               </section>
@@ -794,23 +745,25 @@ function PlayerPartidosView({
             <aside className="space-y-4 lg:col-span-4">
               <div className="flex items-center justify-between px-2">
                 <h3 className="[font-family:var(--font-plus-jakarta)] text-xl font-black text-[#181c20]">
-                  Historial Reciente
+                  Historial reciente
                 </h3>
-                <Link
-                  href={withEquipo('/estadisticas', payload.equipoId)}
+                <button
+                  type="button"
+                  onClick={() => void openAllMatches()}
                   className="text-sm font-bold text-[#005db6] hover:underline"
                 >
                   Ver todo
-                </Link>
+                </button>
               </div>
 
               {matchHistory.length === 0 ? (
                 <div className="rounded-3xl border border-[#dfe3e8] bg-white p-5 text-sm text-[#5f6776]">
-                  Aun no hay partidos finalizados.
+                  Aun no hay partidos guardados.
                 </div>
               ) : (
                 matchHistory.map((match) => {
-                  const hasScore = match.golesFavor !== null && match.golesContra !== null
+                  const goalsFor = match.golesFavor ?? 0
+                  const goalsAgainst = match.golesContra ?? 0
 
                   return (
                     <article
@@ -835,11 +788,11 @@ function PlayerPartidosView({
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="text-4xl font-black text-[#005db6]">
-                            {hasScore ? match.golesFavor : '-'}
+                            {goalsFor}
                           </span>
                           <span className="text-lg font-bold text-[#b8beca]">-</span>
                           <span className="text-4xl font-black text-[#414754]">
-                            {hasScore ? match.golesContra : '-'}
+                            {goalsAgainst}
                           </span>
                         </div>
                       </div>
@@ -870,6 +823,103 @@ function PlayerPartidosView({
       </div>
 
       <MobileMatchesNav equipoId={payload.equipoId} />
+
+      {isAllMatchesOpen ? (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-[#181c20]/45 p-4 backdrop-blur-sm"
+          onClick={() => setIsAllMatchesOpen(false)}
+        >
+          <div
+            className="flex max-h-[86vh] w-full max-w-4xl flex-col rounded-3xl bg-white p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="[font-family:var(--font-plus-jakarta)] text-2xl font-black text-[#181c20]">
+                  Todos los partidos
+                </h2>
+                <p className="mt-1 text-sm font-medium text-[#5f6776]">
+                  Revisa el resultado y abre las estadisticas de cualquier partido.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAllMatchesOpen(false)}
+                className="rounded-full p-2 text-[#727785] transition hover:bg-[#f1f4f9]"
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {allMatchesError ? (
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                {allMatchesError}
+              </div>
+            ) : null}
+
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              {isLoadingAllMatches ? (
+                <div className="rounded-2xl border border-[#dfe3e8] bg-[#f8fbff] px-4 py-10 text-center text-sm font-semibold text-[#5f6776]">
+                  Cargando partidos...
+                </div>
+              ) : allMatches.length === 0 ? (
+                <div className="rounded-2xl border border-[#dfe3e8] bg-[#f8fbff] px-4 py-10 text-center text-sm text-[#5f6776]">
+                  Aun no hay partidos guardados.
+                </div>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {allMatches.map((match) => {
+                    const goalsFor = match.golesFavor ?? 0
+                    const goalsAgainst = match.golesContra ?? 0
+
+                    return (
+                      <article key={match.id} className="rounded-2xl border border-[#dfe3e8] bg-[#f8fbff] p-4">
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#727785]">
+                              {formatMatchDate(match.fechaHora)}
+                            </p>
+                            <h3 className="mt-1 [font-family:var(--font-plus-jakarta)] text-lg font-black text-[#181c20]">
+                              {match.rival || 'Rival'}
+                            </h3>
+                          </div>
+                          <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2">
+                            <span className="text-2xl font-black text-[#005db6]">
+                              {goalsFor}
+                            </span>
+                            <span className="text-sm font-bold text-[#b8beca]">-</span>
+                            <span className="text-2xl font-black text-[#414754]">
+                              {goalsAgainst}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between border-t border-[#dfe3e8] pt-3">
+                          <span className="text-xs font-bold text-[#727785]">
+                            {match.competicion || 'Competicion'}
+                          </span>
+                          <Link
+                            href={
+                              payload.isCoach
+                                ? buildReviewHref(payload.equipoId, match.id)
+                                : withEquipo('/estadisticas', payload.equipoId)
+                            }
+                            className="inline-flex items-center gap-1 text-sm font-black text-[#005db6] transition hover:gap-2"
+                          >
+                            Ver estadisticas
+                            <ChevronRight className="h-4 w-4" />
+                          </Link>
+                        </div>
+                      </article>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {isModalOpen && featuredMatch ? (
         <div
@@ -942,6 +992,7 @@ export default function PartidosPage() {
   const searchParams = useSearchParams()
   const requestedTeamId = searchParams.get('equipo')
   const requestedReviewMatchId = searchParams.get('review')
+  const requestedAllPlayed = searchParams.get('all') === '1'
 
   const [status, setStatus] = useState<Status>('loading')
   const [error, setError] = useState('')
@@ -960,6 +1011,7 @@ export default function PartidosPage() {
       const params = new URLSearchParams()
       if (requestedTeamId) params.set('equipo', requestedTeamId)
       if (requestedReviewMatchId) params.set('matchId', requestedReviewMatchId)
+      if (requestedAllPlayed) params.set('all', '1')
       const query = params.size > 0 ? `?${params.toString()}` : ''
       const response = await fetch(`/api/partidos${query}`, { cache: 'no-store' })
       const data = (await response.json()) as MatchesPayload
@@ -974,7 +1026,7 @@ export default function PartidosPage() {
       setStatus('error')
       setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar Partidos.')
     }
-  }, [requestedReviewMatchId, requestedTeamId])
+  }, [requestedAllPlayed, requestedReviewMatchId, requestedTeamId])
 
   useEffect(() => {
     void loadData()
@@ -1228,7 +1280,7 @@ function MobileMatchesNav({ equipoId }: { equipoId?: string | null }) {
     <nav className="fixed bottom-0 left-0 z-40 flex w-full items-center justify-between bg-white/90 px-8 py-3 backdrop-blur-lg md:hidden">
       <MobileNavLink href={withEquipo('/home', equipoId)} label="Home" icon={<LayoutDashboard className="h-4 w-4" />} />
       <MobileNavLink href={withEquipo('/jugadores', equipoId)} label="Players" icon={<Users className="h-4 w-4" />} />
-      <MobileNavLink href={withEquipo('/partidos', equipoId)} label="Matches" icon={<CalendarDays className="h-4 w-4" />} active />
+      <MobileNavLink href={withEquipo('/partidos', equipoId)} label="Partidos" icon={<CalendarDays className="h-4 w-4" />} active />
       <MobileNavLink href={withEquipo('/estadisticas', equipoId)} label="Reports" icon={<ChartColumn className="h-4 w-4" />} />
       <MobileNavLink href={withEquipo('/chat', equipoId)} label="Chat" icon={<MessageSquare className="h-4 w-4" />} />
     </nav>

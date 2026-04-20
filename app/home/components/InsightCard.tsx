@@ -9,6 +9,9 @@ type InsightCardProps = {
   activities: DashboardActivityItem[]
   isCoach: boolean
   onOpenCreateEvent: (dateKey?: string) => void
+  onOpenWeeklyTraining?: () => void
+  onEditEvent?: (event: DashboardActivityItem) => void
+  onDeleteEvent?: (event: DashboardActivityItem) => void
 }
 
 function formatSelectedDate(date?: Date) {
@@ -25,7 +28,10 @@ function formatSelectedDate(date?: Date) {
 }
 
 function getDateKey(date: Date) {
-  return date.toISOString().slice(0, 10)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function formatEventTime(value: string | null) {
@@ -64,7 +70,14 @@ function getEventTypeLabel(type: DashboardActivityItem['type']) {
   return type === 'partido' ? 'Partido' : 'Entrenamiento'
 }
 
-export function InsightCard({ activities, isCoach, onOpenCreateEvent }: InsightCardProps) {
+export function InsightCard({
+  activities,
+  isCoach,
+  onOpenCreateEvent,
+  onOpenWeeklyTraining,
+  onEditEvent,
+  onDeleteEvent,
+}: InsightCardProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
   const [activeEvent, setActiveEvent] = useState<DashboardActivityItem | null>(null)
 
@@ -136,14 +149,24 @@ export function InsightCard({ activities, isCoach, onOpenCreateEvent }: InsightC
                 {selectedDateLabel}
               </span>
               {isCoach ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenCreateEvent(selectedDateKey || undefined)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#005db6] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#004f9a]"
-                >
-                  <Plus className="h-4 w-4" />
-                  Anadir entrenamiento / partido
-                </button>
+                <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => onOpenCreateEvent(selectedDateKey || undefined)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#005db6] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#004f9a]"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Anadir entrenamiento / partido
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onOpenWeeklyTraining}
+                    className="inline-flex items-center gap-2 rounded-xl border border-[#c7d7ef] bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.08em] text-[#005db6] transition hover:border-[#005db6] hover:bg-[#eef6ff]"
+                  >
+                    <CalendarDays className="h-4 w-4" />
+                    Fijos
+                  </button>
+                </div>
               ) : null}
             </div>
           </div>
@@ -308,6 +331,33 @@ export function InsightCard({ activities, isCoach, onOpenCreateEvent }: InsightC
                 </p>
               ) : null}
             </div>
+
+            {isCoach ? (
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const eventToEdit = activeEvent
+                    setActiveEvent(null)
+                    onEditEvent?.(eventToEdit)
+                  }}
+                  className="rounded-xl border border-[#c7d7ef] px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-[#005db6] transition hover:border-[#005db6] hover:bg-[#eef6ff]"
+                >
+                  Modificar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const eventToDelete = activeEvent
+                    setActiveEvent(null)
+                    onDeleteEvent?.(eventToDelete)
+                  }}
+                  className="rounded-xl bg-[#dc2626] px-4 py-2 text-xs font-black uppercase tracking-[0.08em] text-white transition hover:bg-[#b91c1c]"
+                >
+                  Eliminar
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

@@ -85,6 +85,12 @@ type HomeSuccessResponse = {
     position: number | null
     possession: number | null
   }
+  coachSeasonStats: {
+    goalsFor: number
+    goalsAgainst: number
+    matches: number
+    wins: number
+  }
   playerSpotlight: {
     nombre: string
     foto_url: string | null
@@ -207,6 +213,21 @@ type MatchParticipantRow = {
   minutes: number | null
 }
 
+type MatchEventRow = {
+  partido_id: string
+  tipo: string | null
+  player_id: string | null
+  related_player_id: string | null
+}
+
+type MatchScoreRow = {
+  id: string
+  fecha_hora: string
+  goles_favor: number | string | null
+  goles_contra: number | string | null
+  rival_nombre?: string | null
+}
+
 type InviteCodeRow = {
   codigo: string | null
   rol_asignado: string | null
@@ -260,6 +281,12 @@ const EMPTY_SUCCESS: HomeSuccessResponse = {
     yellowCards: 0,
     position: null,
     possession: null,
+  },
+  coachSeasonStats: {
+    goalsFor: 0,
+    goalsAgainst: 0,
+    matches: 0,
+    wins: 0,
   },
   playerSpotlight: {
     nombre: 'Tu perfil',
@@ -343,7 +370,9 @@ function normalizeProfileName(raw: CoachCandidate['perfiles']) {
 }
 
 function toDateKey(value: string) {
-  return new Date(value).toISOString().slice(0, 10)
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10)
+  return getMadridDateKey(date)
 }
 
 function getMonthRange(date: Date) {
@@ -397,7 +426,7 @@ function buildCalendarDays(date: Date, eventDates: Set<string>) {
   const cursor = new Date(start)
 
   while (cursor <= end) {
-    const key = cursor.toISOString().slice(0, 10)
+    const key = getMadridDateKey(cursor)
     days.push({ date: key, hasEvent: eventDates.has(key) })
     cursor.setDate(cursor.getDate() + 1)
   }
@@ -520,6 +549,49 @@ async function loadMatchParticipants(
   return []
 }
 
+async function loadMatchEvents(
+  supabase: Awaited<ReturnType<typeof createSupabaseRouteHandler>>,
+  matchIds: string[]
+): Promise<MatchEventRow[]> {
+  if (matchIds.length === 0) return []
+
+  const byJugadorId = await supabase
+    .from('eventos_partido')
+    .select('partido_id, tipo, jugador_id, jugador_relacionado_id')
+    .in('partido_id', matchIds)
+
+  if (!byJugadorId.error) {
+    return (byJugadorId.data ?? []).map((row) => ({
+      partido_id: typeof row.partido_id === 'string' ? row.partido_id : '',
+      tipo: typeof row.tipo === 'string' ? row.tipo : null,
+      player_id: typeof row.jugador_id === 'string' ? row.jugador_id : null,
+      related_player_id:
+        typeof row.jugador_relacionado_id === 'string' ? row.jugador_relacionado_id : null,
+    }))
+  }
+
+  const byUsuarioId = await supabase
+    .from('eventos_partido')
+    .select('partido_id, tipo, usuario_id, usuario_relacionado_id')
+    .in('partido_id', matchIds)
+
+  if (!byUsuarioId.error) {
+    return (byUsuarioId.data ?? []).map((row) => ({
+      partido_id: typeof row.partido_id === 'string' ? row.partido_id : '',
+      tipo: typeof row.tipo === 'string' ? row.tipo : null,
+      player_id: typeof row.usuario_id === 'string' ? row.usuario_id : null,
+      related_player_id:
+        typeof row.usuario_relacionado_id === 'string' ? row.usuario_relacionado_id : null,
+    }))
+  }
+
+  logOptionalQueryError('eventos_partido', {
+    jugador_id: byJugadorId.error,
+    usuario_id: byUsuarioId.error,
+  })
+  return []
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseRouteHandler()
@@ -606,7 +678,7 @@ export async function GET(request: NextRequest) {
         .order('fecha_hora', { ascending: false }),
       supabase
         .from('partidos')
-        .select('id, fecha_hora')
+        .select('id, fecha_hora, goles_favor, goles_contra, rival_nombre')
         .eq('equipo_id', activeTeam!.id)
         .lte('fecha_hora', now.toISOString())
         .order('fecha_hora', { ascending: false }),
@@ -668,12 +740,12 @@ export async function GET(request: NextRequest) {
       logOptionalQueryError('clasificacion_liga', clasificacionResult.error)
     }
 
-    const finalizados = finalizadosResult.error ? [] : finalizadosResult.data ?? []
+    const finalizados = finalizadosResult.error ? [] : ((finalizadosResult.data ?? []) as MatchScoreRow[])
     if (finalizadosResult.error) {
       logOptionalQueryError('partidos finalizados', finalizadosResult.error)
     }
 
-    const statMatches = statMatchesResult.error ? [] : statMatchesResult.data ?? []
+    const statMatches = statMatchesResult.error ? [] : ((statMatchesResult.data ?? []) as MatchScoreRow[])
     if (statMatchesResult.error) {
       logOptionalQueryError('partidos disputados para estadisticas de jugador', statMatchesResult.error)
     }
@@ -810,28 +882,14 @@ export async function GET(request: NextRequest) {
       logOptionalQueryError('entrenamiento_asistencias visibles', attendanceRowsResult.error)
     }
 
-    const finalizadosChronological = [...finalizados].reverse()
+    const playedMatchesChronological = [...statMatches].reverse()
     const playerStatMatchIds = statMatches.map((match) => match.id)
 
-    let events:
-      | Array<{
-          tipo: string | null
-          jugador_id: string | null
-          jugador_relacionado_id: string | null
-        }>
-      | [] = []
-
-    if (playerStatMatchIds.length > 0) {
-      const eventsResult = await supabase
-        .from('eventos_partido')
-        .select('tipo, jugador_id, jugador_relacionado_id')
-        .in('partido_id', playerStatMatchIds)
-
-      if (eventsResult.error) {
-        logOptionalQueryError('eventos_partido', eventsResult.error)
-      } else {
-        events = eventsResult.data ?? []
-      }
+    const events = await loadMatchEvents(supabase, playerStatMatchIds)
+    const goalsByMatch = new Map<string, number>()
+    for (const event of events) {
+      if (!isGoalEvent(event.tipo)) continue
+      goalsByMatch.set(event.partido_id, (goalsByMatch.get(event.partido_id) ?? 0) + 1)
     }
 
     const playerParticipations = (await loadMatchParticipants(supabase, playerStatMatchIds)).filter(
@@ -847,8 +905,8 @@ export async function GET(request: NextRequest) {
     let goalsForFromMatches = 0
     let goalsAgainstFromMatches = 0
 
-    for (const match of finalizadosChronological) {
-      const gf = toNumber(match.goles_favor)
+    for (const match of playedMatchesChronological) {
+      const gf = goalsByMatch.get(match.id) ?? toNumber(match.goles_favor)
       const ga = toNumber(match.goles_contra)
 
       goalsForFromMatches += gf
@@ -858,7 +916,7 @@ export async function GET(request: NextRequest) {
       else if (gf === ga) draws += 1
     }
 
-    const matchesFinalizados = finalizadosChronological.length
+    const matchesFinalizados = playedMatchesChronological.length
     const puntos = toNumber(clasificacionRow?.puntos) || wins * 3 + draws
     const partidosJugados = toNumber(clasificacionRow?.partidos_jugados) || matchesFinalizados
     const goalsFor = toNumber(clasificacionRow?.goles_favor) || goalsForFromMatches
@@ -873,11 +931,11 @@ export async function GET(request: NextRequest) {
         yellowCards += 1
       }
 
-      if (isGoalEvent(event.tipo) && event.jugador_id === user.id) {
+      if (isGoalEvent(event.tipo) && event.player_id === user.id) {
         playerGoals += 1
       }
 
-      const assistPlayerId = event.jugador_relacionado_id ?? event.jugador_id
+      const assistPlayerId = event.related_player_id ?? event.player_id
       if (isAssistEvent(event.tipo) && assistPlayerId === user.id) {
         playerAssists += 1
       }
@@ -975,17 +1033,19 @@ export async function GET(request: NextRequest) {
     }
 
     const eventDates = new Set<string>()
+    const monthStartKey = getMadridDateKey(start)
+    const monthEndKey = getMadridDateKey(end)
     for (const item of calendarMatches) {
       if (item.fecha_hora) {
         const key = toDateKey(item.fecha_hora)
-        if (key >= start.toISOString().slice(0, 10) && key <= end.toISOString().slice(0, 10)) {
+        if (key >= monthStartKey && key <= monthEndKey) {
           eventDates.add(key)
         }
       }
     }
     for (const item of calendarTrainings) {
       if (item.fecha) {
-        if (item.fecha >= start.toISOString().slice(0, 10) && item.fecha <= end.toISOString().slice(0, 10)) {
+        if (item.fecha >= monthStartKey && item.fecha <= monthEndKey) {
           eventDates.add(item.fecha)
         }
       }
@@ -1073,7 +1133,7 @@ export async function GET(request: NextRequest) {
       .map((row) => ({
         equipo_nombre: activeTeam!.nombre,
         rival_nombre: row.rival_nombre ?? null,
-        goles_favor: Number(row.goles_favor ?? 0),
+        goles_favor: goalsByMatch.get(row.id) ?? Number(row.goles_favor ?? 0),
         goles_contra: Number(row.goles_contra ?? 0),
         fecha_hora: row.fecha_hora,
       }))
@@ -1141,6 +1201,12 @@ export async function GET(request: NextRequest) {
         players: coachPlayers,
       },
       kpis,
+      coachSeasonStats: {
+        goalsFor: goalsForFromMatches,
+        goalsAgainst: goalsAgainstFromMatches,
+        matches: matchesFinalizados,
+        wins,
+      },
       playerSpotlight,
       schedule: {
         monthLabel: now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }),

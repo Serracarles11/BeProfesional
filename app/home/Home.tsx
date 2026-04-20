@@ -71,9 +71,24 @@ type CreateMatchResponse =
       error: string
     }
 
+type CreateWeeklyTrainingsResponse =
+  | {
+      ok: true
+      createdCount: number
+      skippedCount: number
+    }
+  | {
+      ok: false
+      error: string
+    }
+
 type TrainingType = 'FISICO' | 'TECNICO' | 'TACTICO' | 'RECUPERACION'
 type EventFormType = 'entrenamiento' | 'partido'
 type MatchHomeAway = 'CASA' | 'FUERA'
+type EditingEvent = {
+  id: string
+  type: EventFormType
+} | null
 type LoadDataOptions = {
   silent?: boolean
 }
@@ -93,6 +108,16 @@ type SettingsProfile = {
   objetivo: string
   foto_url: string | null
 }
+
+const WEEKDAY_OPTIONS = [
+  { value: 1, label: 'L' },
+  { value: 2, label: 'M' },
+  { value: 3, label: 'X' },
+  { value: 4, label: 'J' },
+  { value: 5, label: 'V' },
+  { value: 6, label: 'S' },
+  { value: 7, label: 'D' },
+]
 
 const EMPTY_SETTINGS_PROFILE: SettingsProfile = {
   nombre: '',
@@ -144,6 +169,17 @@ function getLocalDateKey(date: Date) {
   return `${year}-${month}-${day}`
 }
 
+function getEventDatabaseId(event: { id: string; type: 'partido' | 'entrenamiento' }) {
+  const prefix = event.type === 'partido' ? 'match-' : 'training-'
+  return event.id.startsWith(prefix) ? event.id.slice(prefix.length) : event.id
+}
+
+function getTimeValue(value: string | null) {
+  if (!value) return '18:00'
+  const timePart = value.includes('T') ? value.split('T')[1] : value
+  return timePart.slice(0, 5)
+}
+
 export default function Home() {
   const searchParams = useSearchParams()
   const equipoId = searchParams.get('equipo')
@@ -165,12 +201,20 @@ export default function Home() {
   const [hasLoadedSettings, setHasLoadedSettings] = useState(false)
   const [isCreateEventOpen, setIsCreateEventOpen] = useState(false)
   const [isCreatingEvent, setIsCreatingEvent] = useState(false)
+  const [editingEvent, setEditingEvent] = useState<EditingEvent>(null)
+  const [isWeeklyTrainingOpen, setIsWeeklyTrainingOpen] = useState(false)
+  const [isCreatingWeeklyTraining, setIsCreatingWeeklyTraining] = useState(false)
   const [eventFormType, setEventFormType] = useState<EventFormType>('entrenamiento')
   const [eventDate, setEventDate] = useState('')
   const [eventTime, setEventTime] = useState('18:00')
   const [eventPlace, setEventPlace] = useState('')
   const [trainingTitle, setTrainingTitle] = useState('Entrenamiento semanal')
   const [trainingType, setTrainingType] = useState<TrainingType>('TACTICO')
+  const [weeklyTrainingDays, setWeeklyTrainingDays] = useState<number[]>([1, 3])
+  const [weeklyTrainingTime, setWeeklyTrainingTime] = useState('18:00')
+  const [weeklyTrainingPlace, setWeeklyTrainingPlace] = useState('')
+  const [weeklyTrainingTitle, setWeeklyTrainingTitle] = useState('Entrenamiento semanal')
+  const [weeklyTrainingType, setWeeklyTrainingType] = useState<TrainingType>('TACTICO')
   const [matchOpponent, setMatchOpponent] = useState('')
   const [matchHomeAway, setMatchHomeAway] = useState<MatchHomeAway>('CASA')
   const [matchCompetition, setMatchCompetition] = useState('')
@@ -334,6 +378,14 @@ export default function Home() {
   const briefingSubtitle = getMorningBriefingSubtitle(payload)
   const seasonLabel = getSeasonLabel(payload)
   const metrics = buildMetrics(payload)
+  const spotlightStats = isCoach
+    ? [
+        { label: 'GOLES', value: payload.coachSeasonStats.goalsFor },
+        { label: 'GOLES EN CONTRA', value: payload.coachSeasonStats.goalsAgainst },
+        { label: 'PARTIDOS', value: payload.coachSeasonStats.matches },
+        { label: 'VICTORIAS', value: payload.coachSeasonStats.wins },
+      ]
+    : undefined
 
   const inviteCodeItems = isCoach
     ? [
@@ -345,6 +397,7 @@ export default function Home() {
   const openCreateEventModal = (dateKey?: string) => {
     if (!isCoach) return
     setSaveError('')
+    setEditingEvent(null)
     setEventDate(dateKey ?? getLocalDateKey(new Date()))
     setEventTime('18:00')
     setEventPlace('')
@@ -375,6 +428,76 @@ export default function Home() {
       .finally(() => {
         setIsLoadingFields(false)
       })
+  }
+
+  const openEditEventModal = (event: DashboardHomeSuccess['schedule']['activityItems'][number]) => {
+    if (!isCoach) return
+    setSaveError('')
+    setEditingEvent({
+      id: getEventDatabaseId(event),
+      type: event.type === 'partido' ? 'partido' : 'entrenamiento',
+    })
+    setEventDate(event.date)
+    setEventTime(getTimeValue(event.time))
+    setEventPlace(event.location ?? '')
+    setEventFormType(event.type === 'partido' ? 'partido' : 'entrenamiento')
+
+    if (event.type === 'entrenamiento') {
+      setTrainingTitle(event.title)
+      setTrainingType((event.subtitle as TrainingType | null) ?? 'TACTICO')
+      setMatchOpponent('')
+      setMatchCompetition('')
+      setMatchHomeAway('CASA')
+    } else {
+      setTrainingTitle('Entrenamiento semanal')
+      setTrainingType('TACTICO')
+      setMatchOpponent(event.opponent ?? '')
+      setMatchCompetition(event.competition ?? '')
+      setMatchHomeAway(event.homeAway === 'FUERA' ? 'FUERA' : 'CASA')
+    }
+
+    setIsCreateEventOpen(true)
+  }
+
+  const openWeeklyTrainingModal = () => {
+    if (!isCoach) return
+    setSaveError('')
+    setWeeklyTrainingDays((current) => (current.length > 0 ? current : [1, 3]))
+    setWeeklyTrainingTime('18:00')
+    setWeeklyTrainingPlace('')
+    setWeeklyTrainingTitle('Entrenamiento semanal')
+    setWeeklyTrainingType('TACTICO')
+    setIsWeeklyTrainingOpen(true)
+    setIsLoadingFields(true)
+
+    const equipo = payload.equipo?.id
+    const query = equipo ? `?equipo=${encodeURIComponent(equipo)}` : ''
+
+    void fetch(`/api/dashboard/home/fields${query}`, { cache: 'no-store' })
+      .then(async (response) => {
+        const data = (await response.json()) as { ok?: boolean; error?: string; fields?: string[] }
+        if (!response.ok || !data.ok || !Array.isArray(data.fields)) {
+          throw new Error(data.error || 'No se pudieron cargar los campos de futbol.')
+        }
+        setFieldOptions(data.fields)
+      })
+      .catch((err) => {
+        setFieldOptions([])
+        setSaveError(err instanceof Error ? err.message : 'No se pudieron cargar los campos de futbol.')
+      })
+      .finally(() => {
+        setIsLoadingFields(false)
+      })
+  }
+
+  const toggleWeeklyTrainingDay = (day: number) => {
+    setWeeklyTrainingDays((current) => {
+      if (current.includes(day)) {
+        return current.filter((item) => item !== day)
+      }
+
+      return [...current, day].sort((left, right) => left - right)
+    })
   }
 
   const openSettingsModal = async () => {
@@ -506,10 +629,11 @@ export default function Home() {
     try {
       if (eventFormType === 'entrenamiento') {
         const response = await fetch('/api/dashboard/home/trainings', {
-          method: 'POST',
+          method: editingEvent?.type === 'entrenamiento' ? 'PATCH' : 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             equipoId: payload.equipo.id,
+            trainingId: editingEvent?.type === 'entrenamiento' ? editingEvent.id : undefined,
             date: eventDate,
             time: eventTime,
             title: trainingTitle.trim(),
@@ -525,10 +649,11 @@ export default function Home() {
         }
       } else {
         const response = await fetch('/api/dashboard/home/matches', {
-          method: 'POST',
+          method: editingEvent?.type === 'partido' ? 'PATCH' : 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             equipoId: payload.equipo.id,
+            matchId: editingEvent?.type === 'partido' ? editingEvent.id : undefined,
             date: eventDate,
             time: eventTime,
             opponent: matchOpponent.trim(),
@@ -546,6 +671,7 @@ export default function Home() {
       }
 
       setIsCreateEventOpen(false)
+      setEditingEvent(null)
       await loadData({ silent: true })
     } catch (err) {
       setSaveError(
@@ -557,6 +683,70 @@ export default function Home() {
       )
     } finally {
       setIsCreatingEvent(false)
+    }
+  }
+
+  const deleteCalendarEvent = async (event: DashboardHomeSuccess['schedule']['activityItems'][number]) => {
+    if (!payload.equipo?.id) return
+    const confirmed = window.confirm(`Quieres eliminar "${event.title}"?`)
+    if (!confirmed) return
+
+    setSaveError('')
+    const eventId = getEventDatabaseId(event)
+    const endpoint =
+      event.type === 'entrenamiento'
+        ? `/api/dashboard/home/trainings?equipoId=${encodeURIComponent(payload.equipo.id)}&trainingId=${encodeURIComponent(eventId)}`
+        : `/api/dashboard/home/matches?equipoId=${encodeURIComponent(payload.equipo.id)}&matchId=${encodeURIComponent(eventId)}`
+
+    try {
+      const response = await fetch(endpoint, { method: 'DELETE' })
+      const data = (await response.json()) as { ok?: boolean; error?: string }
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || 'No se pudo eliminar el evento.')
+      }
+      await loadData({ silent: true })
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'No se pudo eliminar el evento.')
+    }
+  }
+
+  const createWeeklyTrainings = async () => {
+    if (!payload.equipo?.id) return
+    if (weeklyTrainingDays.length === 0) {
+      setSaveError('Selecciona al menos un dia de entrenamiento.')
+      return
+    }
+
+    setIsCreatingWeeklyTraining(true)
+    setSaveError('')
+
+    try {
+      const response = await fetch('/api/dashboard/home/trainings/weekly', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          equipoId: payload.equipo.id,
+          weekdays: weeklyTrainingDays,
+          time: weeklyTrainingTime,
+          title: weeklyTrainingTitle.trim(),
+          type: weeklyTrainingType,
+          place: weeklyTrainingPlace.trim(),
+          weeks: 12,
+        }),
+      })
+
+      const data = (await response.json()) as CreateWeeklyTrainingsResponse
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.ok ? 'No se pudieron crear los entrenamientos.' : data.error)
+      }
+
+      setIsWeeklyTrainingOpen(false)
+      await loadData({ silent: true })
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'No se pudieron crear los entrenamientos semanales.')
+    } finally {
+      setIsCreatingWeeklyTraining(false)
     }
   }
 
@@ -609,6 +799,9 @@ export default function Home() {
               activities={payload.schedule.activityItems}
               isCoach={isCoach}
               onOpenCreateEvent={openCreateEventModal}
+              onOpenWeeklyTraining={openWeeklyTrainingModal}
+              onEditEvent={openEditEventModal}
+              onDeleteEvent={(event) => void deleteCalendarEvent(event)}
             />
           </div>
         </section>
@@ -622,6 +815,7 @@ export default function Home() {
             assists={payload.playerSpotlight.assists}
             matches={payload.playerSpotlight.matchesPlayed}
             minutes={minutesPlayed}
+            stats={spotlightStats}
           />
         </div>
       </main>
@@ -815,7 +1009,7 @@ export default function Home() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl">
             <h3 className="[font-family:var(--font-plus-jakarta)] text-lg font-bold text-[#181c20]">
-              Crear evento del calendario
+              {editingEvent ? 'Modificar evento del calendario' : 'Crear evento del calendario'}
             </h3>
             <p className="mt-1 text-xs font-semibold text-[#677084]">
               Anade entrenamientos o partidos y se reflejaran al instante en el calendario del equipo.
@@ -824,7 +1018,10 @@ export default function Home() {
             <div className="mt-4 inline-flex rounded-xl bg-[#eef3fb] p-1">
               <button
                 type="button"
-                onClick={() => setEventFormType('entrenamiento')}
+                onClick={() => {
+                  if (!editingEvent) setEventFormType('entrenamiento')
+                }}
+                disabled={Boolean(editingEvent)}
                 className={[
                   'rounded-lg px-3 py-2 text-xs font-bold transition',
                   eventFormType === 'entrenamiento'
@@ -836,7 +1033,10 @@ export default function Home() {
               </button>
               <button
                 type="button"
-                onClick={() => setEventFormType('partido')}
+                onClick={() => {
+                  if (!editingEvent) setEventFormType('partido')
+                }}
+                disabled={Boolean(editingEvent)}
                 className={[
                   'rounded-lg px-3 py-2 text-xs font-bold transition',
                   eventFormType === 'partido'
@@ -956,7 +1156,10 @@ export default function Home() {
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setIsCreateEventOpen(false)}
+                onClick={() => {
+                  setIsCreateEventOpen(false)
+                  setEditingEvent(null)
+                }}
                 className="rounded-lg border border-[#d5dcea] px-3 py-2 text-xs font-bold text-[#4d5566] transition hover:bg-[#f4f7fb]"
               >
                 Cancelar
@@ -969,9 +1172,125 @@ export default function Home() {
               >
                 {isCreatingEvent
                   ? 'Guardando...'
-                  : eventFormType === 'entrenamiento'
+                  : editingEvent
+                    ? 'Guardar cambios'
+                    : eventFormType === 'entrenamiento'
                     ? 'Crear entrenamiento'
                     : 'Crear partido'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isCoach && isWeeklyTrainingOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl">
+            <h3 className="[font-family:var(--font-plus-jakarta)] text-lg font-bold text-[#181c20]">
+              Entrenamientos fijos semanales
+            </h3>
+            <p className="mt-1 text-xs font-semibold text-[#677084]">
+              Marca que dias de la semana hay entrenamiento y se crearan para las proximas 12 semanas.
+            </p>
+
+            <div className="mt-5 space-y-4">
+              <div>
+                <p className="mb-2 text-xs font-bold uppercase tracking-[0.12em] text-[#4d5566]">
+                  Dias de entrenamiento
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {WEEKDAY_OPTIONS.map((day) => {
+                    const active = weeklyTrainingDays.includes(day.value)
+
+                    return (
+                      <button
+                        key={day.value}
+                        type="button"
+                        onClick={() => toggleWeeklyTrainingDay(day.value)}
+                        className={[
+                          'flex h-10 w-10 items-center justify-center rounded-full text-sm font-black transition',
+                          active
+                            ? 'bg-[#005db6] text-white shadow-[0_12px_24px_rgba(0,93,182,0.22)]'
+                            : 'border border-[#d5dcea] bg-white text-[#5f6776] hover:border-[#005db6] hover:text-[#005db6]',
+                        ].join(' ')}
+                      >
+                        {day.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
+                  Hora
+                  <input
+                    type="time"
+                    value={weeklyTrainingTime}
+                    onChange={(event) => setWeeklyTrainingTime(event.target.value)}
+                    className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
+                  Tipo
+                  <select
+                    value={weeklyTrainingType}
+                    onChange={(event) => setWeeklyTrainingType(event.target.value as TrainingType)}
+                    className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
+                  >
+                    <option value="FISICO">Fisico</option>
+                    <option value="TECNICO">Tecnico</option>
+                    <option value="TACTICO">Tactico</option>
+                    <option value="RECUPERACION">Recuperacion</option>
+                  </select>
+                </label>
+
+                <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
+                  Titulo
+                  <input
+                    type="text"
+                    value={weeklyTrainingTitle}
+                    onChange={(event) => setWeeklyTrainingTitle(event.target.value)}
+                    placeholder="Entrenamiento semanal"
+                    className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
+                  />
+                </label>
+
+                <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-semibold text-[#4d5566]">
+                  Lugar (opcional)
+                  <input
+                    type="text"
+                    value={weeklyTrainingPlace}
+                    onChange={(event) => setWeeklyTrainingPlace(event.target.value)}
+                    list="weekly-football-field-options"
+                    placeholder={isLoadingFields ? 'Cargando campos...' : 'Campo principal'}
+                    className="rounded-lg border border-[#d5dcea] bg-white px-3 py-2 text-sm text-[#1f2530]"
+                  />
+                  <datalist id="weekly-football-field-options">
+                    {fieldOptions.map((fieldName) => (
+                      <option key={fieldName} value={fieldName} />
+                    ))}
+                  </datalist>
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsWeeklyTrainingOpen(false)}
+                className="rounded-lg border border-[#d5dcea] px-3 py-2 text-xs font-bold text-[#4d5566] transition hover:bg-[#f4f7fb]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isCreatingWeeklyTraining}
+                onClick={() => void createWeeklyTrainings()}
+                className="rounded-lg bg-[#005db6] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#004f9a] disabled:opacity-60"
+              >
+                {isCreatingWeeklyTraining ? 'Guardando...' : 'Crear entrenamientos fijos'}
               </button>
             </div>
           </div>

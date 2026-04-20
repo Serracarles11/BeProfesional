@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { notifyTeamMembers, notifyUsers } from '@/lib/notifications'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
 
@@ -9,6 +10,7 @@ const PRIVATE_CHAT_TITLE_PREFIX = 'PRIVATE_CHAT::'
 
 type CreateTrainingBody = {
   equipoId?: unknown
+  trainingId?: unknown
   date?: unknown
   time?: unknown
   title?: unknown
@@ -17,6 +19,8 @@ type CreateTrainingBody = {
   targetPlayerIds?: unknown
   routineId?: unknown
 }
+
+type UpdateTrainingBody = CreateTrainingBody
 
 function createErrorResponse(message: string, status = 500) {
   return NextResponse.json({ ok: false, error: message }, { status })
@@ -361,6 +365,19 @@ export async function POST(request: NextRequest) {
       return createErrorResponse('No se pudo avisar a los jugadores en el chat.', 500)
     }
 
+    const trainingNotification = {
+      tipo: 'entrenamiento_creado',
+      titulo: 'Nuevo entrenamiento',
+      mensaje: `Se ha anadido un entrenamiento${time ? ` a las ${time}` : ''}${normalizedPlace ? ` en ${normalizedPlace}` : ''}.`,
+      enlace: `/home?equipo=${encodeURIComponent(equipoId)}`,
+    }
+
+    if (targetPlayerIds.length > 0) {
+      await notifyUsers(writeClient, [...targetPlayerIds, user.id], trainingNotification)
+    } else {
+      await notifyTeamMembers(writeClient, equipoId, trainingNotification)
+    }
+
     return NextResponse.json({
       ok: true,
       training: {
@@ -376,6 +393,111 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error en POST /api/dashboard/home/trainings:', error)
+    return createErrorResponse('Error interno del servidor.', 500)
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const supabase = await createSupabaseRouteHandler()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return createErrorResponse('No autorizado', 401)
+    }
+
+    const body = (await request.json()) as UpdateTrainingBody
+    const equipoId = typeof body.equipoId === 'string' ? body.equipoId.trim() : ''
+    const trainingId = typeof body.trainingId === 'string' ? body.trainingId.trim() : ''
+    const date = typeof body.date === 'string' ? body.date.trim() : ''
+    const time = typeof body.time === 'string' ? body.time.trim() : ''
+    const title = typeof body.title === 'string' ? body.title.trim() : ''
+    const type = parseTrainingType(body.type)
+    const place = typeof body.place === 'string' ? body.place.trim() : ''
+
+    if (!equipoId) return createErrorResponse('equipoId invalido.', 400)
+    if (!trainingId) return createErrorResponse('trainingId invalido.', 400)
+    if (!date || !isValidDate(date)) return createErrorResponse('Fecha invalida.', 400)
+    if (!title) return createErrorResponse('Titulo invalido.', 400)
+    if (!type) return createErrorResponse('Tipo de entrenamiento invalido.', 400)
+    if (time && !isValidTime(time)) return createErrorResponse('Hora invalida.', 400)
+
+    const [membershipResult, teamOwnerResult, trainingResult] = await Promise.all([
+      supabase
+        .from('miembros_equipo')
+        .select('rol')
+        .eq('equipo_id', equipoId)
+        .eq('usuario_id', user.id)
+        .eq('estado', 'ACTIVO')
+        .maybeSingle(),
+      supabase
+        .from('equipos')
+        .select('creado_por')
+        .eq('id', equipoId)
+        .maybeSingle(),
+      supabase
+        .from('entrenamientos_equipo')
+        .select('id')
+        .eq('id', trainingId)
+        .eq('equipo_id', equipoId)
+        .maybeSingle(),
+    ])
+
+    if (teamOwnerResult.error) {
+      return createErrorResponse('No se pudo validar el equipo.', 500)
+    }
+
+    const isTeamOwner = teamOwnerResult.data?.creado_por === user.id
+
+    if (membershipResult.error && !isTeamOwner) {
+      return createErrorResponse('No se pudo validar tu rol en el equipo.', 500)
+    }
+
+    if (!membershipResult.data && !isTeamOwner) {
+      return createErrorResponse('No perteneces al equipo solicitado.', 403)
+    }
+
+    if (!isTeamOwner && !isCoachRole(membershipResult.data?.rol)) {
+      return createErrorResponse('Solo un entrenador puede modificar entrenamientos.', 403)
+    }
+
+    if (trainingResult.error) {
+      return createErrorResponse('No se pudo validar el entrenamiento.', 500)
+    }
+
+    if (!trainingResult.data) {
+      return createErrorResponse('El entrenamiento no existe.', 404)
+    }
+
+    const writeClient = createSupabaseAdmin() ?? supabase
+    const updateResult = await writeClient
+      .from('entrenamientos_equipo')
+      .update({
+        fecha: date,
+        hora_inicio: time ? `${time}:00` : null,
+        titulo: title,
+        tipo: type,
+        lugar: place || null,
+      })
+      .eq('id', trainingId)
+      .eq('equipo_id', equipoId)
+
+    if (updateResult.error) {
+      console.error('No se pudo modificar el entrenamiento:', updateResult.error)
+      return createErrorResponse('No se pudo modificar el entrenamiento.', 500)
+    }
+
+    return NextResponse.json({
+      ok: true,
+      training: {
+        id: trainingId,
+      },
+    })
+  } catch (error) {
+    console.error('Error en PATCH /api/dashboard/home/trainings:', error)
     return createErrorResponse('Error interno del servidor.', 500)
   }
 }

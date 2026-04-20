@@ -84,6 +84,12 @@ export type DashboardHomeSuccess = {
     position: number | null
     possession: number | null
   }
+  coachSeasonStats: {
+    goalsFor: number
+    goalsAgainst: number
+    matches: number
+    wins: number
+  }
   playerSpotlight: {
     nombre: string
     foto_url: string | null

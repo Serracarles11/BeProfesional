@@ -11,6 +11,10 @@ type PlayerSpotlightPanelProps = {
   assists: number
   matches: number
   minutes: number
+  stats?: Array<{
+    label: string
+    value: number
+  }>
 }
 
 export function PlayerSpotlightPanel({
@@ -21,8 +25,15 @@ export function PlayerSpotlightPanel({
   assists,
   matches,
   minutes,
+  stats,
 }: PlayerSpotlightPanelProps) {
   const initials = getPlayerInitials(playerName)
+  const seasonStats = stats ?? [
+    { label: 'GOLES', value: goals },
+    { label: 'ASISTENCIAS', value: assists },
+    { label: 'PARTIDOS', value: matches },
+    { label: 'MINUTOS', value: minutes },
+  ]
 
   return (
     <section className="h-full border-t border-[#dfe3e8] bg-white xl:w-[400px] xl:border-l xl:border-t-0">
@@ -84,10 +95,9 @@ export function PlayerSpotlightPanel({
           </h4>
 
           <div className="grid grid-cols-2 gap-4">
-            <StatCard label="GOLES" value={goals} />
-            <StatCard label="ASISTENCIAS" value={assists} />
-            <StatCard label="PARTIDOS" value={matches} />
-            <StatCard label="MINUTOS" value={minutes} />
+            {seasonStats.map((stat) => (
+              <StatCard key={stat.label} label={stat.label} value={stat.value} />
+            ))}
           </div>
         </div>
       </div>

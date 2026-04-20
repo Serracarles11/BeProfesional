@@ -7,8 +7,16 @@ import type {
 
 const ES_DAY_LABELS = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB', 'DOM']
 
-function toDateKey(input: string) {
-  return new Date(input).toISOString().slice(0, 10)
+function toDateKey(input: string | Date) {
+  const date = input instanceof Date ? input : new Date(input)
+  if (Number.isNaN(date.getTime())) {
+    return String(input).slice(0, 10)
+  }
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -162,7 +170,7 @@ export function buildWeekDays(
   weekOffset: number
 ): WeeklyCalendarDay[] {
   const today = new Date()
-  const todayKey = today.toISOString().slice(0, 10)
+  const todayKey = toDateKey(today)
 
   const eventMap = new Map<string, number>()
   for (const day of calendarDays) {
@@ -184,7 +192,7 @@ export function buildWeekDays(
     const date = new Date(baseWeek)
     date.setDate(baseWeek.getDate() + index)
 
-    const key = date.toISOString().slice(0, 10)
+    const key = toDateKey(date)
     const dayNumber = date.getDate()
     const isToday = key === todayKey
 

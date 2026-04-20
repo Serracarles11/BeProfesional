@@ -104,7 +104,7 @@ export default function DashboardSidebar({ equipoId }: DashboardSidebarProps) {
     },
     {
       id: 'partidos',
-      label: 'Trofeos',
+      label: 'Partidos',
       icon: Trophy,
       path: '/partidos',
       href: withEquipoQuery('/partidos', activeTeamId),

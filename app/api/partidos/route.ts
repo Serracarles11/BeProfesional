@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { notifyTeamMembers } from '@/lib/notifications'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
 
@@ -14,6 +15,7 @@ const PLAYER_STAT_EVENT_TYPES = [
   EVENT_YELLOW,
   EVENT_RED,
 ]
+const PLAYER_EDIT_WINDOW_MS = 48 * 60 * 60 * 1000
 
 type MembershipRow = {
   equipo_id: string
@@ -148,13 +150,21 @@ function parseMatchTime(value: string | null | undefined) {
 
 function isMatchOpenForStats(
   fechaHora: string | null | undefined,
-  estado: string | null | undefined,
   now = new Date()
 ) {
-  if (normalizeText(estado) === 'FINALIZADO') return true
   const matchTime = parseMatchTime(fechaHora)
   if (matchTime === null) return false
-  return matchTime <= now.getTime()
+  const nowTime = now.getTime()
+  return matchTime <= nowTime && nowTime - matchTime <= PLAYER_EDIT_WINDOW_MS
+}
+
+function canEditMatchStats(
+  fechaHora: string | null | undefined,
+  viewerIsCoach: boolean,
+  now = new Date()
+) {
+  if (viewerIsCoach) return true
+  return isMatchOpenForStats(fechaHora, now)
 }
 
 function getWeekRange(now = new Date()) {
@@ -173,7 +183,7 @@ function getWeekRange(now = new Date()) {
 function pickWeekFeatured(matches: MatchRow[], now = new Date()) {
   if (matches.length === 0) return null
 
-  const openMatches = matches.filter((match) => isMatchOpenForStats(match.fecha_hora, match.estado, now))
+  const openMatches = matches.filter((match) => isMatchOpenForStats(match.fecha_hora, now))
   if (openMatches.length > 0) {
     return [...openMatches].sort((left, right) => {
       const leftTime = parseMatchTime(left.fecha_hora)
@@ -277,6 +287,23 @@ async function insertEventRowsWithFallback(
   if (!directInsert.error) return { error: null }
 
   return { error: directInsert.error }
+}
+
+async function syncMatchScoreFromEvents(
+  supabase: Awaited<ReturnType<typeof createSupabaseRouteHandler>>,
+  matchId: string
+) {
+  const eventsResult = await readEvents(supabase, [matchId])
+  const goalsFor = eventsResult.rows.filter((event) => isGoalEvent(event.eventType)).length
+
+  const updateResult = await supabase
+    .from('partidos')
+    .update({ goles_favor: goalsFor })
+    .eq('id', matchId)
+
+  if (updateResult.error) {
+    console.error('POST /api/partidos - score sync failed:', updateResult.error)
+  }
 }
 
 async function resolveParticipantPlayerColumn(
@@ -443,7 +470,9 @@ async function readEvents(
   }
 }
 
-function mapMatchForClient(match: MatchRow) {
+function mapMatchForClient(match: MatchRow, eventGoalsByMatch?: Map<string, number>) {
+  const eventGoals = eventGoalsByMatch?.get(match.id)
+
   return {
     id: match.id,
     fechaHora: match.fecha_hora,
@@ -455,18 +484,12 @@ function mapMatchForClient(match: MatchRow) {
     golesFavor:
       typeof match.goles_favor === 'number' || typeof match.goles_favor === 'string'
         ? toNumber(match.goles_favor)
-        : null,
+        : eventGoals ?? null,
     golesContra:
       typeof match.goles_contra === 'number' || typeof match.goles_contra === 'string'
         ? toNumber(match.goles_contra)
         : null,
   }
-}
-
-function getMemberName(raw: TeamMemberRow['perfiles']) {
-  const profile = Array.isArray(raw) ? raw[0] : raw
-  if (!profile?.nombre) return null
-  return String(profile.nombre)
 }
 
 function getMemberProfile(raw: TeamMemberRow['perfiles']) {
@@ -524,6 +547,19 @@ function getSubmissionFromRows(
   }
 }
 
+function submissionsAreEqual(
+  previous: PlayerSubmission | null,
+  next: Omit<PlayerSubmission, 'updatedAt'>
+) {
+  return (
+    (previous?.minutes ?? 0) === next.minutes &&
+    (previous?.goals ?? 0) === next.goals &&
+    (previous?.assists ?? 0) === next.assists &&
+    (previous?.yellowCards ?? 0) === next.yellowCards &&
+    (previous?.redCards ?? 0) === next.redCards
+  )
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseRouteHandler()
@@ -540,6 +576,7 @@ export async function GET(request: NextRequest) {
 
     const requestedTeamId = request.nextUrl.searchParams.get('equipo')?.trim() ?? null
     const requestedMatchId = request.nextUrl.searchParams.get('matchId')?.trim() ?? null
+    const requestedAllPlayed = request.nextUrl.searchParams.get('all') === '1'
 
     const membershipsResult = await supabase
       .from('miembros_equipo')
@@ -560,6 +597,7 @@ export async function GET(request: NextRequest) {
         teamName: 'Equipo',
         role: null,
         isCoach: false,
+        showingAllPlayed: false,
         featuredMatch: null,
         featuredMeta: {
           totalPlayers: 0,
@@ -620,7 +658,19 @@ export async function GET(request: NextRequest) {
     const now = new Date()
     const { start: weekStart, end: weekEnd } = getWeekRange(now)
 
-    const [weekMatchesResult, nextMatchResult, historyMatchesResult] = await Promise.all([
+    let matchesListQuery = db
+      .from('partidos')
+      .select(
+        'id, equipo_id, fecha_hora, rival_nombre, casa_fuera, lugar, competicion, estado, goles_favor, goles_contra'
+      )
+      .eq('equipo_id', equipoId)
+      .order('fecha_hora', { ascending: false })
+
+    if (!requestedAllPlayed) {
+      matchesListQuery = matchesListQuery.limit(3)
+    }
+
+    const [weekMatchesResult, nextMatchResult, matchesListResult, requestedMatchResult] = await Promise.all([
       db
         .from('partidos')
         .select(
@@ -640,43 +690,56 @@ export async function GET(request: NextRequest) {
         .order('fecha_hora', { ascending: true })
         .limit(1)
         .maybeSingle(),
-      db
-        .from('partidos')
-        .select(
-          'id, equipo_id, fecha_hora, rival_nombre, casa_fuera, lugar, competicion, estado, goles_favor, goles_contra'
-        )
-        .eq('equipo_id', equipoId)
-        .eq('estado', 'FINALIZADO')
-        .order('fecha_hora', { ascending: false })
-        .limit(8),
+      matchesListQuery,
+      requestedMatchId
+        ? db
+            .from('partidos')
+            .select(
+              'id, equipo_id, fecha_hora, rival_nombre, casa_fuera, lugar, competicion, estado, goles_favor, goles_contra'
+            )
+            .eq('equipo_id', equipoId)
+            .eq('id', requestedMatchId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ])
 
-    if (weekMatchesResult.error || historyMatchesResult.error) {
+    if (weekMatchesResult.error || matchesListResult.error || requestedMatchResult.error) {
       return createErrorResponse('No se pudieron cargar los partidos.', 500)
     }
 
     const weekMatches = (weekMatchesResult.data ?? []) as MatchRow[]
-    const historyMatches = (historyMatchesResult.data ?? []) as MatchRow[]
+    const listedMatches = (matchesListResult.data ?? []) as MatchRow[]
     const nextMatch = nextMatchResult.error || !nextMatchResult.data
       ? null
       : (nextMatchResult.data as MatchRow)
+    const requestedMatch = requestedMatchResult.data ? (requestedMatchResult.data as MatchRow) : null
 
     const selectedMatch =
       requestedMatchId
-        ? [...weekMatches, ...historyMatches].find((match) => match.id === requestedMatchId) ?? null
+        ? requestedMatch ?? [...weekMatches, ...listedMatches].find((match) => match.id === requestedMatchId) ?? null
         : null
 
-    const featuredMatch = selectedMatch ?? pickWeekFeatured(weekMatches, now) ?? nextMatch ?? historyMatches[0] ?? null
-    const history = historyMatches.filter((match) => match.id !== featuredMatch?.id)
+    const featuredMatch = selectedMatch ?? pickWeekFeatured(weekMatches, now) ?? nextMatch ?? listedMatches[0] ?? null
+    const matchList =
+      requestedAllPlayed
+        ? listedMatches
+        : listedMatches.filter((match) => match.id !== featuredMatch?.id)
 
     const featuredMatchIds = featuredMatch ? [featuredMatch.id] : []
+    const listMatchIds = Array.from(new Set(matchList.map((match) => match.id)))
     const [participantsResult, eventsResult] = await Promise.all([
       readParticipants(db, featuredMatchIds),
       readEvents(db, featuredMatchIds),
     ])
+    const listEventsResult = await readEvents(db, listMatchIds)
 
     const participants = participantsResult.rows
     const events = eventsResult.rows
+    const eventGoalsByMatch = new Map<string, number>()
+    for (const event of listEventsResult.rows) {
+      if (!isGoalEvent(event.eventType)) continue
+      eventGoalsByMatch.set(event.partidoId, (eventGoalsByMatch.get(event.partidoId) ?? 0) + 1)
+    }
 
     const submittedPlayerIds = new Set<string>()
     for (const row of participants) {
@@ -695,7 +758,7 @@ export async function GET(request: NextRequest) {
 
     const featuredIsOpen =
       !!featuredMatch &&
-      isMatchOpenForStats(featuredMatch.fecha_hora, featuredMatch.estado, now)
+      canEditMatchStats(featuredMatch.fecha_hora, viewerIsCoach, now)
 
     const mySubmission = featuredMatch
       ? getSubmissionFromRows(user.id, participants, events, featuredMatch.id)
@@ -714,17 +777,15 @@ export async function GET(request: NextRequest) {
             }
           })
         : []
-    const totals = playerSubmissions.reduce(
-      (acc, player) => {
-        acc.goals += player.submission?.goals ?? 0
-        acc.assists += player.submission?.assists ?? 0
-        acc.yellows += player.submission?.yellowCards ?? 0
-        acc.reds += player.submission?.redCards ?? 0
-        acc.minutes += player.submission?.minutes ?? 0
-        return acc
-      },
-      { goals: 0, assists: 0, yellows: 0, reds: 0, minutes: 0 }
-    )
+    const totals = {
+      goals: events.filter((event) => event.partidoId === featuredMatch?.id && isGoalEvent(event.eventType)).length,
+      assists: events.filter((event) => event.partidoId === featuredMatch?.id && isAssistEvent(event.eventType)).length,
+      yellows: events.filter((event) => event.partidoId === featuredMatch?.id && isYellowCardEvent(event.eventType)).length,
+      reds: events.filter((event) => event.partidoId === featuredMatch?.id && isRedCardEvent(event.eventType)).length,
+      minutes: participants
+        .filter((row) => row.partidoId === featuredMatch?.id)
+        .reduce((sum, row) => sum + Math.max(row.minutes ?? 0, 0), 0),
+    }
 
     return NextResponse.json({
       ok: true,
@@ -732,6 +793,7 @@ export async function GET(request: NextRequest) {
       teamName,
       role,
       isCoach: viewerIsCoach,
+      showingAllPlayed: requestedAllPlayed,
       featuredMatch: featuredMatch ? mapMatchForClient(featuredMatch) : null,
       featuredMeta: {
         totalPlayers,
@@ -743,7 +805,7 @@ export async function GET(request: NextRequest) {
         playerSubmissions,
         totals,
       },
-      history: history.map(mapMatchForClient),
+      history: matchList.map((match) => mapMatchForClient(match, eventGoalsByMatch)),
     })
   } catch (error) {
     console.error('Error en GET /api/partidos:', error)
@@ -781,7 +843,7 @@ export async function POST(request: NextRequest) {
 
     const matchResult = await db
       .from('partidos')
-      .select('id, equipo_id, fecha_hora, estado')
+      .select('id, equipo_id, fecha_hora, estado, rival_nombre')
       .eq('id', matchId)
       .maybeSingle()
 
@@ -794,6 +856,7 @@ export async function POST(request: NextRequest) {
       equipo_id: string
       fecha_hora: string
       estado: string | null
+      rival_nombre: string | null
     }
 
     const membershipResult = await supabase
@@ -844,12 +907,35 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date()
-    const isOpenForStats =
-      isMatchOpenForStats(match.fecha_hora, match.estado, now)
+    const isOpenForStats = canEditMatchStats(match.fecha_hora, viewerIsCoach, now)
 
     if (!isOpenForStats) {
-      return createErrorResponse('Solo puedes registrar estadisticas despues del partido.', 400)
+      return createErrorResponse(
+        viewerIsCoach
+          ? 'No se pudieron habilitar las estadisticas de este partido.'
+          : 'Solo puedes modificar tus estadisticas durante las 48 horas posteriores al partido.',
+        400
+      )
     }
+
+    const [previousParticipantsResult, previousEventsResult] = await Promise.all([
+      readParticipants(db, [matchId]),
+      readEvents(db, [matchId]),
+    ])
+    const previousSubmission = getSubmissionFromRows(
+      targetPlayerId,
+      previousParticipantsResult.rows,
+      previousEventsResult.rows,
+      matchId
+    )
+    const nextSubmission = {
+      minutes,
+      goals,
+      assists,
+      yellowCards,
+      redCards,
+    }
+    const statsChanged = !submissionsAreEqual(previousSubmission, nextSubmission)
 
     const participantColumn = await resolveParticipantPlayerColumn(db)
     if (!participantColumn) {
@@ -981,6 +1067,35 @@ export async function POST(request: NextRequest) {
           `No se pudieron registrar tus estadisticas de partido. ${getErrorMessage(insertEventsResult.error, '')}`.trim(),
           isRlsViolation(insertEventsResult.error) ? 403 : 500
         )
+      }
+    }
+
+    await syncMatchScoreFromEvents(db, matchId)
+
+    if (statsChanged) {
+      const rivalLabel = match.rival_nombre?.trim() || 'el partido'
+
+      if (viewerIsCoach && targetPlayerId !== user.id) {
+        await notifyTeamMembers(db, match.equipo_id, {
+          tipo: 'estadisticas_actualizadas',
+          titulo: 'Estadisticas actualizadas',
+          mensaje: `El entrenador ha actualizado tus estadisticas contra ${rivalLabel}.`,
+          enlace: `/partidos?equipo=${encodeURIComponent(match.equipo_id)}&matchId=${encodeURIComponent(matchId)}`,
+        })
+      } else if (!viewerIsCoach) {
+        const profileResult = await supabase
+          .from('perfiles')
+          .select('nombre')
+          .eq('id', user.id)
+          .maybeSingle()
+        const playerName = profileResult.data?.nombre?.trim() || 'Un jugador'
+
+        await notifyTeamMembers(db, match.equipo_id, {
+          tipo: 'partido_actualizado',
+          titulo: 'Estadisticas de partido actualizadas',
+          mensaje: `${playerName} ha actualizado sus estadisticas contra ${rivalLabel}.`,
+          enlace: `/partidos?equipo=${encodeURIComponent(match.equipo_id)}&matchId=${encodeURIComponent(matchId)}`,
+        })
       }
     }
 
