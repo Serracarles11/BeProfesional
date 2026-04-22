@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ArrowDownRight, ArrowUpRight, Ellipsis, MoveUpRight } from 'lucide-react'
-import DashboardSidebar from '@/app/components/dashboard-sidebar'
+import { LeftNavigation } from '@/app/home/components/LeftNavigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import {
   loadTrainingPerformanceData,
@@ -35,17 +35,19 @@ function buildEquipoHref(path: string, equipoId: string | null) {
 
 function Shell({
   equipoId,
+  teamName = 'Equipo',
+  isCoach = false,
   children,
 }: {
   equipoId?: string | null
+  teamName?: string
+  isCoach?: boolean
   children: React.ReactNode
 }) {
   return (
-    <main className="min-h-screen bg-[#ededed] px-4 py-5 md:px-6 md:py-6">
-      <div className="mx-auto grid max-w-[1240px] gap-4 md:grid-cols-[84px_minmax(0,1fr)]">
-        <DashboardSidebar equipoId={equipoId} />
-        <div className="space-y-4">{children}</div>
-      </div>
+    <main className="flex min-h-screen w-full bg-[#ededed]">
+      <LeftNavigation equipoId={equipoId ?? undefined} teamName={teamName} isCoach={isCoach} />
+      <div className="min-w-0 flex-1 space-y-4 px-4 py-5 md:px-6 md:py-6">{children}</div>
     </main>
   )
 }
@@ -481,7 +483,11 @@ export default async function EntrenamientosPage({
   }
 
   return (
-    <Shell equipoId={equipoId}>
+    <Shell
+      equipoId={equipoId}
+      teamName={result.data.team?.nombre ?? 'Equipo'}
+      isCoach={result.data.role === 'ENTRENADOR'}
+    >
       <PerformanceContent data={result.data} />
     </Shell>
   )

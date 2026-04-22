@@ -430,7 +430,7 @@ function CoachMatchReview({
   const participationLabel = `${totals.reported}/${payload.featuredMeta.totalPlayers}`
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-[1700px]">
+    <div className="flex min-h-screen w-full">
       <LeftNavigation equipoId={payload.equipoId ?? undefined} teamName={payload.teamName} isCoach={payload.isCoach} />
 
       <section className="min-w-0 flex-1 bg-[#f7f9fe] px-4 pb-24 pt-8 md:px-8 md:pb-8 xl:px-10">
@@ -597,10 +597,10 @@ function PlayerPartidosView({
 
   return (
     <>
-      <div className="mx-auto flex min-h-screen w-full max-w-[1700px]">
+      <div className="flex min-h-screen w-full">
         <LeftNavigation equipoId={payload.equipoId ?? undefined} teamName={payload.teamName} isCoach={payload.isCoach} />
 
-        <main className="w-full px-4 pb-24 pt-8 md:px-8 md:pb-8 xl:px-10">
+        <main className="min-w-0 flex-1 px-4 pb-24 pt-8 md:px-8 md:pb-8 xl:px-10">
           <header className="mx-auto mb-8 w-full max-w-6xl">
             <h1 className="[font-family:var(--font-plus-jakarta)] text-4xl font-black tracking-tight md:text-5xl">
               Partidos
@@ -1281,7 +1281,7 @@ function MobileMatchesNav({ equipoId }: { equipoId?: string | null }) {
       <MobileNavLink href={withEquipo('/home', equipoId)} label="Home" icon={<LayoutDashboard className="h-4 w-4" />} />
       <MobileNavLink href={withEquipo('/jugadores', equipoId)} label="Players" icon={<Users className="h-4 w-4" />} />
       <MobileNavLink href={withEquipo('/partidos', equipoId)} label="Partidos" icon={<CalendarDays className="h-4 w-4" />} active />
-      <MobileNavLink href={withEquipo('/estadisticas', equipoId)} label="Reports" icon={<ChartColumn className="h-4 w-4" />} />
+      <MobileNavLink href={withEquipo('/estadisticas', equipoId)} label="Estadisticas" icon={<ChartColumn className="h-4 w-4" />} />
       <MobileNavLink href={withEquipo('/chat', equipoId)} label="Chat" icon={<MessageSquare className="h-4 w-4" />} />
     </nav>
   )

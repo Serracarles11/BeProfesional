@@ -385,7 +385,7 @@ function ChatPageContent() {
 
   return (
     <div className="h-screen overflow-hidden bg-[#f7f9fe] text-[#181c20]">
-      <main className="mx-auto flex h-full w-full max-w-[1700px]">
+      <main className="flex h-full w-full">
         <LeftNavigation equipoId={teamId ?? undefined} teamName={teamName} isCoach={isCoach} />
 
         <section className="flex min-w-0 flex-1 overflow-hidden">

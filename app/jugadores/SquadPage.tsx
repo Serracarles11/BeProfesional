@@ -89,7 +89,7 @@ export default function SquadPage() {
 
   return (
     <div className={`${plusJakarta.variable} ${manrope.variable} min-h-screen bg-[#f7f9fe] pb-20 [font-family:var(--font-manrope)] text-[#181c20] md:pb-0`}>
-      <div className="mx-auto flex min-h-screen w-full max-w-[1700px]">
+      <div className="flex min-h-screen w-full">
         <LeftNavigation equipoId={payload.equipo.id} teamName={payload.equipo.nombre} />
 
         <div className="flex min-w-0 flex-1 flex-col">

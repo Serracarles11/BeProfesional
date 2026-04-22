@@ -348,10 +348,10 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-[linear-gradient(140deg,#edf1f8_0%,#dbe5f6_42%,#cfddf7_100%)] p-4 lg:p-5">
-      <div className="mx-auto grid max-w-[1450px] gap-3 lg:grid-cols-[86px_minmax(0,1fr)]">
+      <div className="flex w-full gap-3">
         <Sidebar equipoId={equipoId} />
 
-        <main className="space-y-3 pb-20 lg:pb-0">
+        <main className="min-w-0 flex-1 space-y-3 pb-20 lg:pb-0">
           <section className="rounded-2xl border border-[#d8e3f8] bg-white/90 px-5 py-5 shadow-[0_12px_30px_rgba(7,25,71,0.08)]">
             <h1 className="text-2xl font-semibold text-[#07163b]">Ajustes de usuario</h1>
             <p className="mt-1 text-sm text-[#45629c]">

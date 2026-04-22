@@ -2362,7 +2362,7 @@ export default function PlayMakerClient() {
     <div
       className={`${plusJakarta.variable} ${manrope.variable} min-h-screen bg-[#f7f9fe] [font-family:var(--font-manrope)] text-[#181c20]`}
     >
-      <div className="mx-auto flex min-h-screen w-full max-w-[1700px]">
+      <div className="flex min-h-screen w-full">
         <LeftNavigation equipoId={equipoId ?? undefined} teamName="Equipo" isCoach />
 
         <main className="flex min-w-0 flex-1 flex-col px-5 py-6 pb-24 lg:px-10 lg:pb-10">

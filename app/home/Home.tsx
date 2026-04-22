@@ -752,7 +752,7 @@ export default function Home() {
 
   return (
     <div className={`${plusJakarta.variable} ${manrope.variable} min-h-screen bg-[#f7f9fe] [font-family:var(--font-manrope)] text-[#181c20]`}>
-      <main className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col xl:flex-row">
+      <main className="flex min-h-screen w-full flex-col xl:flex-row">
         <LeftNavigation
           equipoId={payload.equipo.id}
           teamName={teamName}

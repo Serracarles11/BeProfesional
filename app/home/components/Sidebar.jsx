@@ -22,7 +22,7 @@ export default function Sidebar({ equipoId }) {
 
   const items = [
     { id: 'home', label: 'Home', icon: Home, path: '/home', href: withTeam('/home', activeTeamId) },
-    { id: 'team', label: 'Jugadores', icon: Users, path: '/estadisticas', href: withTeam('/estadisticas', activeTeamId) },
+    { id: 'team', label: 'Estadisticas', icon: Users, path: '/estadisticas', href: withTeam('/estadisticas', activeTeamId) },
     { id: 'train', label: 'Entrenamiento', icon: Dumbbell, path: '/entrenamientos', href: withTeam('/entrenamientos', activeTeamId) },
     { id: 'trophies', label: 'Trofeos', icon: Trophy, path: '/partidos', href: withTeam('/partidos', activeTeamId) },
     { id: 'chat', label: 'Chat', icon: MessageSquare, path: '/chat', href: withTeam('/chat', activeTeamId) },
@@ -32,7 +32,7 @@ export default function Sidebar({ equipoId }) {
 
   return (
     <>
-      <aside className="hidden lg:flex h-full w-[86px] shrink-0 items-center justify-center rounded-[26px] bg-[#eceef1]">
+      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-[86px] shrink-0 items-center justify-center bg-[#eceef1] lg:flex">
         <nav className="flex h-[94%] w-[76%] flex-col items-center justify-start gap-3 rounded-[22px] bg-[#f1f2f4] py-4">
           {items.map((item) => {
             const Icon = item.icon
@@ -56,6 +56,7 @@ export default function Sidebar({ equipoId }) {
           })}
         </nav>
       </aside>
+      <div className="hidden w-[86px] shrink-0 lg:block" aria-hidden="true" />
 
       <nav className="fixed bottom-3 left-3 right-3 z-40 lg:hidden">
         <div className="grid grid-cols-7 gap-1 rounded-2xl border border-[#4a79df] bg-[#07205f]/90 p-2 backdrop-blur-xl">

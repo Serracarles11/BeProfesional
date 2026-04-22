@@ -209,7 +209,12 @@ export function InsightCard({
               </span>
             </div>
 
-            <div className="space-y-3">
+            <div
+              className={[
+                'space-y-3 pr-1',
+                selectedDayEvents.length > 3 ? 'max-h-[360px] overflow-y-auto' : '',
+              ].join(' ')}
+            >
               {selectedDayEvents.length > 0 ? (
                 selectedDayEvents.map((event) => (
                   <button

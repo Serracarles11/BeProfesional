@@ -43,7 +43,7 @@ const MENU_ITEMS = [
   { label: 'Players', href: '/jugadores', icon: Users },
   { label: 'Partidos', href: '/partidos', icon: CalendarDays },
   { label: 'Chats', href: '/chat', icon: MessageSquare },
-  { label: 'Reports', href: '/estadisticas', icon: BarChart3 },
+  { label: 'Estadisticas', href: '/estadisticas', icon: BarChart3 },
   { label: 'AI Coach', href: '/play-maker', icon: Sparkles },
 ]
 
@@ -266,7 +266,7 @@ export function LeftNavigation({
 
   return (
     <>
-    <aside className="hidden h-screen w-64 shrink-0 border-r border-[#dfe3e8] bg-[#f4f7fc] p-4 xl:flex xl:flex-col">
+    <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 shrink-0 border-r border-[#dfe3e8] bg-[#f4f7fc] p-4 xl:flex xl:flex-col">
       <div className="mb-5 px-2 py-4">
         <h2 className="[font-family:var(--font-plus-jakarta)] text-lg font-black text-[#00468c]">Elite Performance</h2>
         <p className="text-xs font-medium text-[#5f6776]">{teamName}</p>
@@ -368,6 +368,7 @@ export function LeftNavigation({
         )}
       </div>
     </aside>
+    <div className="hidden w-64 shrink-0 xl:block" aria-hidden="true" />
     {notificationsOpen ? (
       <div className="fixed inset-0 z-50 hidden items-center justify-center bg-[#08111f]/35 px-6 backdrop-blur-sm xl:flex">
         <div className="w-full max-w-lg rounded-[28px] border border-[#d9e4f7] bg-white p-5 shadow-[0_30px_90px_rgba(8,17,31,0.24)]">

@@ -293,12 +293,27 @@ async function syncMatchScoreFromEvents(
   supabase: Awaited<ReturnType<typeof createSupabaseRouteHandler>>,
   matchId: string
 ) {
+  const matchResult = await supabase
+    .from('partidos')
+    .select('fecha_hora, goles_contra')
+    .eq('id', matchId)
+    .maybeSingle()
+
   const eventsResult = await readEvents(supabase, [matchId])
   const goalsFor = eventsResult.rows.filter((event) => isGoalEvent(event.eventType)).length
+  const matchTime = parseMatchTime(matchResult.data?.fecha_hora)
+  const updatePayload: Record<string, unknown> = {
+    goles_favor: goalsFor,
+    goles_contra: toNumber(matchResult.data?.goles_contra),
+  }
+
+  if (matchTime !== null && matchTime <= Date.now()) {
+    updatePayload.estado = 'FINALIZADO'
+  }
 
   const updateResult = await supabase
     .from('partidos')
-    .update({ goles_favor: goalsFor })
+    .update(updatePayload)
     .eq('id', matchId)
 
   if (updateResult.error) {
