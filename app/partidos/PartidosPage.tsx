@@ -40,6 +40,7 @@ type MatchItem = {
   estado: string | null
   golesFavor: number | null
   golesContra: number | null
+  golesContraMinutos: number[]
 }
 
 type MatchSubmission = {
@@ -102,6 +103,20 @@ type SubmitResponse =
       error: string
     }
 
+type MatchScoreResponse =
+  | {
+      ok: true
+      match: {
+        id: string
+        golesContra: number
+        golesContraMinutos: number[]
+      }
+    }
+  | {
+      ok: false
+      error: string
+    }
+
 type Status = 'loading' | 'ready' | 'error'
 
 type StatsFormState = {
@@ -118,6 +133,11 @@ type CoachDraftRow = StatsFormState & {
   avatarUrl: string | null
   position: string | null
   dorsal: number | null
+}
+
+type OpponentGoalDraft = {
+  id: string
+  minute: string
 }
 
 type NumericStatsField = keyof StatsFormState
@@ -209,6 +229,18 @@ function toCoachDraftRows(players: CoachPlayerSubmission[]): CoachDraftRow[] {
     assists: player.submission?.assists ?? 0,
     yellowCards: player.submission?.yellowCards ?? 0,
     redCards: player.submission?.redCards ?? 0,
+  }))
+}
+
+function toOpponentGoalDrafts(match: MatchItem | null): OpponentGoalDraft[] {
+  const goalsAgainst = Math.max(match?.golesContra ?? 0, match?.golesContraMinutos.length ?? 0)
+
+  return Array.from({ length: goalsAgainst }, (_, index) => ({
+    id: `${match?.id ?? 'match'}-${index}`,
+    minute:
+      typeof match?.golesContraMinutos[index] === 'number'
+        ? String(match.golesContraMinutos[index])
+        : '',
   }))
 }
 
@@ -392,18 +424,26 @@ function CoachMatchReview({
   payload,
   featuredMatch,
   drafts,
+  opponentGoals,
   isSubmitting,
   submitError,
   onDraftChange,
+  onAddOpponentGoal,
+  onRemoveOpponentGoal,
+  onOpponentGoalMinuteChange,
   onDiscard,
   onSave,
 }: {
   payload: Extract<MatchesPayload, { ok: true }>
   featuredMatch: MatchItem
   drafts: CoachDraftRow[]
+  opponentGoals: OpponentGoalDraft[]
   isSubmitting: boolean
   submitError: string
   onDraftChange: (playerId: string, field: NumericStatsField, value: number) => void
+  onAddOpponentGoal: () => void
+  onRemoveOpponentGoal: (goalId: string) => void
+  onOpponentGoalMinuteChange: (goalId: string, minute: string) => void
   onDiscard: () => void
   onSave: () => void
 }) {
@@ -428,6 +468,7 @@ function CoachMatchReview({
 
   const avgRating = drafts.length > 0 ? (totals.ratingTotal / drafts.length).toFixed(1) : '0.0'
   const participationLabel = `${totals.reported}/${payload.featuredMeta.totalPlayers}`
+  const resultLabel = `${totals.goals} - ${opponentGoals.length}`
 
   return (
     <div className="flex min-h-screen w-full">
@@ -469,12 +510,78 @@ function CoachMatchReview({
             </div>
           </div>
 
-          <div className="mb-10 grid grid-cols-1 gap-6 md:grid-cols-4">
+          <div className="mb-10 grid grid-cols-1 gap-6 md:grid-cols-5">
             <SummaryCard label="Goles totales" value={String(totals.goals)} helper={`${featuredMatch.golesFavor ?? totals.goals} oficial`} tone="primary" />
+            <SummaryCard label="Resultado" value={resultLabel} helper="Marcador oficial" tone="tertiary" />
             <SummaryCard label="Asistencias totales" value={String(totals.assists)} helper="Acciones registradas" tone="primary" />
             <SummaryCard label="Media rating" value={avgRating} helper="Consistencia del equipo" tone="tertiary" />
             <SummaryHighlight label="Participacion" value={participationLabel} helper="Jugadores con datos" />
           </div>
+
+          <section className="mb-8 rounded-xl border border-slate-50 bg-white p-6 shadow-[0px_20px_40px_rgba(0,93,182,0.04)] md:p-8">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 className="[font-family:var(--font-plus-jakarta)] text-lg font-bold text-[#181c20]">
+                  Goles en contra
+                </h2>
+                <p className="mt-1 text-sm font-medium text-slate-400">
+                  Anade los goles del rival y, si lo sabes, el minuto de cada gol.
+                </p>
+              </div>
+              <div className="rounded-2xl bg-[#f7f9fe] px-5 py-3 text-right">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+                  Resultado
+                </p>
+                <p className="[font-family:var(--font-plus-jakarta)] text-3xl font-black text-[#181c20]">
+                  {totals.goals} - {opponentGoals.length}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-3">
+              {opponentGoals.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-[#f8fbff] px-4 py-5 text-sm font-semibold text-slate-400">
+                  Sin goles en contra.
+                </div>
+              ) : (
+                opponentGoals.map((goal, index) => (
+                  <div key={goal.id} className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-[#f8fbff] p-4 sm:flex-row sm:items-end">
+                    <label className="min-w-0 flex-1">
+                      <span className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+                        Gol rival {index + 1}
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={130}
+                        value={goal.minute}
+                        onChange={(event) => onOpponentGoalMinuteChange(goal.id, event.target.value)}
+                        placeholder="Minuto opcional"
+                        className="mt-1 w-full rounded-xl border border-[#dfe3e8] bg-white px-3 py-2.5 text-sm font-semibold text-[#181c20] outline-none transition focus:border-[#759efd]"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveOpponentGoal(goal.id)}
+                      disabled={isSubmitting}
+                      className="rounded-full border border-slate-200 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={onAddOpponentGoal}
+              disabled={isSubmitting || opponentGoals.length >= 30}
+              className="mt-4 rounded-full bg-[#005db6] px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-[#005db6]/15 transition hover:bg-[#004f9d] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Anadir gol en contra
+            </button>
+          </section>
 
           <div className="overflow-hidden rounded-xl border border-slate-50 bg-white shadow-[0px_20px_40px_rgba(0,93,182,0.04)]">
             <div className="flex flex-col gap-4 border-b border-slate-50 px-6 py-6 md:flex-row md:items-center md:justify-between md:px-8">
@@ -1002,6 +1109,7 @@ export default function PartidosPage() {
   const [submitError, setSubmitError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [coachDrafts, setCoachDrafts] = useState<CoachDraftRow[]>([])
+  const [opponentGoals, setOpponentGoals] = useState<OpponentGoalDraft[]>([])
 
   const loadData = useCallback(async () => {
     setStatus('loading')
@@ -1035,10 +1143,12 @@ export default function PartidosPage() {
   useEffect(() => {
     if (!payload?.isCoach) {
       setCoachDrafts([])
+      setOpponentGoals([])
       return
     }
 
     setCoachDrafts(toCoachDraftRows(payload.featuredMeta.playerSubmissions))
+    setOpponentGoals(toOpponentGoalDrafts(payload.featuredMatch))
   }, [payload])
 
   const featuredMatch = payload?.featuredMatch ?? null
@@ -1128,7 +1238,38 @@ export default function PartidosPage() {
   const discardCoachChanges = () => {
     if (!payload?.isCoach) return
     setCoachDrafts(toCoachDraftRows(payload.featuredMeta.playerSubmissions))
+    setOpponentGoals(toOpponentGoalDrafts(payload.featuredMatch))
     setSubmitError('')
+  }
+
+  const addOpponentGoal = () => {
+    setOpponentGoals((current) => {
+      if (current.length >= 30) return current
+
+      return [
+        ...current,
+        {
+          id: `${featuredMatch?.id ?? 'match'}-${Date.now()}-${current.length}`,
+          minute: '',
+        },
+      ]
+    })
+  }
+
+  const removeOpponentGoal = (goalId: string) => {
+    setOpponentGoals((current) => current.filter((goal) => goal.id !== goalId))
+  }
+
+  const onOpponentGoalMinuteChange = (goalId: string, value: string) => {
+    setOpponentGoals((current) =>
+      current.map((goal) => {
+        if (goal.id !== goalId) return goal
+        if (value.trim() === '') return { ...goal, minute: '' }
+        const parsed = Number(value)
+        const next = Number.isFinite(parsed) ? clampInt(parsed, 0, 130) : 0
+        return { ...goal, minute: String(next) }
+      })
+    )
   }
 
   const saveCoachReview = async () => {
@@ -1138,6 +1279,29 @@ export default function PartidosPage() {
     setIsSubmitting(true)
 
     try {
+      const opponentGoalMinutes = opponentGoals
+        .map((goal) => goal.minute.trim())
+        .filter(Boolean)
+        .map((minute) => {
+          const parsed = Number(minute)
+          return Number.isFinite(parsed) ? clampInt(parsed, 0, 130) : 0
+        })
+
+      const scoreResponse = await fetch('/api/partidos', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          matchId: featuredMatch.id,
+          opponentGoals: opponentGoals.length,
+          opponentGoalMinutes,
+        }),
+      })
+
+      const scoreData = (await scoreResponse.json()) as MatchScoreResponse
+      if (!scoreResponse.ok || !scoreData.ok) {
+        throw new Error(scoreData.ok ? 'No se pudo guardar el resultado.' : scoreData.error)
+      }
+
       for (const row of coachDrafts) {
         const response = await fetch('/api/partidos', {
           method: 'POST',
@@ -1216,9 +1380,13 @@ export default function PartidosPage() {
           payload={payload}
           featuredMatch={featuredMatch}
           drafts={coachDrafts}
+          opponentGoals={opponentGoals}
           isSubmitting={isSubmitting}
           submitError={submitError}
           onDraftChange={onCoachDraftChange}
+          onAddOpponentGoal={addOpponentGoal}
+          onRemoveOpponentGoal={removeOpponentGoal}
+          onOpponentGoalMinuteChange={onOpponentGoalMinuteChange}
           onDiscard={discardCoachChanges}
           onSave={() => void saveCoachReview()}
         />

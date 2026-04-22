@@ -60,6 +60,12 @@ type MatchRow = {
   goles_contra: number | string | null
 }
 
+type MatchScoreBody = {
+  matchId?: unknown
+  opponentGoals?: unknown
+  opponentGoalMinutes?: unknown
+}
+
 type PlayerSubmission = {
   minutes: number
   goals: number
@@ -250,6 +256,18 @@ function parseMinutes(value: unknown) {
 function parseCounter(value: unknown) {
   if (!isNonNegativeInteger(value)) return null
   return clamp(value, 0, 30)
+}
+
+function parseOptionalMinuteList(value: unknown) {
+  if (!Array.isArray(value)) return null
+
+  const minutes: number[] = []
+  for (const item of value) {
+    if (!isNonNegativeInteger(item)) return null
+    minutes.push(clamp(item, 0, 130))
+  }
+
+  return minutes
 }
 
 function isMissingColumnError(
@@ -485,7 +503,45 @@ async function readEvents(
   }
 }
 
-function mapMatchForClient(match: MatchRow, eventGoalsByMatch?: Map<string, number>) {
+async function readOpponentGoalMinutes(
+  supabase: Awaited<ReturnType<typeof createSupabaseRouteHandler>>,
+  matchIds: string[]
+) {
+  const minutesByMatch = new Map<string, number[]>()
+  if (matchIds.length === 0) return minutesByMatch
+
+  const result = await supabase
+    .from('partidos')
+    .select('id, goles_contra_minutos')
+    .in('id', matchIds)
+
+  if (result.error) {
+    if (!isMissingColumnError(result.error, 'goles_contra_minutos')) {
+      console.error('GET /api/partidos - opponent goal minutes query failed:', result.error)
+    }
+    return minutesByMatch
+  }
+
+  for (const row of result.data ?? []) {
+    if (typeof row.id !== 'string' || !Array.isArray(row.goles_contra_minutos)) continue
+    minutesByMatch.set(
+      row.id,
+      row.goles_contra_minutos
+        .map((minute: unknown) =>
+          typeof minute === 'number' || typeof minute === 'string' ? toNumber(minute) : null
+        )
+        .filter((minute: number | null): minute is number => minute !== null && minute >= 0 && minute <= 130)
+    )
+  }
+
+  return minutesByMatch
+}
+
+function mapMatchForClient(
+  match: MatchRow,
+  eventGoalsByMatch?: Map<string, number>,
+  opponentGoalMinutesByMatch?: Map<string, number[]>
+) {
   const eventGoals = eventGoalsByMatch?.get(match.id)
 
   return {
@@ -504,6 +560,7 @@ function mapMatchForClient(match: MatchRow, eventGoalsByMatch?: Map<string, numb
       typeof match.goles_contra === 'number' || typeof match.goles_contra === 'string'
         ? toNumber(match.goles_contra)
         : null,
+    golesContraMinutos: opponentGoalMinutesByMatch?.get(match.id) ?? [],
   }
 }
 
@@ -742,9 +799,11 @@ export async function GET(request: NextRequest) {
 
     const featuredMatchIds = featuredMatch ? [featuredMatch.id] : []
     const listMatchIds = Array.from(new Set(matchList.map((match) => match.id)))
-    const [participantsResult, eventsResult] = await Promise.all([
+    const allVisibleMatchIds = Array.from(new Set([...featuredMatchIds, ...listMatchIds]))
+    const [participantsResult, eventsResult, opponentGoalMinutesByMatch] = await Promise.all([
       readParticipants(db, featuredMatchIds),
       readEvents(db, featuredMatchIds),
+      readOpponentGoalMinutes(db, allVisibleMatchIds),
     ])
     const listEventsResult = await readEvents(db, listMatchIds)
 
@@ -809,7 +868,7 @@ export async function GET(request: NextRequest) {
       role,
       isCoach: viewerIsCoach,
       showingAllPlayed: requestedAllPlayed,
-      featuredMatch: featuredMatch ? mapMatchForClient(featuredMatch) : null,
+      featuredMatch: featuredMatch ? mapMatchForClient(featuredMatch, undefined, opponentGoalMinutesByMatch) : null,
       featuredMeta: {
         totalPlayers,
         submittedPlayers,
@@ -820,11 +879,117 @@ export async function GET(request: NextRequest) {
         playerSubmissions,
         totals,
       },
-      history: matchList.map((match) => mapMatchForClient(match, eventGoalsByMatch)),
+      history: matchList.map((match) => mapMatchForClient(match, eventGoalsByMatch, opponentGoalMinutesByMatch)),
     })
   } catch (error) {
     console.error('Error en GET /api/partidos:', error)
     return createErrorResponse('No se pudo cargar la seccion de partidos.', 500)
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const supabase = await createSupabaseRouteHandler()
+    const adminSupabase = createSupabaseAdmin()
+    const db = adminSupabase ?? supabase
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return createErrorResponse('No autorizado', 401)
+    }
+
+    const body = (await request.json()) as MatchScoreBody
+    const matchId = typeof body.matchId === 'string' ? body.matchId.trim() : ''
+    const opponentGoals = parseCounter(body.opponentGoals)
+    const opponentGoalMinutes = parseOptionalMinuteList(body.opponentGoalMinutes)
+
+    if (!matchId) return createErrorResponse('matchId invalido.', 400)
+    if (opponentGoals === null || opponentGoalMinutes === null) {
+      return createErrorResponse('Resultado invalido.', 400)
+    }
+    if (opponentGoalMinutes.length > opponentGoals) {
+      return createErrorResponse('Hay mas minutos de gol que goles en contra.', 400)
+    }
+
+    const matchResult = await db
+      .from('partidos')
+      .select('id, equipo_id, fecha_hora')
+      .eq('id', matchId)
+      .maybeSingle()
+
+    if (matchResult.error || !matchResult.data) {
+      return createErrorResponse('Partido no encontrado.', 404)
+    }
+
+    const match = matchResult.data as {
+      id: string
+      equipo_id: string
+      fecha_hora: string
+    }
+
+    const membershipResult = await supabase
+      .from('miembros_equipo')
+      .select('rol')
+      .eq('equipo_id', match.equipo_id)
+      .eq('usuario_id', user.id)
+      .eq('estado', 'ACTIVO')
+      .maybeSingle()
+
+    if (membershipResult.error) {
+      return createErrorResponse('No se pudo validar tu equipo.', 500)
+    }
+
+    if (!membershipResult.data || !isCoachRole(membershipResult.data.rol)) {
+      return createErrorResponse('Solo un entrenador puede editar el resultado.', 403)
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      goles_contra: opponentGoals,
+      goles_contra_minutos: opponentGoalMinutes,
+    }
+    const matchTime = parseMatchTime(match.fecha_hora)
+    if (matchTime !== null && matchTime <= Date.now()) {
+      updatePayload.estado = 'FINALIZADO'
+    }
+
+    let updateResult = await db
+      .from('partidos')
+      .update(updatePayload)
+      .eq('id', matchId)
+      .eq('equipo_id', match.equipo_id)
+
+    if (updateResult.error && isMissingColumnError(updateResult.error, 'goles_contra_minutos')) {
+      const fallbackPayload = { ...updatePayload }
+      delete fallbackPayload.goles_contra_minutos
+      updateResult = await db
+        .from('partidos')
+        .update(fallbackPayload)
+        .eq('id', matchId)
+        .eq('equipo_id', match.equipo_id)
+    }
+
+    if (updateResult.error) {
+      console.error('PATCH /api/partidos - score update failed:', updateResult.error)
+      return createErrorResponse(
+        `No se pudo guardar el resultado. ${getErrorMessage(updateResult.error, '')}`.trim(),
+        isRlsViolation(updateResult.error) ? 403 : 500
+      )
+    }
+
+    return NextResponse.json({
+      ok: true,
+      match: {
+        id: matchId,
+        golesContra: opponentGoals,
+        golesContraMinutos: opponentGoalMinutes,
+      },
+    })
+  } catch (error) {
+    console.error('Error en PATCH /api/partidos:', error)
+    return createErrorResponse('No se pudo guardar el resultado.', 500)
   }
 }
 
