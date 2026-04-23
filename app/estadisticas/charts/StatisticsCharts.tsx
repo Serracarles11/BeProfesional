@@ -1,10 +1,10 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { EChartsCoreOption } from 'echarts/core'
-import { Activity, Timer, TrendingUp, Users } from 'lucide-react'
+import { Activity, HeartPulse, Timer, Users } from 'lucide-react'
 import { EChart } from './EChart'
-import type { StatisticsChartsPayload, PlayerRankingDatum } from './types'
+import type { StatisticsChartsPayload, PlayerRankingDatum, PlayerStatisticsDatum } from './types'
 
 type StatisticsChartsProps = {
   data: StatisticsChartsPayload
@@ -23,6 +23,7 @@ const CHART_COLORS = {
 type ChartCallbackParam = {
   value?: unknown
   dataIndex: number
+  seriesName?: string
 }
 
 function firstParam(params: unknown): ChartCallbackParam {
@@ -34,6 +35,23 @@ function formatInteger(value: number) {
   return new Intl.NumberFormat('es-ES', {
     maximumFractionDigits: 0,
   }).format(Math.round(value))
+}
+
+function formatDecimal(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '--'
+  return new Intl.NumberFormat('es-ES', {
+    maximumFractionDigits: 1,
+  }).format(value)
+}
+
+function valueToNumber(value: unknown) {
+  if (Array.isArray(value)) return valueToNumber(value[1])
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
 }
 
 function EmptyChart({ title }: { title: string }) {
@@ -55,12 +73,14 @@ function ChartCard({
   title,
   subtitle,
   icon,
+  action,
   children,
   className = '',
 }: {
   title: string
   subtitle: string
   icon: React.ReactNode
+  action?: React.ReactNode
   children: React.ReactNode
   className?: string
 }) {
@@ -78,27 +98,37 @@ function ChartCard({
             <p className="mt-1 text-sm font-semibold text-[#727785]">{subtitle}</p>
           </div>
         </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
       {children}
     </article>
   )
 }
 
-function buildGoalsOption(data: StatisticsChartsPayload['matches']): EChartsCoreOption {
+function buildFatigueOption(
+  data: StatisticsChartsPayload['fatigueTrend'],
+  selectedPlayer: PlayerStatisticsDatum | null
+): EChartsCoreOption {
+  const selectedPlayerValues = selectedPlayer
+    ? data.map((row) => [row.from, row.playerValues[selectedPlayer.id] ?? null])
+    : []
+  const teamAverageValues = data.map((row) => [row.from, row.teamAverage])
+
   return {
-    color: [CHART_COLORS.primary, CHART_COLORS.against],
+    color: selectedPlayer ? [CHART_COLORS.primary, CHART_COLORS.against] : [CHART_COLORS.primary],
     animationDuration: 650,
-    dataset: {
-      source: data.map((match) => ({
-        match: match.label,
-        date: match.date ?? '',
-        opponent: match.opponent ?? match.label,
-        favor: match.goalsFor,
-        against: match.goalsAgainst,
-      })),
+    title: {
+      left: 'center',
+      top: 2,
+      text: selectedPlayer ? `Fatiga: ${selectedPlayer.name}` : 'Fatiga media del equipo',
+      textStyle: {
+        color: CHART_COLORS.text,
+        fontSize: 14,
+        fontWeight: 900,
+      },
     },
     legend: {
-      top: 0,
+      top: 30,
       right: 4,
       icon: 'roundRect',
       itemWidth: 12,
@@ -110,68 +140,184 @@ function buildGoalsOption(data: StatisticsChartsPayload['matches']): EChartsCore
     },
     tooltip: {
       trigger: 'axis',
-      axisPointer: {
-        type: 'shadow',
-        shadowStyle: { color: 'rgba(0,93,182,0.06)' },
+      position: (point: unknown) => {
+        if (Array.isArray(point) && typeof point[0] === 'number') return [point[0], '10%']
+        return ['50%', '10%']
       },
+      axisPointer: { type: 'line' },
       borderColor: '#d9e4f7',
       borderWidth: 1,
       backgroundColor: 'rgba(255,255,255,0.96)',
       textStyle: { color: '#181c20', fontWeight: 700 },
-      valueFormatter: (value: unknown) => `${value} goles`,
+      formatter: (params: unknown) => {
+        const rows = Array.isArray(params) ? (params as ChartCallbackParam[]) : [params as ChartCallbackParam]
+        const row = data[rows[0]?.dataIndex ?? 0]
+        const lines = rows
+          .map((item) => `${item.seriesName ?? 'Fatiga'}: ${formatDecimal(valueToNumber(item.value))}/10`)
+          .join('<br/>')
+        return `<strong>${row?.label ?? ''}</strong><br/>${lines}`
+      },
       extraCssText: 'box-shadow:0 18px 40px rgba(0,93,182,0.12);border-radius:12px;',
     },
     grid: {
-      top: 52,
+      top: 72,
       left: 44,
       right: 16,
-      bottom: 74,
+      bottom: 92,
       containLabel: true,
     },
     xAxis: {
-      type: 'category',
+      type: 'time',
+      boundaryGap: false,
       axisTick: { show: false },
       axisLine: { lineStyle: { color: CHART_COLORS.grid } },
       axisLabel: {
         color: CHART_COLORS.muted,
         fontWeight: 700,
-        rotate: data.length > 5 ? 28 : 0,
-        interval: 0,
-        formatter: (value: string) => {
-          const label = value.replace(/^\d+\.\s*/, '')
-          return label.length > 15 ? `${label.slice(0, 15)}...` : label
-        },
+        formatter: (value: number) =>
+          new Intl.DateTimeFormat('es-ES', {
+            day: '2-digit',
+            month: 'short',
+          }).format(new Date(value)),
       },
     },
     yAxis: {
       type: 'value',
-      minInterval: 1,
+      min: 0,
+      max: 10,
+      boundaryGap: [0, '100%'],
       axisLabel: { color: CHART_COLORS.muted, fontWeight: 700 },
       splitLine: { lineStyle: { color: CHART_COLORS.grid, type: 'dashed' } },
     },
     series: [
       {
-        name: 'Goles a favor',
-        type: 'bar',
-        encode: { x: 'match', y: 'favor' },
-        barMaxWidth: 18,
-        itemStyle: {
-          borderRadius: [6, 6, 0, 0],
+        name: 'Media equipo',
+        type: 'line',
+        smooth: true,
+        symbol: 'none',
+        data: teamAverageValues,
+        lineStyle: { width: 4 },
+        areaStyle: {
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(0,93,182,0.22)' },
+              { offset: 1, color: 'rgba(0,93,182,0.02)' },
+            ],
+          },
         },
-        emphasis: { focus: 'series' },
       },
-      {
-        name: 'Goles en contra',
-        type: 'bar',
-        encode: { x: 'match', y: 'against' },
-        barMaxWidth: 18,
-        itemStyle: {
-          borderRadius: [6, 6, 0, 0],
-        },
-        emphasis: { focus: 'series' },
-      },
+      ...(selectedPlayer
+        ? [
+            {
+              name: selectedPlayer.name,
+              type: 'line',
+              smooth: true,
+              symbolSize: 8,
+              data: selectedPlayerValues,
+              lineStyle: { width: 3, type: 'dashed' },
+              emphasis: { focus: 'series' },
+            },
+          ]
+        : []),
     ],
   }
+}
+
+function PlayerSelect({
+  players,
+  selectedPlayerId,
+  onChange,
+}: {
+  players: PlayerStatisticsDatum[]
+  selectedPlayerId: string
+  onChange: (playerId: string) => void
+}) {
+  return (
+    <select
+      value={selectedPlayerId}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-10 max-w-[210px] rounded-lg border border-[#c7d7ef] bg-white px-3 text-sm font-black text-[#181c20] outline-none transition focus:border-[#005db6]"
+      aria-label="Seleccionar jugador"
+    >
+      <option value="team">Media equipo</option>
+      {players.map((player) => (
+        <option key={player.id} value={player.id}>
+          {player.name}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+function MinutesPlayerMenu({
+  players,
+  selectedPlayerId,
+  onChange,
+}: {
+  players: PlayerStatisticsDatum[]
+  selectedPlayerId: string
+  onChange: (playerId: string) => void
+}) {
+  return (
+    <select
+      value={selectedPlayerId}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-10 max-w-[230px] rounded-lg border border-[#c7d7ef] bg-white px-3 text-sm font-black text-[#181c20] outline-none transition focus:border-[#005db6]"
+      aria-label="Seleccionar jugador para minutos"
+    >
+      <option value="all">Todos los jugadores</option>
+      {players.map((player) => (
+        <option key={player.id} value={player.id}>
+          {player.name} · {formatInteger(player.minutes)} min
+        </option>
+      ))}
+    </select>
+  )
+}
+
+function MinutesPlayerSummary({
+  players,
+  selectedPlayer,
+}: {
+  players: PlayerStatisticsDatum[]
+  selectedPlayer: PlayerStatisticsDatum | null
+}) {
+  const totalMinutes = players.reduce((acc, player) => acc + player.minutes, 0)
+  const rows = selectedPlayer ? [selectedPlayer] : players
+
+  return (
+    <div className="mt-4 rounded-xl bg-[#f8fbff] p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs font-black uppercase tracking-[0.12em] text-[#727785]">
+          {selectedPlayer ? selectedPlayer.name : 'Total plantilla'}
+        </p>
+        <p className="[font-family:var(--font-plus-jakarta)] text-xl font-black text-[#181c20]">
+          {formatInteger(selectedPlayer?.minutes ?? totalMinutes)} min
+        </p>
+      </div>
+
+      {!selectedPlayer ? (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {rows
+            .filter((player) => player.minutes > 0)
+            .slice(0, 6)
+            .map((player) => (
+              <div key={player.id} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2">
+                <span className="truncate text-xs font-black text-[#181c20]">{player.name}</span>
+                <span className="shrink-0 text-xs font-black text-[#005db6]">
+                  {formatInteger(player.minutes)} min
+                </span>
+              </div>
+            ))}
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 function RankingAvatars({ rows }: { rows: PlayerRankingDatum[] }) {
@@ -342,7 +488,20 @@ function buildAttendanceTrendOption(data: StatisticsChartsPayload['attendanceTre
 }
 
 export function StatisticsCharts({ data }: StatisticsChartsProps) {
-  const goalsOption = useMemo(() => buildGoalsOption(data.matches), [data.matches])
+  const [selectedPlayerId, setSelectedPlayerId] = useState('team')
+  const [selectedMinutesPlayerId, setSelectedMinutesPlayerId] = useState('all')
+  const selectedPlayer = useMemo(
+    () => data.players.find((player) => player.id === selectedPlayerId) ?? null,
+    [data.players, selectedPlayerId]
+  )
+  const selectedMinutesPlayer = useMemo(
+    () => data.players.find((player) => player.id === selectedMinutesPlayerId) ?? null,
+    [data.players, selectedMinutesPlayerId]
+  )
+  const fatigueOption = useMemo(
+    () => buildFatigueOption(data.fatigueTrend, selectedPlayer),
+    [data.fatigueTrend, selectedPlayer]
+  )
   const attendanceOption = useMemo(
     () => buildRankingOption({ rows: data.attendanceRanking, color: CHART_COLORS.primary, unit: '%' }),
     [data.attendanceRanking]
@@ -359,15 +518,22 @@ export function StatisticsCharts({ data }: StatisticsChartsProps) {
   return (
     <section className="grid grid-cols-1 gap-8 lg:grid-cols-12">
       <ChartCard
-        title="Goals For vs Goals Against"
-        subtitle="Comparativa partido a partido del balance ofensivo y defensivo."
-        icon={<TrendingUp className="h-5 w-5" />}
+        title="Fatiga del equipo"
+        subtitle="Media del equipo y evolucion personalizada por jugador."
+        icon={<HeartPulse className="h-5 w-5" />}
+        action={
+          <PlayerSelect
+            players={data.players}
+            selectedPlayerId={selectedPlayerId}
+            onChange={setSelectedPlayerId}
+          />
+        }
         className="lg:col-span-12"
       >
-        {data.matches.length > 0 ? (
-          <EChart option={goalsOption} height={380} />
+        {data.fatigueTrend.some((row) => row.teamAverage !== null) ? (
+          <EChart option={fatigueOption} height={380} />
         ) : (
-          <EmptyChart title="Registra resultados de partidos para activar este analisis." />
+          <EmptyChart title="Registra check-ins de fatiga para activar este analisis." />
         )}
       </ChartCard>
 
@@ -391,11 +557,19 @@ export function StatisticsCharts({ data }: StatisticsChartsProps) {
         title="minutos totales jugados"
         subtitle="Carga competitiva acumulada por jugador en partidos registrados."
         icon={<Timer className="h-5 w-5" />}
+        action={
+          <MinutesPlayerMenu
+            players={data.players}
+            selectedPlayerId={selectedMinutesPlayerId}
+            onChange={setSelectedMinutesPlayerId}
+          />
+        }
         className="lg:col-span-6"
       >
         {data.minutesRanking.length > 0 ? (
           <>
             <EChart option={minutesOption} height={330} />
+            <MinutesPlayerSummary selectedPlayer={selectedMinutesPlayer} players={data.players} />
             <RankingAvatars rows={data.minutesRanking} />
           </>
         ) : (

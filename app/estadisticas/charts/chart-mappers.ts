@@ -1,7 +1,9 @@
 import type {
   AttendanceTrendDatum,
+  FatigueTrendDatum,
   MatchChartDatum,
   PlayerRankingDatum,
+  PlayerStatisticsDatum,
   StatisticsChartsPayload,
 } from './types'
 
@@ -19,6 +21,9 @@ type PlayerInput = {
   nombre: string
   fotoUrl: string | null
   posicion: string | null
+  goles: number
+  asistencias: number
+  contribucion: number
   minutos: number
   asistenciasEntreno: number
   asistenciaPct: number | null
@@ -91,10 +96,12 @@ function normalizePlayerRanking(
 export function mapStatisticsToCharts({
   matches,
   players,
+  fatigueTrend,
   attendanceTrend,
 }: {
   matches: MatchInput[]
   players: PlayerInput[]
+  fatigueTrend: FatigueTrendDatum[]
   attendanceTrend: AttendanceTrendDatum[]
 }): StatisticsChartsPayload {
   const matchData = [...matches]
@@ -127,6 +134,19 @@ export function mapStatisticsToCharts({
 
   return {
     matches: matchData,
+    players: players.map<PlayerStatisticsDatum>((player) => ({
+      id: player.usuarioId,
+      name: player.nombre,
+      avatarUrl: player.fotoUrl,
+      position: player.posicion,
+      goals: player.goles,
+      assists: player.asistencias,
+      minutes: player.minutos,
+      attendancePct: player.asistenciaPct,
+      trainingAttendances: player.asistenciasEntreno,
+      contribution: player.contribucion,
+    })),
+    fatigueTrend,
     attendanceRanking: normalizePlayerRanking(
       players,
       (player) => player.asistenciaPct ?? 0,

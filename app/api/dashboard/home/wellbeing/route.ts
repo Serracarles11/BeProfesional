@@ -308,6 +308,63 @@ export async function POST(request: NextRequest) {
         console.error('Wellbeing daily save error:', todaySaveError)
         return createErrorResponse(`No se pudo guardar el estado diario. ${getErrorMessage(todaySaveError, '')}`.trim(), 500)
       }
+
+      const checkinPayload: {
+        equipo_id: string
+        jugador_id: string
+        fecha: string
+        animo?: number | null
+        fatiga?: number | null
+      } = {
+        equipo_id: equipoId,
+        jugador_id: user.id,
+        fecha: todayDateKey,
+      }
+
+      if (mentalState !== undefined) {
+        checkinPayload.animo = mentalState
+      }
+      if (fatigue !== undefined) {
+        checkinPayload.fatiga = fatigue
+      }
+
+      const existingCheckinResult = await supabase
+        .from('checkins_diarios')
+        .select('id')
+        .eq('equipo_id', equipoId)
+        .eq('jugador_id', user.id)
+        .eq('fecha', todayDateKey)
+        .limit(1)
+        .maybeSingle()
+
+      if (existingCheckinResult.error) {
+        console.error('Check-in lookup error:', existingCheckinResult.error)
+        return createErrorResponse(
+          `No se pudo comprobar el check-in diario. ${getErrorMessage(existingCheckinResult.error, '')}`.trim(),
+          500
+        )
+      }
+
+      const checkinSaveError = existingCheckinResult.data?.id
+        ? (
+            await supabase
+              .from('checkins_diarios')
+              .update(checkinPayload)
+              .eq('id', existingCheckinResult.data.id)
+          ).error
+        : (
+            await supabase
+              .from('checkins_diarios')
+              .insert(checkinPayload)
+          ).error
+
+      if (checkinSaveError) {
+        console.error('Check-in daily save error:', checkinSaveError)
+        return createErrorResponse(
+          `No se pudo guardar la fatiga en check-ins. ${getErrorMessage(checkinSaveError, '')}`.trim(),
+          500
+        )
+      }
     }
 
     if (attendingTraining !== undefined) {

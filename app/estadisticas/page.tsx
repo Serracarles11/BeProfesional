@@ -13,7 +13,7 @@ import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { mapStatisticsToCharts } from './charts/chart-mappers'
 import { StatisticsCharts } from './charts/StatisticsCharts'
-import type { AttendanceTrendDatum } from './charts/types'
+import type { AttendanceTrendDatum, FatigueTrendDatum } from './charts/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -86,6 +86,18 @@ type TrainingRow = {
   id: string
   fecha: string | null
   estado: string | null
+}
+
+type CheckinRow = {
+  jugador_id: string | null
+  fecha: string | null
+  fatiga: number | string | null
+}
+
+type HomeWellbeingRow = {
+  usuario_id: string | null
+  fecha: string | null
+  fatiga: number | string | null
 }
 
 type MinimalEventRow = {
@@ -198,6 +210,103 @@ function formatShortDate(value: string | null | undefined) {
     day: '2-digit',
     month: 'short',
   }).format(date)
+}
+
+function formatDateKey(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function average(values: number[]) {
+  if (values.length === 0) return null
+  const total = values.reduce((acc, value) => acc + value, 0)
+  return Number((total / values.length).toFixed(1))
+}
+
+function buildFatigueTrend(
+  checkins: CheckinRow[],
+  players: Array<{ usuarioId: string }>,
+  now = new Date()
+): FatigueTrendDatum[] {
+  const start = new Date(now)
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - 41)
+
+  const buckets = Array.from({ length: 6 }, (_, index) => {
+    const from = new Date(start)
+    from.setDate(start.getDate() + index * 7)
+    const to = new Date(from)
+    to.setDate(from.getDate() + 6)
+
+    return {
+      id: `week-${index + 1}`,
+      label: `${formatShortDate(formatDateKey(from))}`,
+      from: formatDateKey(from),
+      to: formatDateKey(to),
+      teamValues: [] as number[],
+      playerValues: new Map<string, number[]>(),
+    }
+  })
+
+  for (const player of players) {
+    for (const bucket of buckets) {
+      bucket.playerValues.set(player.usuarioId, [])
+    }
+  }
+
+  for (const checkin of checkins) {
+    const playerId = checkin.jugador_id
+    const fatigue = toNumber(checkin.fatiga)
+    if (!playerId || fatigue <= 0 || !checkin.fecha) continue
+
+    const date = new Date(`${checkin.fecha}T00:00:00`)
+    if (Number.isNaN(date.getTime()) || date < start || date > now) continue
+
+    const daysFromStart = Math.floor((date.getTime() - start.getTime()) / 86400000)
+    const bucketIndex = Math.min(5, Math.max(0, Math.floor(daysFromStart / 7)))
+    const bucket = buckets[bucketIndex]
+    if (!bucket) continue
+
+    bucket.teamValues.push(fatigue)
+    bucket.playerValues.get(playerId)?.push(fatigue)
+  }
+
+  return buckets.map((bucket) => {
+    const playerValues: Record<string, number | null> = {}
+    for (const player of players) {
+      playerValues[player.usuarioId] = average(bucket.playerValues.get(player.usuarioId) ?? [])
+    }
+
+    return {
+      id: bucket.id,
+      label: bucket.label,
+      from: bucket.from,
+      to: bucket.to,
+      teamAverage: average(bucket.teamValues),
+      playerValues,
+    }
+  })
+}
+
+function mergeFatigueRows(checkins: CheckinRow[], wellbeingRows: HomeWellbeingRow[]) {
+  const rowsByPlayerDate = new Map<string, CheckinRow>()
+
+  for (const checkin of checkins) {
+    if (!checkin.jugador_id || !checkin.fecha) continue
+    rowsByPlayerDate.set(`${checkin.jugador_id}:${checkin.fecha}`, checkin)
+  }
+
+  for (const row of wellbeingRows) {
+    if (!row.usuario_id || !row.fecha || row.fatiga === null) continue
+    const key = `${row.usuario_id}:${row.fecha}`
+    if (rowsByPlayerDate.has(key)) continue
+    rowsByPlayerDate.set(key, {
+      jugador_id: row.usuario_id,
+      fecha: row.fecha,
+      fatiga: row.fatiga,
+    })
+  }
+
+  return Array.from(rowsByPlayerDate.values())
 }
 
 async function loadAttendanceByPlayer(
@@ -536,6 +645,20 @@ async function loadStatsData(equipoId: string, userId: string) {
   }
 
   const attendance = await loadAttendanceByPlayer(readSupabase, equipoId, playerIds)
+  const fatigueFromDate = formatDateKey(new Date(Date.now() - 41 * 86400000))
+  const [checkinsResult, homeWellbeingResult] = await Promise.all([
+    readSupabase
+      .from('checkins_diarios')
+      .select('jugador_id, fecha, fatiga')
+      .eq('equipo_id', equipoId)
+      .gte('fecha', fatigueFromDate),
+    readSupabase
+      .from('home_bienestar_diario')
+      .select('usuario_id, fecha, fatiga')
+      .eq('equipo_id', equipoId)
+      .gte('fecha', fatigueFromDate),
+  ])
+
   const statsByPlayer = new Map<string, { goles: number; asistencias: number }>()
   const minutesByPlayer = new Map<string, number>()
   const goalsByMatch = new Map<string, number>()
@@ -642,6 +765,13 @@ async function loadStatsData(equipoId: string, userId: string) {
     charts: mapStatisticsToCharts({
       matches: partidosConMarcador,
       players: jugadores,
+      fatigueTrend: buildFatigueTrend(
+        mergeFatigueRows(
+          checkinsResult.error ? [] : ((checkinsResult.data ?? []) as CheckinRow[]),
+          homeWellbeingResult.error ? [] : ((homeWellbeingResult.data ?? []) as HomeWellbeingRow[])
+        ),
+        jugadoresBase
+      ),
       attendanceTrend: attendance.trend,
     }),
     topAsistencia: topRows(jugadores, (row) => row.asistenciaPct ?? -1),
