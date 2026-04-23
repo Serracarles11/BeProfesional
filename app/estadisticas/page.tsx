@@ -3,11 +3,8 @@ import { redirect } from 'next/navigation'
 import { Manrope, Plus_Jakarta_Sans } from 'next/font/google'
 import {
   Activity,
-  ArrowDownToLine,
   BarChart3,
   Dumbbell,
-  Filter,
-  Search,
   Target,
   Trophy,
 } from 'lucide-react'
@@ -44,6 +41,7 @@ type EquipoRow = {
 }
 
 type PerfilRow = {
+  id: string
   nombre: string | null
   foto_url: string | null
   posicion: string | null
@@ -52,7 +50,6 @@ type PerfilRow = {
 type MiembroJugadorRow = {
   usuario_id: string | null
   dorsal: string | number | null
-  perfiles: unknown
 }
 
 type PartidoRow = {
@@ -144,16 +141,11 @@ function formatDorsal(value: string | number | null | undefined) {
   return String(value)
 }
 
-function normalizeProfile(raw: unknown): PerfilRow | null {
-  const profile = Array.isArray(raw) ? raw[0] : raw
-  if (!profile || typeof profile !== 'object') return null
-
-  const row = profile as Record<string, unknown>
-  return {
-    nombre: typeof row.nombre === 'string' ? row.nombre : null,
-    foto_url: typeof row.foto_url === 'string' ? row.foto_url : null,
-    posicion: typeof row.posicion === 'string' ? row.posicion : null,
-  }
+function resolveKnownPlayerId(
+  playerIds: Set<string>,
+  ...candidateIds: Array<string | null | undefined>
+) {
+  return candidateIds.find((candidateId) => Boolean(candidateId && playerIds.has(candidateId))) ?? null
 }
 
 function isCancelled(value: string | null | undefined) {
@@ -409,6 +401,30 @@ async function loadMatchEvents(
   }
 }
 
+async function loadMatchParticipants(
+  supabase: Awaited<ReturnType<typeof createSupabaseServer>>,
+  matchIds: string[]
+) {
+  if (matchIds.length === 0) return [] as ParticipantRow[]
+
+  const selectors = [
+    'jugador_id, usuario_id, minutos_jugados',
+    'jugador_id, minutos_jugados',
+    'usuario_id, minutos_jugados',
+  ]
+
+  for (const selector of selectors) {
+    const result = await supabase
+      .from('participantes_partido')
+      .select(selector)
+      .in('partido_id', matchIds)
+
+    if (!result.error) return (result.data ?? []) as ParticipantRow[]
+  }
+
+  return [] as ParticipantRow[]
+}
+
 async function loadStatsData(equipoId: string, userId: string) {
   const supabase = await createSupabaseServer()
   const readSupabase = createSupabaseAdmin() ?? supabase
@@ -437,7 +453,7 @@ async function loadStatsData(equipoId: string, userId: string) {
       .maybeSingle(),
     readSupabase
       .from('miembros_equipo')
-      .select('usuario_id, dorsal, perfiles(nombre, foto_url, posicion)')
+      .select('usuario_id, dorsal')
       .eq('equipo_id', equipoId)
       .eq('rol', 'JUGADOR')
       .eq('estado', 'ACTIVO'),
@@ -467,13 +483,27 @@ async function loadStatsData(equipoId: string, userId: string) {
   const equipo = equipoResult.data as EquipoRow
   const partidos = (partidosResult.data ?? []) as PartidoRow[]
   const jugadoresRaw = (jugadoresResult.data ?? []) as MiembroJugadorRow[]
+  const perfilIds = jugadoresRaw
+    .map((row) => row.usuario_id)
+    .filter((id): id is string => Boolean(id))
+  const perfilesResult = perfilIds.length > 0
+    ? await readSupabase
+        .from('perfiles')
+        .select('id, nombre, foto_url, posicion')
+        .in('id', perfilIds)
+    : { data: [] as PerfilRow[], error: null }
+  const perfilesById = new Map(
+    perfilesResult.error
+      ? []
+      : ((perfilesResult.data ?? []) as PerfilRow[]).map((profile) => [profile.id, profile])
+  )
 
   const jugadoresBase = jugadoresRaw
     .map((row) => {
       const usuarioId = row.usuario_id
       if (!usuarioId) return null
 
-      const profile = normalizeProfile(row.perfiles)
+      const profile = perfilesById.get(usuarioId) ?? null
 
       return {
         usuarioId,
@@ -496,19 +526,13 @@ async function loadStatsData(equipoId: string, userId: string) {
   if (matchIds.length > 0) {
     const [eventosResult, participantsResult] = await Promise.all([
       loadMatchEvents(readSupabase, matchIds),
-      readSupabase
-        .from('participantes_partido')
-        .select('jugador_id, usuario_id, minutos_jugados')
-        .in('partido_id', matchIds),
+      loadMatchParticipants(readSupabase, matchIds),
     ])
 
     eventos = eventosResult.playerRows
     eventosMarcador = eventosResult.minimalRows
     eventosWarning = eventosResult.error
-
-    if (!participantsResult.error) {
-      participants = (participantsResult.data ?? []) as ParticipantRow[]
-    }
+    participants = participantsResult
   }
 
   const attendance = await loadAttendanceByPlayer(readSupabase, equipoId, playerIds)
@@ -551,8 +575,8 @@ async function loadStatsData(equipoId: string, userId: string) {
   }
 
   for (const row of participants) {
-    const playerId = row.jugador_id ?? row.usuario_id
-    if (!playerId || !playerIds.has(playerId)) continue
+    const playerId = resolveKnownPlayerId(playerIds, row.usuario_id, row.jugador_id)
+    if (!playerId) continue
     minutesByPlayer.set(playerId, (minutesByPlayer.get(playerId) ?? 0) + toNumber(row.minutos_jugados ?? 90))
   }
 
@@ -748,34 +772,6 @@ export default async function EstadisticasPage({
       />
 
       <main className="min-w-0 flex-1 overflow-y-auto pb-24 xl:pb-0">
-        <header className="sticky top-0 z-20 border-b border-[#dfe3e8]/70 bg-[#f7f9fe]/92 backdrop-blur-xl">
-          <div className="mx-auto flex w-full max-w-[1920px] items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-            <div className="min-w-0">
-              <p className="[font-family:var(--font-plus-jakarta)] text-xl font-black italic tracking-tight text-[#005db6] sm:text-2xl">
-                PULSE ANALYTICS
-              </p>
-              <p className="mt-0.5 truncate text-xs font-bold uppercase tracking-[0.14em] text-[#727785]">
-                {stats.equipo.nombre}
-              </p>
-            </div>
-
-            <div className="hidden min-w-[220px] max-w-xs flex-1 items-center rounded-full bg-[#f1f4f9] px-4 py-2 text-[#414754] lg:flex">
-              <Search className="mr-2 h-4 w-4" />
-              <span className="text-sm font-semibold">Buscar jugadores...</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#414754] shadow-[0_4px_10px_rgba(0,0,0,0.03)] transition hover:text-[#005db6]" type="button" aria-label="Filtrar">
-                <Filter className="h-4 w-4" />
-              </button>
-              <button className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#005db6] to-[#3176d2] px-4 py-2 text-sm font-black text-white shadow-[0_10px_20px_rgba(0,93,182,0.15)] transition hover:opacity-90" type="button">
-                <ArrowDownToLine className="h-4 w-4" />
-                Export
-              </button>
-            </div>
-          </div>
-        </header>
-
         <div className="mx-auto w-full max-w-[1920px] space-y-8 px-4 py-6 sm:px-6 lg:px-8">
           <section className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>

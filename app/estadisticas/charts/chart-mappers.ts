@@ -129,11 +129,8 @@ export function mapStatisticsToCharts({
     matches: matchData,
     attendanceRanking: normalizePlayerRanking(
       players,
-      (player) => player.asistenciasEntreno,
-      (value, player) => {
-        const pct = player.asistenciaPct === null ? '' : ` / ${Math.round(player.asistenciaPct)}%`
-        return `${formatInteger(value)} asist.${pct}`
-      },
+      (player) => player.asistenciaPct ?? 0,
+      (value, player) => `${formatInteger(value)}% / ${formatInteger(player.asistenciasEntreno)} asist.`,
       (player) => player.posicion ?? 'Jugador'
     ),
     minutesRanking: normalizePlayerRanking(

@@ -226,7 +226,8 @@ function buildRankingOption({
       formatter: (params: unknown) => {
         const item = firstParam(params)
         const row = orderedRows[item.dataIndex]
-        return `<strong>${row?.name ?? ''}</strong><br/>${formatInteger(Number(item.value))} ${unit}`
+        const formattedValue = `${formatInteger(Number(item.value))}${unit === '%' ? '%' : ` ${unit}`}`
+        return `<strong>${row?.name ?? ''}</strong><br/>${formattedValue}`
       },
       extraCssText: 'box-shadow:0 18px 40px rgba(0,93,182,0.12);border-radius:12px;',
     },
@@ -343,7 +344,7 @@ function buildAttendanceTrendOption(data: StatisticsChartsPayload['attendanceTre
 export function StatisticsCharts({ data }: StatisticsChartsProps) {
   const goalsOption = useMemo(() => buildGoalsOption(data.matches), [data.matches])
   const attendanceOption = useMemo(
-    () => buildRankingOption({ rows: data.attendanceRanking, color: CHART_COLORS.primary, unit: 'asistencias' }),
+    () => buildRankingOption({ rows: data.attendanceRanking, color: CHART_COLORS.primary, unit: '%' }),
     [data.attendanceRanking]
   )
   const minutesOption = useMemo(
@@ -371,8 +372,8 @@ export function StatisticsCharts({ data }: StatisticsChartsProps) {
       </ChartCard>
 
       <ChartCard
-        title="Training Attendance Leaders"
-        subtitle="Ranking descendente de jugadores con mas asistencias a entrenamientos."
+        title="Asistencias de entrenamiento"
+        subtitle="Ranking descendente por porcentaje de entrenamientos asistidos."
         icon={<Users className="h-5 w-5" />}
         className="lg:col-span-6"
       >
@@ -387,7 +388,7 @@ export function StatisticsCharts({ data }: StatisticsChartsProps) {
       </ChartCard>
 
       <ChartCard
-        title="Minutes Played Leaders"
+        title="minutos totales jugados"
         subtitle="Carga competitiva acumulada por jugador en partidos registrados."
         icon={<Timer className="h-5 w-5" />}
         className="lg:col-span-6"

@@ -35,6 +35,7 @@ export type RoutineExerciseRow = {
   dificultad: number | null
   material: string | null
   creado_en?: string | null
+  creado_por?: string | null
 }
 
 export type RoutineBlock = {
@@ -79,6 +80,9 @@ export type RoutineSummary = {
   likeUserIds: string[]
   cloneCount: number
   visibility: RoutineVisibility
+  creatorId: string | null
+  creatorName?: string | null
+  isOwnedByViewer?: boolean
 }
 
 export type RoutineDetail = RoutineSummary & {
@@ -258,6 +262,54 @@ function normalizeDisplayCategory(value: string | null | undefined) {
   if (value === 'TECNICO') return 'Tecnico'
   if (value === 'TACTICO') return 'Tactico'
   return value
+}
+
+function normalizeComparableTitle(value: string) {
+  return value
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .toUpperCase()
+}
+
+export function normalizeRoutineDisplayTitle(value: string, teamName?: string | null) {
+  let title = value.trim().replace(/\s+/g, ' ')
+  if (!title) return 'Rutina'
+
+  const normalizedTeam = teamName ? normalizeComparableTitle(teamName) : ''
+  if (normalizedTeam) {
+    title = title.replace(/\s+-\s+(.+)$/, (match, suffix) => (
+      normalizeComparableTitle(suffix) === normalizedTeam ? '' : match
+    ))
+  }
+
+  const parts = title
+    .split(':')
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  if (parts.length > 1) {
+    const deduped: string[] = []
+
+    for (const part of parts) {
+      const previous = deduped[deduped.length - 1]
+      if (previous && normalizeComparableTitle(previous) === normalizeComparableTitle(part)) continue
+      deduped.push(part)
+    }
+
+    while (
+      deduped.length > 1 &&
+      /^EJERCICIO DE\s+/i.test(deduped[0] ?? '') &&
+      /^EJERCICIO DE\s+/i.test(deduped[1] ?? '')
+    ) {
+      deduped.shift()
+    }
+
+    title = deduped.join(': ')
+  }
+
+  return title
 }
 
 function parseBlock(row: RoutineExerciseRow): RoutineBlock {
@@ -508,6 +560,7 @@ export function buildRoutineDetails(rows: RoutineExerciseRow[]) {
         likeUserIds,
         cloneCount,
         visibility,
+        creatorId: firstRow.creado_por ?? null,
         blocks,
       } satisfies RoutineDetail
     })
@@ -541,5 +594,8 @@ export function buildRoutineSummary(detail: RoutineDetail): RoutineSummary {
     likeUserIds: detail.likeUserIds,
     cloneCount: detail.cloneCount,
     visibility: detail.visibility,
+    creatorId: detail.creatorId,
+    creatorName: detail.creatorName,
+    isOwnedByViewer: detail.isOwnedByViewer,
   }
 }

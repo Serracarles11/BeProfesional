@@ -1,11 +1,11 @@
 ﻿'use client'
 
 import Link from 'next/link'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Bolt, Download, Dumbbell, Pencil, Star, Target } from 'lucide-react'
 import { Manrope, Plus_Jakarta_Sans } from 'next/font/google'
 import { withEquipo } from '@/app/home/utils'
-import type { RoutineBlock, RoutineDetail } from '@/lib/playmaker/routines'
+import { normalizeRoutineDisplayTitle, type RoutineBlock, type RoutineDetail } from '@/lib/playmaker/routines'
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -153,6 +153,8 @@ function buildPhaseSections(blocks: RoutineBlock[]) {
 }
 
 export default function RoutineViewClient({ equipo, routine, canEdit = true }: RoutineViewClientProps) {
+  const [isExportingPdf, setIsExportingPdf] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
   const editHref = `/play-maker/create?equipo=${encodeURIComponent(equipo.id)}&routine=${encodeURIComponent(routine.id)}`
   const backHref = withEquipo('/play-maker', equipo.id)
   const issuedAt = formatIssuedDate(routine.createdAt)
@@ -160,13 +162,49 @@ export default function RoutineViewClient({ equipo, routine, canEdit = true }: R
   const volumeLabel = `${totalVolume(routine.blocks).toLocaleString('es-ES')} kg`
   const primaryTag = getPrimaryTag(routine.category)
   const phaseSections = buildPhaseSections(routine.blocks)
+  const displayTitle = normalizeRoutineDisplayTitle(routine.title, equipo.nombre)
+
+  async function handleExportPdf() {
+    setIsExportingPdf(true)
+    setExportError(null)
+
+    try {
+      const cacheKey = Date.now()
+      const response = await fetch(
+        `/api/play-maker/routines/${encodeURIComponent(routine.id)}/pdf?equipo=${encodeURIComponent(equipo.id)}&_=${cacheKey}`,
+        { method: 'GET', cache: 'no-store' }
+      )
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null
+        throw new Error(payload?.error || 'No se pudo generar el PDF.')
+      }
+
+      const blob = await response.blob()
+      const disposition = response.headers.get('Content-Disposition') ?? ''
+      const fileNameMatch = disposition.match(/filename="([^"]+)"/)
+      const fileName = fileNameMatch?.[1] ?? `${routine.title || 'rutina'}-beprofesional.pdf`
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'No se pudo generar el PDF.')
+    } finally {
+      setIsExportingPdf(false)
+    }
+  }
 
   return (
     <div className={`${plusJakarta.variable} ${manrope.variable} min-h-screen bg-[#f1f4f9] px-6 py-6 text-[#181c20] [font-family:var(--font-manrope)] print:bg-white print:px-0 print:py-0`}>
       <style jsx global>{`
         @page {
           size: A4;
-          margin: 0;
+          margin: 12mm;
         }
       `}</style>
 
@@ -178,7 +216,7 @@ export default function RoutineViewClient({ equipo, routine, canEdit = true }: R
             </Link>
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#64748b]">Vista previa PDF</p>
-              <h1 className="text-2xl font-extrabold tracking-tight [font-family:var(--font-plus-jakarta)]">{routine.title}</h1>
+              <h1 className="text-2xl font-extrabold tracking-tight [font-family:var(--font-plus-jakarta)]">{displayTitle}</h1>
             </div>
           </div>
 
@@ -189,14 +227,20 @@ export default function RoutineViewClient({ equipo, routine, canEdit = true }: R
                 <span>Editar</span>
               </Link>
             ) : null}
-            <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl bg-[#005db6] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#004e98]">
+            <button type="button" onClick={handleExportPdf} disabled={isExportingPdf} className="inline-flex items-center gap-2 rounded-xl bg-[#005db6] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#004e98] disabled:cursor-wait disabled:opacity-70">
               <Download className="h-4 w-4" />
-              <span>Exportar PDF</span>
+              <span>{isExportingPdf ? 'Generando...' : 'Exportar PDF'}</span>
             </button>
           </div>
         </div>
 
-        <article className="mx-auto flex min-h-[297mm] w-full max-w-[210mm] flex-col overflow-hidden bg-white p-10 text-[#111827] shadow-[0_20px_50px_rgba(0,0,0,0.12)] print:min-h-0 print:max-w-none print:p-10 print:shadow-none">
+        {exportError ? (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 print:hidden">
+            {exportError}
+          </div>
+        ) : null}
+
+        <article className="mx-auto flex w-full max-w-[210mm] flex-col bg-white p-10 text-[#111827] shadow-[0_20px_50px_rgba(0,0,0,0.12)] print:max-w-none print:p-0 print:shadow-none">
           <header className="mb-9 flex items-start justify-between gap-8 border-b border-[#d8dee8] pb-7">
             <div className="max-w-2xl">
               <div className="mb-3 flex items-center gap-2">
@@ -210,7 +254,7 @@ export default function RoutineViewClient({ equipo, routine, canEdit = true }: R
 
               <h1 className="mb-2 text-[2.15rem] font-extrabold leading-tight tracking-normal text-[#111827] [font-family:var(--font-plus-jakarta)]">
                 {equipo.nombre}
-                <span className="mt-1 block text-[#005db6]">{routine.title}</span>
+                <span className="mt-1 block text-[#005db6]">{displayTitle}</span>
               </h1>
             </div>
 

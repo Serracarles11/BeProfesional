@@ -27,7 +27,7 @@ import {
 import { Manrope, Plus_Jakarta_Sans } from 'next/font/google'
 import { LeftNavigation } from '@/app/home/components/LeftNavigation'
 import { withEquipo } from '@/app/home/utils'
-import type { RoutineSummary } from '@/lib/playmaker/routines'
+import { normalizeRoutineDisplayTitle, type RoutineSummary } from '@/lib/playmaker/routines'
 import type { ExerciseCatalogSearchResult } from '@/lib/exercisedb-types'
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -1027,7 +1027,20 @@ export default function TrainingAssistantClient({
 }
 
 function splitDisplayTitle(value: string) {
-  const words = value.trim().split(/\s+/).filter(Boolean)
+  const normalized = value.trim().replace(/\s+/g, ' ')
+  const separatorIndex = normalized.indexOf(':')
+
+  if (separatorIndex > 0) {
+    const first = normalized.slice(0, separatorIndex + 1).trim()
+    const second = normalized.slice(separatorIndex + 1).trim()
+
+    return {
+      first: first || 'Rutina',
+      second: second.split(/\s+/).filter(Boolean).slice(0, 10).join(' ') || 'Entrenamiento',
+    }
+  }
+
+  const words = normalized.split(/\s+/).filter(Boolean).slice(0, 14)
   if (words.length <= 2) {
     return {
       first: words.join(' ') || 'Rutina',
@@ -1081,9 +1094,13 @@ function RoutineDarkCard({
   canSend: boolean
   onSend: () => void
 }) {
-  const title = splitDisplayTitle(routine.title)
+  const displayTitle = normalizeRoutineDisplayTitle(routine.title)
+  const title = splitDisplayTitle(displayTitle)
   const badge = category === 'Rehabilitacion' ? 'REHAB' : category === 'Estiramientos' ? 'MOVILIDAD' : 'RENDIMIENTO'
   const accent = getRoutineAccent(category)
+  const ownerLabel = routine.isOwnedByViewer
+    ? 'Tu ejercicio'
+    : `Compartido por ${routine.creatorName?.trim() || 'Usuario'}`
 
   return (
     <article className="group flex min-h-[560px] flex-col rounded-md bg-[#111820] p-8 text-white shadow-[0_24px_60px_rgba(15,23,42,0.18)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_32px_72px_rgba(15,23,42,0.24)]">
@@ -1102,13 +1119,13 @@ function RoutineDarkCard({
         </button>
       </div>
 
-      <h3 className="mb-5 max-w-[18rem] text-[2.05rem] font-black uppercase italic leading-[0.94] tracking-normal [font-family:var(--font-plus-jakarta)]">
+      <h3 className="mb-4 max-h-[8.25rem] max-w-[18rem] overflow-hidden text-[1.5rem] font-black uppercase italic leading-[0.98] tracking-normal [font-family:var(--font-plus-jakarta)]" title={displayTitle}>
         <span className="block text-white">{title.first}</span>
         <span className={`block ${accent.textClass}`}>{title.second}</span>
       </h3>
 
-      <p className="mb-9 max-w-[19rem] text-base font-semibold leading-relaxed text-white/78">
-        {routine.description || routine.phase || 'Rutina conectada a tu biblioteca del equipo.'}
+      <p className="mb-9 max-w-[19rem] truncate text-xs font-black uppercase tracking-widest text-white/48">
+        {ownerLabel}
       </p>
 
       <div className="mt-auto space-y-6">
@@ -1411,6 +1428,10 @@ function ExerciseCommunityCard({
 }) {
   const category = resolveCategory(routine)
   const cloneHref = withEquipo(`/play-maker/guardar?routine=${encodeURIComponent(routine.id)}`, equipoId)
+  const displayTitle = normalizeRoutineDisplayTitle(routine.title)
+  const ownerLabel = routine.isOwnedByViewer
+    ? 'Tu ejercicio'
+    : `Compartido por ${routine.creatorName?.trim() || 'Usuario'}`
 
   return (
     <article className="group overflow-hidden rounded-[22px] bg-white shadow-[0_18px_35px_rgba(0,93,182,0.04)] ring-1 ring-[#e8edf5] transition hover:-translate-y-0.5 hover:shadow-[0_24px_50px_rgba(0,93,182,0.10)]">
@@ -1454,17 +1475,16 @@ function ExerciseCommunityCard({
               {difficultyLabel(routine.difficulty)} · {routine.duration} min
             </p>
             <h4 className="mt-2 line-clamp-2 text-xl font-black tracking-tight text-[#181c20] [font-family:var(--font-plus-jakarta)]">
-              {routine.title}
+              {displayTitle}
             </h4>
+            <p className="mt-2 max-w-[13rem] truncate text-[10px] font-black uppercase tracking-[0.16em] text-[#727785]">
+              {ownerLabel}
+            </p>
           </div>
           <span className="shrink-0 rounded-full bg-[#d6e3ff] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#00468c]">
             Publico
           </span>
         </div>
-
-        <p className="line-clamp-3 min-h-[60px] text-sm font-semibold leading-relaxed text-[#5f6776]">
-          {routine.description || routine.objective || 'Ejercicio compartido para que otros equipos puedan verlo y reutilizarlo.'}
-        </p>
 
         <div className="mt-6 flex items-center justify-between border-y border-[#eef1f6] py-4 text-[#727785]">
           <div className="flex items-center gap-2">

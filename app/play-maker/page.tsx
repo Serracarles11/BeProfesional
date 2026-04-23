@@ -58,6 +58,28 @@ function isCoachRole(role: string | null | undefined) {
   return normalized.includes('ENTREN') || normalized.includes('COACH') || normalized === 'ADMIN'
 }
 
+async function loadProfileNames(
+  supabase: Awaited<ReturnType<typeof createSupabaseServer>>,
+  ids: string[]
+) {
+  const uniqueIds = [...new Set(ids.filter(Boolean))]
+  if (uniqueIds.length === 0) return new Map<string, string>()
+
+  const result = await supabase
+    .from('perfiles')
+    .select('id, nombre')
+    .in('id', uniqueIds)
+
+  if (result.error) return new Map<string, string>()
+
+  return new Map(
+    (result.data ?? []).map((row) => [
+      String(row.id),
+      typeof row.nombre === 'string' && row.nombre.trim() ? row.nombre.trim() : 'Usuario',
+    ])
+  )
+}
+
 export default async function PlayMakerPage({
   searchParams,
 }: {
@@ -136,17 +158,30 @@ export default async function PlayMakerPage({
   const publicExercisesResult = admin
     ? await admin
         .from('ejercicios')
-        .select('id, nombre, descripcion, tipo, objetivo, duracion_estimada_min, dificultad, material, creado_en')
+        .select('id, nombre, descripcion, tipo, objetivo, duracion_estimada_min, dificultad, material, creado_en, creado_por')
         .order('creado_en', { ascending: false })
         .limit(300)
     : { data: [], error: null }
 
-  publicRoutines = buildRoutineDetails((publicExercisesResult.data ?? []) as RoutineExerciseRow[])
+  const publicRoutineDetails = buildRoutineDetails((publicExercisesResult.data ?? []) as RoutineExerciseRow[])
+  const publicCreatorNames = await loadProfileNames(
+    supabase,
+    publicRoutineDetails.map((routine) => routine.creatorId ?? '')
+  )
+
+  publicRoutines = publicRoutineDetails
     .map((detail) => {
       const summary = buildRoutineSummary(detail)
+      const isOwnedByViewer = summary.creatorId === userId
       return {
         ...summary,
         likedByViewer: summary.likeUserIds.includes(userId),
+        creatorName: isOwnedByViewer
+          ? playerName
+          : summary.creatorId
+            ? publicCreatorNames.get(summary.creatorId) ?? 'Usuario'
+            : 'Usuario',
+        isOwnedByViewer,
       }
     })
     .filter((routine) => routine.visibility === 'public')
@@ -154,7 +189,7 @@ export default async function PlayMakerPage({
   if (activeTeam) {
     const exercisesQuery = supabase
       .from('ejercicios')
-      .select('id, nombre, descripcion, tipo, objetivo, duracion_estimada_min, dificultad, material, creado_en')
+      .select('id, nombre, descripcion, tipo, objetivo, duracion_estimada_min, dificultad, material, creado_en, creado_por')
       .eq('equipo_id', activeTeam.id)
       .eq('creado_por', userId)
       .order('creado_en', { ascending: false })
@@ -168,6 +203,8 @@ export default async function PlayMakerPage({
       return {
         ...summary,
         likedByViewer: summary.likeUserIds.includes(userId),
+        creatorName: playerName,
+        isOwnedByViewer: true,
       }
     })
 
