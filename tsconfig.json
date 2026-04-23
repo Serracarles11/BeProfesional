@@ -13,12 +13,19 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
+    "baseUrl": ".",
     "plugins": [
       {
         "name": "next"
       }
     ],
     "paths": {
+      "@/backend/*": ["./src/backend/*"],
+      "@/frontend/*": ["./src/frontend/*"],
+      "@/app/*": ["./src/frontend/routes/*"],
+      "@/components/*": ["./src/frontend/components/*"],
+      "@/lib/utils": ["./src/frontend/utils"],
+      "@/lib/*": ["./src/backend/*"],
       "@/*": ["./*"]
     }
   },
