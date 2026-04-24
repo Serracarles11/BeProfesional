@@ -5,7 +5,7 @@ import { useState, type ReactNode } from 'react'
 import { Bolt, Download, Dumbbell, Pencil, Star, Target } from 'lucide-react'
 import { Manrope, Plus_Jakarta_Sans } from 'next/font/google'
 import { withEquipo } from '@/app/home/utils'
-import { normalizeRoutineDisplayTitle, type RoutineBlock, type RoutineDetail } from '@/lib/playmaker/routines'
+import { normalizeRoutineDisplayTitle, splitRoutineDetailText, type RoutineBlock, type RoutineDetail } from '@/lib/playmaker/routines'
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -66,33 +66,21 @@ function getBlockTag(block: RoutineBlock) {
   return 'Technical'
 }
 
-function splitDetailText(value: string) {
-  const normalized = value.trim()
-  if (!normalized) return []
-
-  const items = normalized
-    .split(/\r?\n|[.;](?=\s|$)/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-
-  return items.length > 0 ? items : [normalized]
-}
-
 function buildDetailSections(block: RoutineBlock) {
   return [
     {
       title: 'Objetivo',
-      items: splitDetailText(block.purpose),
+      items: splitRoutineDetailText(block.purpose),
       tone: 'primary' as const,
     },
     {
       title: 'Montaje',
-      items: splitDetailText(block.setup),
+      items: splitRoutineDetailText(block.setup),
       tone: 'neutral' as const,
     },
     {
       title: 'Consignas',
-      items: splitDetailText(block.instructions),
+      items: splitRoutineDetailText(block.instructions),
       tone: 'primary' as const,
     },
     {
@@ -102,12 +90,12 @@ function buildDetailSections(block: RoutineBlock) {
     },
     {
       title: 'Progresion o variante',
-      items: splitDetailText(block.progression),
+      items: splitRoutineDetailText(block.progression),
       tone: 'muted' as const,
     },
     {
       title: 'Notas',
-      items: splitDetailText(block.notes),
+      items: splitRoutineDetailText(block.notes),
       tone: 'muted' as const,
     },
   ].filter((section) => section.items.length > 0)
@@ -126,7 +114,9 @@ function totalVolume(blocks: RoutineBlock[]) {
   }, 0)
 }
 
-function imageForBlock(routine: RoutineDetail, index: number) {
+function imageForBlock(routine: RoutineDetail, block: RoutineBlock, index: number) {
+  const exerciseMedia = block.exerciseData?.gifUrl ?? block.exerciseData?.imageUrl
+  if (exerciseMedia) return exerciseMedia
   if (routine.imageUrls.length === 0) return null
   return routine.imageUrls[index % routine.imageUrls.length] ?? null
 }
@@ -290,7 +280,7 @@ export default function RoutineViewClient({ equipo, routine, canEdit = true }: R
 
                 {section.blocks.map((block) => {
                   const globalIndex = routine.blocks.findIndex((candidate) => candidate.rowId === block.rowId)
-                  const imageUrl = imageForBlock(routine, globalIndex === -1 ? 0 : globalIndex)
+                  const imageUrl = imageForBlock(routine, block, globalIndex === -1 ? 0 : globalIndex)
                   const detailSections = buildDetailSections(block)
                   const borderColor = globalIndex % 2 === 0 ? 'border-[#005db6]' : 'border-[#759efd]'
 

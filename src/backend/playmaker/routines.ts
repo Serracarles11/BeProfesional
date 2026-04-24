@@ -243,8 +243,78 @@ function pickLine(description: string, label: string) {
 function splitCoachingPoints(value: string) {
   return value
     .split(/\r?\n|[.;](?=\s|$)/)
-    .map((item) => item.replace(/^[-*•]\s*/, '').trim())
+    .map((item) => item.replace(/^[-*\u2022]\s*/, '').trim())
     .filter(Boolean)
+}
+
+function normalizeDetailSource(value: string) {
+  return value
+    .replace(/\r\n/g, '\n')
+    .replace(/\u2022|\u00e2\u20ac\u00a2/g, '-')
+    .replace(/\u2013|\u2014/g, '-')
+    .replace(/(^|\s)-\s*(\d+)\s*-\s*/g, '$1\n$2\n')
+    .replace(/(^|\s)(\d+)[.)]\s+/g, '$1\n$2\n')
+    .replace(/(^|\s)(\d+)\s*-\s+/g, '$1\n$2\n')
+    .trim()
+}
+
+function cleanDetailToken(value: string) {
+  return value.replace(/^\s*[-*]+\s*/, '').trim()
+}
+
+function stripDetailNumber(value: string) {
+  return value.replace(/^\d+[.)-]\s*/, '').trim()
+}
+
+function isDetailLabel(value: string) {
+  return /^(consignas|instrucciones|puntos clave|puntos de coaching|montaje|objetivo|notas|progresion|progresion o variante):?$/i.test(value)
+}
+
+export function splitRoutineDetailText(value: string) {
+  const normalized = normalizeDetailSource(value)
+  if (!normalized) return []
+
+  const tokens = normalized
+    .split(/\n|;(?=\s|$)/)
+    .map(cleanDetailToken)
+    .filter(Boolean)
+
+  const items: string[] = []
+
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index] ?? ''
+    if (!token || /^[-*]+$/.test(token) || isDetailLabel(token)) continue
+
+    const numberMatch = token.match(/^(\d+)[.)]?$/)
+    if (numberMatch) {
+      let nextIndex = index + 1
+      let nextToken = ''
+
+      while (nextIndex < tokens.length) {
+        const candidate = tokens[nextIndex] ?? ''
+        if (candidate && !/^[-*]+$/.test(candidate) && !isDetailLabel(candidate)) {
+          nextToken = candidate
+          break
+        }
+        nextIndex += 1
+      }
+
+      if (nextToken && !/^\d+[.)]?$/.test(nextToken)) {
+        items.push(`${numberMatch[1]}. ${stripDetailNumber(nextToken)}`)
+        index = nextIndex
+      }
+      continue
+    }
+
+    const text = stripDetailNumber(token)
+    if (text) items.push(text)
+  }
+
+  return items.length > 0 ? items : [value.trim()]
+}
+
+export function normalizeRoutineDetailText(value: string) {
+  return splitRoutineDetailText(value).join('\n')
 }
 
 function toNumber(value: string) {

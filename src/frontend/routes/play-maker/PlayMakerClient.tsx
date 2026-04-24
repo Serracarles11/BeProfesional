@@ -776,84 +776,113 @@ export default function TrainingAssistantClient({
                 </div>
               </>
             ) : activeTab === 'AI_COACH' ? (
-              <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1.4fr_0.9fr]">
-                <section className="overflow-hidden rounded-[28px] bg-white shadow-[0_20px_40px_rgba(0,93,182,0.06)]">
-                  <div className="border-b border-[#dfe3e8]/60 px-8 py-8">
-                    <div className="mb-2 flex items-center gap-2 text-[#005db6]">
-                      <Sparkles className="h-5 w-5" />
-                      <span className="text-sm font-bold uppercase tracking-[0.18em]">AI Coach Integrado</span>
-                    </div>
-                    <h3 className="text-3xl font-extrabold tracking-tight text-[#181c20] [font-family:var(--font-plus-jakarta)]">
-                      Genera la rutina dentro del creador real
-                    </h3>
-                    <p className="mt-2 max-w-2xl text-sm font-medium text-slate-500">
-                      La generacion por IA ahora vive en el creador de rutinas. La IA construye una sesion completa, la deja editable y mantiene el contexto para que puedas seguir refinandola antes de guardar.
-                    </p>
-                  </div>
-
-                  <div className="grid gap-8 px-8 py-8 lg:grid-cols-[1.1fr_0.9fr]">
-                    <div className="space-y-6">
-                      <div className="rounded-[24px] border border-[#dbe7ff] bg-[linear-gradient(135deg,rgba(26,115,232,0.08),rgba(255,255,255,0.98))] p-6">
-                        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#1A73E8]">Flujo real</p>
-                        <div className="mt-4 space-y-4 text-sm text-[#334155]">
-                          <p>1. Pides una sesion completa a la IA.</p>
-                          <p>2. La rutina aparece en el creador con fases, bloques y detalles editables.</p>
-                          <p>3. Sigues chateando para ajustar intensidad, duracion, jugadores o ejercicios concretos.</p>
-                          <p>4. Guardas la rutina como una normal. Si viene de IA, se muestra como <strong>Hecha por IA</strong>.</p>
-                        </div>
+              <div className="space-y-6">
+                {/* Hero */}
+                <section className="relative overflow-hidden rounded-[32px] bg-[#0c1524] shadow-[0_30px_60px_rgba(0,0,0,0.24)]">
+                  <div className="pointer-events-none absolute -left-40 -top-40 h-[480px] w-[480px] rounded-full bg-[#1A73E8] opacity-[0.07] blur-[80px]" />
+                  <div className="pointer-events-none absolute -bottom-24 right-8 h-[300px] w-[300px] rounded-full bg-[#0056b3] opacity-[0.09] blur-[60px]" />
+                  <div className="relative z-10 grid gap-0 lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_360px]">
+                    <div className="px-8 py-10 lg:px-12 lg:py-12">
+                      <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#1A73E8]/30 bg-[#1A73E8]/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-[#60a5fa]">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        AI Coach Integrado
                       </div>
-
-                      <div>
-                        <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#727785]">Prompts rapidos</p>
+                      <h2 className="text-[2.4rem] font-black leading-[1.06] tracking-tight text-white [font-family:var(--font-plus-jakarta)] lg:text-5xl">
+                        Genera rutinas<br /><span className="text-[#60a5fa]">con inteligencia</span>
+                      </h2>
+                      <p className="mt-4 max-w-lg text-sm font-medium leading-relaxed text-slate-400">
+                        La IA construye una sesion completa dentro del creador de rutinas, la deja editable y mantiene el contexto para que puedas seguir refinandola antes de guardar.
+                      </p>
+                      <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                        {[
+                          { step: '01', text: 'Pide la sesion con un prompt o chip rapido' },
+                          { step: '02', text: 'Rutina con fases y bloques editables aparece en el creador' },
+                          { step: '03', text: 'Refina chateando: intensidad, duracion, ejercicios' },
+                          { step: '04', text: 'Guarda como rutina normal, marcada como hecha por IA' },
+                        ].map(({ step, text }) => (
+                          <div key={step} className="flex items-start gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.04] p-4">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#1A73E8]/20 text-[11px] font-black text-[#60a5fa]">
+                              {step}
+                            </span>
+                            <p className="text-[13px] font-semibold leading-snug text-slate-300">{text}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-8">
+                        <p className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Prompts rapidos</p>
                         <div className="flex flex-wrap gap-2">
                           {suggestionChips.map((chip) => (
-                            <Link key={chip} href={aiCreateHref} className="rounded-full border border-[#005db6]/20 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-[#005db6] transition-all hover:bg-[#005db6] hover:text-white">
+                            <Link
+                              key={chip}
+                              href={aiCreateHref}
+                              className="rounded-full border border-[#1A73E8]/25 bg-[#1A73E8]/10 px-4 py-2.5 text-[11px] font-bold tracking-wide text-[#60a5fa] transition-all hover:border-[#1A73E8]/55 hover:bg-[#1A73E8]/20 hover:shadow-[0_0_20px_rgba(26,115,232,0.18)]"
+                            >
                               {chip}
                             </Link>
                           ))}
                         </div>
                       </div>
                     </div>
-
-                    <div className="space-y-6">
-                      <div className="rounded-[24px] bg-gradient-to-br from-[#005db6] to-[#2b5bb5] p-7 text-white shadow-xl shadow-blue-900/20">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-100">Rutina editable con IA</p>
-                        <h4 className="mt-3 text-2xl font-extrabold tracking-tight [font-family:var(--font-plus-jakarta)]">Lista para generar, ajustar y guardar</h4>
-                        <div className="mt-6 grid grid-cols-3 gap-4">
-                          <AiStat label="Duration" value={`${previewDuration || 0} MIN`} />
-                          <AiStat label="Volume" value={previewVolume} bordered />
-                          <AiStat label="Intensity" value={previewIntensity} />
+                    <div className="flex items-center justify-center p-6 lg:p-8">
+                      <div className="w-full max-w-xs rounded-[28px] bg-gradient-to-br from-[#1A73E8] via-[#1258c4] to-[#0b3a8a] p-7 shadow-[0_0_50px_rgba(26,115,232,0.28),inset_0_1px_0_rgba(255,255,255,0.1)]">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-200/80">Sesion generada con IA</p>
+                        <h4 className="mt-3 text-2xl font-black leading-tight text-white [font-family:var(--font-plus-jakarta)]">Lista para generar y guardar</h4>
+                        <div className="mt-6 grid grid-cols-3 gap-3 border-y border-white/10 py-5">
+                          <AiStat label="Min" value={`${previewDuration || 0}`} />
+                          <AiStat label="Vol" value={previewVolume.split(' ')[0]} bordered />
+                          <AiStat label="Int" value={previewIntensity} />
                         </div>
-                        <Link href={aiCreateHref} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-4 text-xs font-bold uppercase tracking-widest text-[#005db6] transition hover:bg-[#e8f0fe]">
+                        <Link
+                          href={aiCreateHref}
+                          className="mt-6 flex items-center justify-center gap-2 rounded-2xl bg-white py-4 text-[11px] font-black uppercase tracking-widest text-[#1A73E8] transition hover:bg-blue-50 hover:shadow-lg"
+                        >
                           <Sparkles className="h-4 w-4" />
-                          <span>Abrir creador con IA</span>
+                          Abrir creador con IA
                         </Link>
                       </div>
-
-                      <div className="rounded-[24px] bg-white p-6 shadow-[0_20px_40px_rgba(0,93,182,0.06)]">
-                        <h5 className="mb-6 px-2 text-xs font-bold uppercase tracking-widest text-slate-400">Biblioteca disponible para la IA</h5>
-                        <div className="space-y-4">
-                          {previewRoutines.length > 0 ? (
-                            previewRoutines.map((routine) => (
-                              <div key={routine.id} className="group flex items-center gap-4 rounded-2xl p-3 transition-colors hover:bg-[#f1f4f9]">
-                                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#d6e3ff] to-[#ebeef3] text-[#005db6]">
-                                  <Dumbbell className="h-6 w-6" />
-                                </div>
-                                <div className="flex-1">
-                                  <p className="text-sm font-bold text-[#181c20]">{routine.title}</p>
-                                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{routine.blockCount} bloques x {routine.duration ?? 10} min</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-xs font-bold text-[#005db6]">{routine.category || difficultyLabel(routine.difficulty)}</p>
-                                </div>
-                              </div>
-                            ))
-                          ) : (
-                            <EmptyState title="Sin biblioteca" description="Carga rutinas para que la IA tenga mas contexto al generar nuevas sesiones." compact />
-                          )}
-                        </div>
-                      </div>
                     </div>
+                  </div>
+                </section>
+
+                {/* Library panel */}
+                <section className="rounded-[28px] bg-white p-8 shadow-[0_20px_40px_rgba(0,93,182,0.06)]">
+                  <div className="mb-6 flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Contexto para la IA</p>
+                      <h3 className="mt-1 text-2xl font-extrabold tracking-tight text-[#181c20] [font-family:var(--font-plus-jakarta)]">Biblioteca disponible</h3>
+                    </div>
+                    <Link
+                      href={withEquipo('/play-maker/create', equipo?.id)}
+                      className="flex items-center gap-2 rounded-xl border border-[#e8edf5] px-4 py-2.5 text-xs font-black uppercase tracking-widest text-[#44474E] transition hover:border-[#1A73E8]/30 hover:bg-[#f0f6ff] hover:text-[#1A73E8]"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Nueva
+                    </Link>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    {previewRoutines.length > 0 ? (
+                      previewRoutines.map((routine) => (
+                        <div
+                          key={routine.id}
+                          className="group flex flex-col gap-3 rounded-2xl border border-[#e8edf5] bg-[#f7f9fe] p-4 transition-all hover:border-[#1A73E8]/30 hover:bg-white hover:shadow-[0_8px_24px_rgba(26,115,232,0.08)]"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#d6e3ff] text-[#005db6]">
+                              <Dumbbell className="h-5 w-5" />
+                            </div>
+                            <span className="rounded-full bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[#727785] shadow-sm ring-1 ring-[#e8edf5]">
+                              {routine.category || difficultyLabel(routine.difficulty)}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="line-clamp-2 text-sm font-bold leading-tight text-[#181c20]">{routine.title}</p>
+                            <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">{routine.blockCount} bloques · {routine.duration ?? 10} min</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <EmptyState title="Sin biblioteca" description="Carga rutinas para que la IA tenga mas contexto al generar nuevas sesiones." compact />
+                    )}
                   </div>
                 </section>
               </div>
@@ -1521,29 +1550,92 @@ function HeroStat({ label, value }: { label: string; value: string }) {
 }
 
 function TacticalExercisePreview({ compact = false, variant = 0 }: { compact?: boolean; variant?: number }) {
-  const homeColor = variant === 1 ? 'bg-[#ffe170]' : 'bg-[#60a5fa]'
-  const awayColor = variant === 2 ? 'bg-[#22c55e]' : 'bg-white'
+  const homeColor = variant === 1 ? '#fde047' : '#60a5fa'
+  const homeBorder = variant === 1 ? '#a16207' : '#1e40af'
+  const awayColor = variant === 2 ? '#4ade80' : '#f8fafc'
+  const awayBorder = variant === 2 ? '#166534' : '#64748b'
+  const arrowYellowId = `ay${variant}`
+  const arrowBlueId = `ab${variant}`
 
   return (
-    <div className={`relative h-full w-full overflow-hidden bg-[#167a4a] ${compact ? 'p-5' : 'p-8'}`}>
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:42px_42px]" />
-      <div className="relative h-full w-full rounded-2xl border-2 border-white/70">
-        <div className="absolute left-1/2 top-0 h-full w-px bg-white/60" />
-        <div className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/60" />
-        <div className="absolute left-0 top-1/2 h-28 w-16 -translate-y-1/2 border-y-2 border-r-2 border-white/60" />
-        <div className="absolute right-0 top-1/2 h-28 w-16 -translate-y-1/2 border-y-2 border-l-2 border-white/60" />
-
-        <span className={`absolute left-[22%] top-[28%] h-4 w-4 rounded-full border-2 border-white shadow-lg ${homeColor}`} />
-        <span className={`absolute left-[30%] top-[50%] h-4 w-4 rounded-full border-2 border-white shadow-lg ${homeColor}`} />
-        <span className={`absolute left-[22%] top-[70%] h-4 w-4 rounded-full border-2 border-white shadow-lg ${homeColor}`} />
-        <span className={`absolute right-[25%] top-[35%] h-4 w-4 rounded-full border-2 border-[#0f172a]/20 shadow-lg ${awayColor}`} />
-        <span className={`absolute right-[34%] top-[58%] h-4 w-4 rounded-full border-2 border-[#0f172a]/20 shadow-lg ${awayColor}`} />
-
-        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" aria-hidden="true">
-          <path d="M30 50 C42 42, 51 39, 66 35" fill="none" stroke="rgba(255,225,112,0.9)" strokeDasharray="4 4" strokeWidth="1.8" />
-          <path d="M30 50 C42 60, 52 64, 66 58" fill="none" stroke="rgba(214,227,255,0.85)" strokeWidth="1.8" />
-        </svg>
-      </div>
+    <div
+      className={`relative h-full w-full overflow-hidden ${compact ? 'p-3' : 'p-5'}`}
+      style={{ background: 'linear-gradient(175deg,#1e7a4e 0%,#166a42 50%,#1e7a4e 100%)' }}
+    >
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ backgroundImage: 'repeating-linear-gradient(90deg,rgba(0,0,0,0.035) 0px,rgba(0,0,0,0.035) 55px,transparent 55px,transparent 110px)' }}
+      />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:38px_38px]" />
+      <svg
+        className="absolute inset-0 h-full w-full"
+        viewBox="0 0 120 78"
+        aria-hidden="true"
+        preserveAspectRatio="none"
+      >
+        <defs>
+          <marker id={arrowYellowId} markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+            <path d="M0,0.5 L4.5,2.5 L0,4.5 Z" fill="rgba(253,224,71,0.95)" />
+          </marker>
+          <marker id={arrowBlueId} markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+            <path d="M0,0.5 L4.5,2.5 L0,4.5 Z" fill="rgba(196,220,255,0.9)" />
+          </marker>
+        </defs>
+        {/* Field border */}
+        <rect x="1.5" y="1.5" width="117" height="75" rx="1.5" fill="none" stroke="rgba(255,255,255,0.72)" strokeWidth="1.1" />
+        {/* Center line */}
+        <line x1="60" y1="1.5" x2="60" y2="76.5" stroke="rgba(255,255,255,0.5)" strokeWidth="0.8" />
+        {/* Center circle */}
+        <circle cx="60" cy="39" r="9" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="0.8" />
+        <circle cx="60" cy="39" r="0.9" fill="rgba(255,255,255,0.8)" />
+        {/* Left penalty area */}
+        <rect x="1.5" y="24" width="18" height="30" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="0.8" />
+        {/* Left 6-yard box */}
+        <rect x="1.5" y="31" width="8" height="16" fill="none" stroke="rgba(255,255,255,0.42)" strokeWidth="0.7" />
+        {/* Left goal */}
+        <rect x="-0.5" y="33.5" width="2.8" height="11" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.82)" strokeWidth="0.8" />
+        {/* Left penalty spot */}
+        <circle cx="13.5" cy="39" r="0.75" fill="rgba(255,255,255,0.75)" />
+        {/* Left penalty arc */}
+        <path d="M19.5 33 A7.5 7.5 0 0 0 19.5 45" fill="none" stroke="rgba(255,255,255,0.38)" strokeWidth="0.7" />
+        {/* Right penalty area */}
+        <rect x="100.5" y="24" width="18" height="30" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="0.8" />
+        {/* Right 6-yard box */}
+        <rect x="110.5" y="31" width="8" height="16" fill="none" stroke="rgba(255,255,255,0.42)" strokeWidth="0.7" />
+        {/* Right goal */}
+        <rect x="117.7" y="33.5" width="2.8" height="11" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.82)" strokeWidth="0.8" />
+        {/* Right penalty spot */}
+        <circle cx="106.5" cy="39" r="0.75" fill="rgba(255,255,255,0.75)" />
+        {/* Right penalty arc */}
+        <path d="M100.5 33 A7.5 7.5 0 0 1 100.5 45" fill="none" stroke="rgba(255,255,255,0.38)" strokeWidth="0.7" />
+        {/* Corner arcs */}
+        <path d="M1.5 6 A4.5 4.5 0 0 0 6 1.5" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="0.7" />
+        <path d="M114 1.5 A4.5 4.5 0 0 0 118.5 6" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="0.7" />
+        <path d="M118.5 72 A4.5 4.5 0 0 0 114 76.5" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="0.7" />
+        <path d="M6 76.5 A4.5 4.5 0 0 0 1.5 72" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="0.7" />
+        {/* Movement arrows */}
+        <path d="M36 39 C44 32,53 29,68 26" fill="none" stroke="rgba(253,224,71,0.88)" strokeDasharray="4.5 3" strokeWidth="1.5" markerEnd={`url(#${arrowYellowId})`} />
+        <path d="M36 39 C44 47,54 51,70 55" fill="none" stroke="rgba(196,220,255,0.82)" strokeWidth="1.5" markerEnd={`url(#${arrowBlueId})`} />
+        <path d="M54 20 C57 27,58 33,57 39" fill="none" stroke="rgba(255,255,255,0.32)" strokeDasharray="3 3" strokeWidth="1" />
+        {/* Home team */}
+        <circle cx="7" cy="39" r="3.2" fill={homeColor} stroke={homeBorder} strokeWidth="1.2" />
+        <circle cx="27" cy="21" r="3.2" fill={homeColor} stroke={homeBorder} strokeWidth="1.2" />
+        <circle cx="29" cy="34" r="3.2" fill={homeColor} stroke={homeBorder} strokeWidth="1.2" />
+        <circle cx="29" cy="46" r="3.2" fill={homeColor} stroke={homeBorder} strokeWidth="1.2" />
+        <circle cx="27" cy="59" r="3.2" fill={homeColor} stroke={homeBorder} strokeWidth="1.2" />
+        <circle cx="44" cy="27" r="3.2" fill={homeColor} stroke={homeBorder} strokeWidth="1.2" />
+        <circle cx="46" cy="41" r="3.2" fill={homeColor} stroke={homeBorder} strokeWidth="1.2" />
+        {/* Away team */}
+        <circle cx="113" cy="39" r="3.2" fill={awayColor} stroke={awayBorder} strokeWidth="1.2" />
+        <circle cx="87" cy="25" r="3.2" fill={awayColor} stroke={awayBorder} strokeWidth="1.2" />
+        <circle cx="89" cy="40" r="3.2" fill={awayColor} stroke={awayBorder} strokeWidth="1.2" />
+        <circle cx="87" cy="55" r="3.2" fill={awayColor} stroke={awayBorder} strokeWidth="1.2" />
+        <circle cx="73" cy="32" r="3.2" fill={awayColor} stroke={awayBorder} strokeWidth="1.2" />
+        <circle cx="75" cy="52" r="3.2" fill={awayColor} stroke={awayBorder} strokeWidth="1.2" />
+        {/* Ball */}
+        <circle cx="58" cy="38" r="2.4" fill="white" stroke="#4b5563" strokeWidth="0.8" />
+        <path d="M56.5 36.8 L58 35.5 L59.5 36.8 L59.2 38.6 L56.8 38.6 Z" fill="#374151" opacity="0.22" />
+      </svg>
     </div>
   )
 }

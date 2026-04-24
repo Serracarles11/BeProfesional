@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
@@ -10,7 +10,6 @@ import {
   Grip,
   ImagePlus,
   Loader2,
-  Pencil,
   Plus,
   RotateCcw,
   Save,
@@ -29,7 +28,6 @@ import {
   type RoutineDetail,
   type RoutineEditorBlock,
   type RoutineEditorDraft,
-  type RoutineOrigin,
   mergeRoutineBlockWithExerciseData,
 } from '@/lib/playmaker/routines'
 import type { ExerciseCatalogSearchResult, ExerciseDbEnrichment } from '@/lib/exercisedb-types'
@@ -95,7 +93,7 @@ function createInitialDraft(
     ...normalized,
     title: initialExercise?.name ? `Rutina - ${initialExercise.name}` : normalized.title,
     objective: initialExercise?.overview || normalized.objective,
-    imageUrls: initialExercise?.imageUrl || initialExercise?.gifUrl ? [initialExercise.imageUrl ?? initialExercise.gifUrl ?? ''] : normalized.imageUrls,
+    imageUrls: initialExercise?.gifUrl || initialExercise?.imageUrl ? [initialExercise.gifUrl ?? initialExercise.imageUrl ?? ''] : normalized.imageUrls,
     blocks: [initialExercise ? mergeRoutineBlockWithExerciseData(firstBlock, initialExercise) : firstBlock],
   }
 }
@@ -105,35 +103,14 @@ function createInitialImages(
   initialExercise: ExerciseDbEnrichment | null | undefined
 ): UploadedImage[] {
   const routineImages = (initialRoutine?.imageUrls ?? []).map((url, index) => ({ id: `${index}-${url}`, url, name: `imagen-${index + 1}` }))
-  const exerciseImage = initialExercise?.imageUrl ?? initialExercise?.gifUrl
+  const exerciseImage = initialExercise?.gifUrl ?? initialExercise?.imageUrl
   if (!initialExercise || !exerciseImage) return routineImages
   return [...routineImages, { id: `${initialExercise.exerciseId}-${exerciseImage}`, url: exerciseImage, name: initialExercise.name }]
-}
-
-function toDifficulty(category: TrainingCategory, origin: RoutineOrigin) {
-  if (origin === 'ai') return 4
-  if (category === 'RECUPERACION') return 2
-  if (category === 'RESISTENCIA') return 3
-  if (category === 'FUERZA') return 4
-  return 5
-}
-
-function displayCategory(category: TrainingCategory, origin: RoutineOrigin) {
-  if (origin === 'ai') return 'Hecha por IA'
-  if (category === 'FUERZA') return 'Fuerza'
-  if (category === 'POTENCIA') return 'Potencia'
-  if (category === 'RESISTENCIA') return 'Resistencia'
-  return 'Recuperacion'
 }
 
 function normalizeCategory(value: string): TrainingCategory {
   if (value === 'FUERZA' || value === 'POTENCIA' || value === 'RESISTENCIA' || value === 'RECUPERACION') return value
   return 'POTENCIA'
-}
-
-function parseMinutes(value: string) {
-  const n = Number(value)
-  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0
 }
 
 function coachingPointsToText(value: string[]) {
@@ -212,23 +189,6 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
   const [isCatalogLoading, setIsCatalogLoading] = useState(false)
   const [catalogError, setCatalogError] = useState<string | null>(null)
   const [applyingCatalogId, setApplyingCatalogId] = useState<string | null>(null)
-
-  const summary = useMemo(() => {
-    const validBlocks = draft.blocks.filter((block) => block.name.trim())
-    const estimatedMinutes = validBlocks.reduce((acc, block) => acc + parseMinutes(block.duration), 0)
-    const totalLoad = validBlocks.reduce((acc, block) => {
-      const sets = Number(block.sets)
-      const load = Number(block.load)
-      if (!Number.isFinite(sets) || !Number.isFinite(load)) return acc
-      return acc + sets * load
-    }, 0)
-    return {
-      count: validBlocks.length,
-      estimatedMinutes,
-      totalLoad,
-      score: Math.min(5, Math.max(1, toDifficulty(normalizeCategory(draft.trainingCategory), draft.origin))),
-    }
-  }, [draft])
 
   function patchDraft(updater: (current: RoutineEditorDraft) => RoutineEditorDraft) {
     setDraft((current) => updater(current))
@@ -458,7 +418,7 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
       }
 
       const exercise = payload.exercise
-      const mediaUrl = exercise.imageUrl ?? exercise.gifUrl
+      const mediaUrl = exercise.gifUrl ?? exercise.imageUrl
 
       patchDraft((current) => ({
         ...current,
@@ -512,12 +472,23 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
 
       const nextDraft = normalizeRoutineDraft(payload.draft)
       const preservedImages = nextDraft.imageUrls.length > 0 ? nextDraft.imageUrls : draft.imageUrls
+      const nextImages = preservedImages.map((url, index) => {
+        const existing = images.find((image) => image.url === url)
+        if (existing) return existing
+        const blockMatch = nextDraft.blocks.find((block) => block.exerciseData?.gifUrl === url || block.exerciseData?.imageUrl === url)
+        return {
+          id: `ai-exercisedb-${index}-${url}`,
+          url,
+          name: blockMatch?.exerciseData?.name || blockMatch?.name || `ExerciseDB ${index + 1}`,
+        }
+      })
       setDraft({
         ...nextDraft,
         imageUrls: preservedImages,
         origin: 'ai',
         blocks: nextDraft.blocks.length > 0 ? nextDraft.blocks : [createBlock(0, nextDraft.phases[0] ?? 'Fase 1')],
       })
+      setImages(nextImages)
       setSaveState('draft')
       setAiMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', content: payload.assistantMessage || 'He actualizado la rutina con tus indicaciones.' }])
     } catch (aiRequestError) {
@@ -718,12 +689,7 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
               <div className="sticky top-28 space-y-6">
                 <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple className="hidden" onChange={handleImageSelection} />
                 <section className="rounded-xl border border-[#E2E8F0] bg-white p-8 shadow-[0_4px_10px_rgba(15,23,42,0.04)]">
-                  <div className="mb-8 flex items-center justify-between border-b border-[#E2E8F0] pb-4">
-                    <h3 className="text-lg font-bold [font-family:var(--font-plus-jakarta)]">Resumen de la rutina</h3>
-                    <span className="rounded bg-[#1A73E8] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">{summary.count} ejercicios</span>
-                  </div>
-
-                  <div className="mb-6 space-y-3">
+                  <div className="mb-8 space-y-3">
                     <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.16em] text-[#64748B]">
                       <span>Multimedia</span>
                       <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1 text-[#1A73E8]"><Upload className="h-3.5 w-3.5" /><span>Anadir</span></button>
@@ -739,32 +705,6 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
                         ))}
                       </div>
                     ) : <div className="rounded-xl border border-dashed border-[#D5DDE8] bg-[#F8FAFC] px-4 py-6 text-sm text-[#64748B]">No hay imagenes cargadas en esta rutina.</div>}
-                  </div>
-
-                  <div className="mb-8 space-y-5">
-                    {draft.blocks.map((block, index) => (
-                      <div key={block.id} className="flex items-center gap-4 rounded-lg p-2 transition hover:bg-slate-50">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#E2E8F0] bg-slate-100 text-xs font-bold text-[#64748B]">{String(index + 1).padStart(2, '0')}</div>
-                        <div className="min-w-0 flex-1">
-                          <p className={`truncate text-sm font-bold ${block.name.trim() ? 'text-[#0F172A]' : 'italic text-slate-400'}`}>{block.name.trim() || 'Ejercicio sin titulo'}</p>
-                          <p className="text-[11px] text-[#64748B]">{block.phase || 'Sin fase'} - {block.duration || '--'} min - {block.purpose || 'sin objetivo definido'}</p>
-                        </div>
-                        <Pencil className="h-4 w-4 text-slate-300" />
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mb-8 space-y-4 rounded-lg bg-slate-50 p-5">
-                    <Metric label="Categoria" value={displayCategory(normalizeCategory(draft.trainingCategory), draft.origin)} />
-                    <Metric label="Objetivo" value={draft.objective || 'Pendiente'} />
-                    <Metric label="Grupo" value={draft.targetGroup || 'Pendiente'} />
-                    <Metric label="Jugadores" value={draft.playerCount || 'Pendiente'} />
-                    <Metric label="Duracion estimada" value={`${summary.estimatedMinutes} min`} />
-                    <Metric label="Carga total" value={`${summary.totalLoad.toLocaleString('es-ES')} kg`} />
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-[#64748B]">Nivel de exigencia</span>
-                      <div className="flex gap-1">{Array.from({ length: 5 }, (_, index) => <div key={`score-${index}`} className={`h-3 w-1.5 rounded-full ${index < summary.score ? 'bg-[#1A73E8]' : 'bg-slate-200'}`} />)}</div>
-                    </div>
                   </div>
 
                   <div className="space-y-3">
@@ -853,11 +793,3 @@ function AreaField({ label, value, onChange, placeholder, rows = 4 }: { label: s
   )
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 text-sm">
-      <span className="font-medium text-[#64748B]">{label}</span>
-      <span className="text-right font-bold text-[#0F172A]">{value}</span>
-    </div>
-  )
-}

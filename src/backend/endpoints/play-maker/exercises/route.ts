@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { ExerciseDbEnrichment } from '@/lib/exercisedb-types'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
-import { buildRoutineObjective, serializeRoutineMaterial, type RoutineOrigin } from '@/lib/playmaker/routines'
+import { buildRoutineObjective, normalizeRoutineDetailText, serializeRoutineMaterial, type RoutineOrigin } from '@/lib/playmaker/routines'
 
 type ExerciseBlock = {
   phase?: unknown
@@ -248,12 +248,12 @@ function buildRows(args: {
       const reps = parseString(block.reps)
       const rest = parseString(block.rest)
       const load = parseString(block.load)
-      const purpose = parseString(block.purpose)
-      const setup = parseString(block.setup)
-      const instructions = parseString(block.instructions)
+      const purpose = normalizeRoutineDetailText(parseString(block.purpose))
+      const setup = normalizeRoutineDetailText(parseString(block.setup))
+      const instructions = normalizeRoutineDetailText(parseString(block.instructions))
       const coachingPoints = parseCoachingPoints(block.coachingPoints)
-      const progression = parseString(block.progression)
-      const notes = parseString(block.notes)
+      const progression = normalizeRoutineDetailText(parseString(block.progression))
+      const notes = normalizeRoutineDetailText(parseString(block.notes))
       const exerciseData = parseExerciseData(block.exerciseData)
 
       if (!name) return null

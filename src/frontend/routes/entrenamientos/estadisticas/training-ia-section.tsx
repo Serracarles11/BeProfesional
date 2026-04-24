@@ -46,7 +46,6 @@ function BulletList({ title, items }: { title: string; items: string[] }) {
 
 function InsightContent({ insight }: { insight: TrainingInsightPayload }) {
   const hasContent =
-    insight.summary ||
     insight.key_metrics.length > 0 ||
     insight.risks.length > 0 ||
     insight.recommendations.length > 0 ||
@@ -58,13 +57,6 @@ function InsightContent({ insight }: { insight: TrainingInsightPayload }) {
 
   return (
     <div className="space-y-4">
-      {insight.summary && (
-        <div className="rounded-2xl bg-white/80 p-3 text-sm text-gray-700">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Resumen</p>
-          <p className="mt-1">{insight.summary}</p>
-        </div>
-      )}
-
       {insight.key_metrics.length > 0 && (
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Metricas clave</h4>
@@ -201,7 +193,7 @@ export default function TrainingIaSection({
               >
                 <div className="flex items-start justify-between gap-3">
                   <p className="line-clamp-2 text-sm font-medium text-gray-800">
-                    {item.data.summary || 'Recomendacion de entrenamientos'}
+                    {item.data.recommendations[0] || item.data.next_session_focus[0] || 'Recomendacion de entrenamientos'}
                   </p>
                   <span className="shrink-0 text-[11px] text-gray-400">{formatDateTime(item.createdAt)}</span>
                 </div>

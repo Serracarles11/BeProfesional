@@ -1,4 +1,4 @@
-import { normalizeRoutineDisplayTitle, type RoutineBlock, type RoutineDetail } from './routines'
+import { normalizeRoutineDisplayTitle, splitRoutineDetailText, type RoutineBlock, type RoutineDetail } from './routines'
 
 export type RoutinePdfTeam = {
   id: string
@@ -37,26 +37,14 @@ function formatIssuedDate(value: string | null) {
   }).format(date)
 }
 
-function splitDetailText(value: string) {
-  const normalized = value.trim()
-  if (!normalized) return []
-
-  const items = normalized
-    .split(/\r?\n|[.;](?=\s|$)/)
-    .map((item) => item.replace(/^[-*]\s*/, '').trim())
-    .filter(Boolean)
-
-  return items.length > 0 ? items : [normalized]
-}
-
 function buildDetailSections(block: RoutineBlock) {
   return [
-    { title: 'Objetivo', items: splitDetailText(block.purpose), tone: 'primary' },
-    { title: 'Montaje', items: splitDetailText(block.setup), tone: 'neutral' },
-    { title: 'Consignas', items: splitDetailText(block.instructions), tone: 'primary' },
+    { title: 'Objetivo', items: splitRoutineDetailText(block.purpose), tone: 'primary' },
+    { title: 'Montaje', items: splitRoutineDetailText(block.setup), tone: 'neutral' },
+    { title: 'Consignas', items: splitRoutineDetailText(block.instructions), tone: 'primary' },
     { title: 'Puntos de coaching', items: block.coachingPoints, tone: 'neutral' },
-    { title: 'Progresion o variante', items: splitDetailText(block.progression), tone: 'muted' },
-    { title: 'Notas', items: splitDetailText(block.notes), tone: 'muted' },
+    { title: 'Progresion o variante', items: splitRoutineDetailText(block.progression), tone: 'muted' },
+    { title: 'Notas', items: splitRoutineDetailText(block.notes), tone: 'muted' },
   ].filter((section) => section.items.length > 0)
 }
 
@@ -72,7 +60,9 @@ function totalVolume(blocks: RoutineBlock[]) {
   }, 0)
 }
 
-function imageForBlock(routine: RoutineDetail, index: number) {
+function imageForBlock(routine: RoutineDetail, block: RoutineBlock, index: number) {
+  const exerciseMedia = block.exerciseData?.gifUrl ?? block.exerciseData?.imageUrl
+  if (exerciseMedia) return exerciseMedia
   if (routine.imageUrls.length === 0) return null
   return routine.imageUrls[index % routine.imageUrls.length] ?? null
 }
@@ -126,7 +116,7 @@ function renderDetailSection(section: { title: string; items: string[]; tone: st
 }
 
 function renderExerciseCard(block: RoutineBlock, routine: RoutineDetail, index: number) {
-  const imageUrl = imageForBlock(routine, index)
+  const imageUrl = imageForBlock(routine, block, index)
   const details = buildDetailSections(block)
   const canSplitClass = shouldAllowCardSplit(block) ? ' exercise-card--split' : ''
 

@@ -126,187 +126,136 @@
 
 /* ========== AUTH PREMIUM STYLES ========== */
 
-/* Fondo con gradiente y blobs animados */
-.auth-bg {
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  min-height: 100vh;
+/* Split-screen auth layout */
+.auth-hero {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(26, 115, 232, 0.18) 0%, transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(0, 86, 179, 0.14) 0%, transparent 40%),
+    linear-gradient(160deg, #050d1a 0%, #0c1c3a 60%, #050d1a 100%);
   position: relative;
   overflow: hidden;
 }
 
-.auth-bg::before,
-.auth-bg::after {
+.auth-hero::before {
   content: '';
   position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.5;
-  z-index: 0;
+  inset: 0;
+  background-image:
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
 }
 
-.auth-bg::before {
-  width: 400px;
-  height: 400px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  top: -100px;
-  left: -100px;
-  animation: blob1 20s ease-in-out infinite;
+.auth-panel {
+  background: #f7f9fe;
 }
 
-.auth-bg::after {
-  width: 350px;
-  height: 350px;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  bottom: -100px;
-  right: -100px;
-  animation: blob2 25s ease-in-out infinite;
-}
-
-@keyframes blob1 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  25% { transform: translate(50px, 100px) scale(1.1); }
-  50% { transform: translate(100px, 50px) scale(0.9); }
-  75% { transform: translate(50px, -50px) scale(1.05); }
-}
-
-@keyframes blob2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  25% { transform: translate(-80px, -60px) scale(1.15); }
-  50% { transform: translate(-40px, -100px) scale(0.95); }
-  75% { transform: translate(-100px, -40px) scale(1.1); }
-}
-
-/* Glassmorphism card */
+/* Glassmorphism card (kept for backwards compat) */
 .glass-card {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.8);
   box-shadow:
-    0 8px 32px rgba(31, 38, 135, 0.15),
-    0 2px 8px rgba(0, 0, 0, 0.05);
+    0 8px 32px rgba(26, 115, 232, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 /* Inputs premium */
 .input-premium {
   width: 100%;
-  padding: 1rem 1.25rem;
-  border-radius: 1rem;
-  border: 2px solid #f3f4f6;
-  background: rgba(255, 255, 255, 0.8);
-  color: #1f2937;
-  transition: all 0.3s ease-out;
+  padding: 0.875rem 1.125rem;
+  border-radius: 0.75rem;
+  border: 2px solid #e8edf5;
+  background: white;
+  color: #181c20;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease-out;
 }
 
 .input-premium::placeholder {
-  color: #9ca3af;
+  color: #94a3b8;
 }
 
 .input-premium:focus {
   outline: none;
-  border-color: #818cf8;
-  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.1);
+  border-color: #1A73E8;
+  box-shadow: 0 0 0 4px rgba(26, 115, 232, 0.10);
 }
 
 .input-premium:hover:not(:focus) {
-  border-color: #e5e7eb;
+  border-color: #cbd5e1;
 }
 
 .input-premium:disabled {
-  background: #f3f4f6;
+  background: #f8fafc;
   cursor: not-allowed;
+  opacity: 0.7;
 }
 
 /* Botón premium */
 .btn-premium {
   width: 100%;
-  padding: 1rem 1.5rem;
-  border-radius: 1rem;
-  font-weight: 600;
+  padding: 0.875rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 800;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: white;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-  box-shadow: 0 10px 30px -10px rgba(102, 126, 234, 0.5);
-  transition: all 0.3s ease-out;
+  background: #1A73E8;
+  box-shadow: 0 8px 24px -6px rgba(26, 115, 232, 0.40);
+  transition: all 0.2s ease-out;
   border: none;
   cursor: pointer;
 }
 
 .btn-premium:hover:not(:disabled) {
-  box-shadow: 0 15px 35px -10px rgba(102, 126, 234, 0.6);
-  transform: scale(1.02);
+  background: #1557B0;
+  box-shadow: 0 12px 28px -6px rgba(26, 115, 232, 0.50);
+  transform: translateY(-1px);
 }
 
 .btn-premium:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: translateY(0);
+  box-shadow: 0 4px 12px -4px rgba(26, 115, 232, 0.35);
 }
 
 .btn-premium:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
   transform: none;
 }
 
 .btn-premium-outline {
   width: 100%;
-  padding: 1rem 1.5rem;
-  border-radius: 1rem;
-  font-weight: 600;
-  background: rgba(255, 255, 255, 0.6);
-  border: 2px solid #e5e7eb;
-  color: #374151;
-  transition: all 0.3s ease-out;
+  padding: 0.875rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: white;
+  border: 2px solid #e8edf5;
+  color: #44474E;
+  transition: all 0.2s ease-out;
   cursor: pointer;
 }
 
 .btn-premium-outline:hover {
-  background: white;
-  border-color: #a5b4fc;
-  color: #4f46e5;
+  background: #f0f6ff;
+  border-color: rgba(26, 115, 232, 0.35);
+  color: #1A73E8;
 }
 
 .btn-premium-outline:active {
   transform: scale(0.98);
 }
 
-/* Emojis flotantes */
-.floating-emoji {
-  position: absolute;
-  font-size: 2rem;
-  opacity: 0.6;
-  pointer-events: none;
-  z-index: 1;
-  animation: floatDriftRotate 8s ease-in-out infinite;
-}
-
-.floating-emoji:nth-child(odd) {
-  animation-duration: 7s;
-  animation-delay: -2s;
-}
-
-.floating-emoji:nth-child(even) {
-  animation-duration: 9s;
-  animation-delay: -4s;
-}
-
-@keyframes floatDriftRotate {
-  0% { transform: translateY(0) translateX(0) rotate(0deg); }
-  25% { transform: translateY(-15px) translateX(8px) rotate(5deg); }
-  50% { transform: translateY(-25px) translateX(-5px) rotate(-3deg); }
-  75% { transform: translateY(-10px) translateX(12px) rotate(8deg); }
-  100% { transform: translateY(0) translateX(0) rotate(0deg); }
-}
-
 /* Respeto a prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
-  .floating-emoji {
-    animation: none;
-  }
-
-  .auth-bg::before,
-  .auth-bg::after {
-    animation: none;
-  }
-
   .btn-premium,
   .btn-premium-outline {
     transition: none;

@@ -4,146 +4,165 @@ type PipelineNode = {
   id: string;
   label: string;
   sublabel?: string;
-  color: string;
+  accent: string;
+  glow: string;
   icon: string;
 };
 
-type PipelineGroup = {
+type PipelineLayer = {
   title: string;
+  titleColor: string;
   nodes: PipelineNode[];
-  accent: string;
 };
 
-const layers: PipelineGroup[] = [
+const layers: PipelineLayer[] = [
   {
     title: "Entrada",
-    accent: "border-blue-500",
+    titleColor: "text-blue-400",
     nodes: [
-      { id: "user", label: "Usuario", sublabel: "Entrenador / Jugador", color: "bg-blue-900 border-blue-500", icon: "👤" },
+      { id: "user", label: "Usuario", sublabel: "Entrenador / Jugador", accent: "border-blue-500/60 bg-blue-950/60", glow: "shadow-[0_0_18px_rgba(59,130,246,0.18)]", icon: "👤" },
     ],
   },
   {
-    title: "Autenticación",
-    accent: "border-purple-500",
+    title: "Auth",
+    titleColor: "text-purple-400",
     nodes: [
-      { id: "auth", label: "Supabase Auth", sublabel: "JWT + SSR Cookies", color: "bg-purple-900 border-purple-500", icon: "🔐" },
+      { id: "auth", label: "Supabase Auth", sublabel: "JWT + SSR Cookies", accent: "border-purple-500/60 bg-purple-950/60", glow: "shadow-[0_0_18px_rgba(168,85,247,0.18)]", icon: "🔐" },
     ],
   },
   {
     title: "Frontend",
-    accent: "border-cyan-500",
+    titleColor: "text-cyan-400",
     nodes: [
-      { id: "nextjs", label: "Next.js 16", sublabel: "React 19 + TypeScript 5", color: "bg-cyan-900 border-cyan-500", icon: "⚡" },
-      { id: "ui", label: "UI Layer", sublabel: "Tailwind 4 + Radix UI + ECharts", color: "bg-cyan-900 border-cyan-500", icon: "🎨" },
+      { id: "nextjs", label: "Next.js 16", sublabel: "React 19 + TS 5", accent: "border-cyan-500/60 bg-cyan-950/60", glow: "shadow-[0_0_18px_rgba(6,182,212,0.15)]", icon: "⚡" },
+      { id: "ui", label: "UI Layer", sublabel: "Tailwind 4 + Radix + ECharts", accent: "border-cyan-500/60 bg-cyan-950/60", glow: "shadow-[0_0_18px_rgba(6,182,212,0.15)]", icon: "🎨" },
     ],
   },
   {
     title: "API Routes",
-    accent: "border-yellow-500",
+    titleColor: "text-yellow-400",
     nodes: [
-      { id: "api", label: "Next.js API", sublabel: "/api/* endpoints", color: "bg-yellow-900 border-yellow-500", icon: "🔀" },
+      { id: "api", label: "Next.js API", sublabel: "/api/* endpoints", accent: "border-yellow-500/60 bg-yellow-950/60", glow: "shadow-[0_0_18px_rgba(234,179,8,0.15)]", icon: "🔀" },
     ],
   },
   {
-    title: "Backend Logic",
-    accent: "border-orange-500",
+    title: "Backend",
+    titleColor: "text-orange-400",
     nodes: [
-      { id: "training", label: "Training Engine", sublabel: "PlayMaker + PDF Generator", color: "bg-orange-900 border-orange-500", icon: "🏋️" },
-      { id: "stats", label: "Stats Engine", sublabel: "Análisis rendimiento", color: "bg-orange-900 border-orange-500", icon: "📊" },
-      { id: "chat", label: "Chat Module", sublabel: "Mensajería + IA", color: "bg-orange-900 border-orange-500", icon: "💬" },
+      { id: "training", label: "Training Engine", sublabel: "PlayMaker + PDF", accent: "border-orange-500/60 bg-orange-950/60", glow: "shadow-[0_0_18px_rgba(249,115,22,0.15)]", icon: "🏋️" },
+      { id: "stats", label: "Stats Engine", sublabel: "Análisis rendimiento", accent: "border-orange-500/60 bg-orange-950/60", glow: "shadow-[0_0_18px_rgba(249,115,22,0.15)]", icon: "📊" },
+      { id: "chat", label: "Chat Module", sublabel: "Mensajería + IA", accent: "border-orange-500/60 bg-orange-950/60", glow: "shadow-[0_0_18px_rgba(249,115,22,0.15)]", icon: "💬" },
     ],
   },
   {
     title: "Servicios",
-    accent: "border-green-500",
+    titleColor: "text-emerald-400",
     nodes: [
-      { id: "openai", label: "OpenAI GPT-4.1", sublabel: "Generación IA de rutinas", color: "bg-green-900 border-green-500", icon: "🤖" },
-      { id: "supabase", label: "Supabase DB", sublabel: "PostgreSQL + Storage", color: "bg-green-900 border-green-500", icon: "🗄️" },
-      { id: "exercisedb", label: "ExerciseDB", sublabel: "RapidAPI", color: "bg-green-900 border-green-500", icon: "💪" },
-      { id: "removebg", label: "RemoveBG", sublabel: "Recorte de imágenes", color: "bg-green-900 border-green-500", icon: "🖼️" },
-      { id: "docraptor", label: "DocRaptor", sublabel: "Generación de PDFs", color: "bg-green-900 border-green-500", icon: "📄" },
+      { id: "openai", label: "OpenAI GPT-4.1", sublabel: "Generación de rutinas", accent: "border-emerald-500/60 bg-emerald-950/60", glow: "shadow-[0_0_18px_rgba(16,185,129,0.15)]", icon: "🤖" },
+      { id: "supabase", label: "Supabase DB", sublabel: "PostgreSQL + Storage", accent: "border-emerald-500/60 bg-emerald-950/60", glow: "shadow-[0_0_18px_rgba(16,185,129,0.15)]", icon: "🗄️" },
+      { id: "exercisedb", label: "ExerciseDB", sublabel: "RapidAPI", accent: "border-emerald-500/60 bg-emerald-950/60", glow: "shadow-[0_0_18px_rgba(16,185,129,0.15)]", icon: "💪" },
+      { id: "removebg", label: "RemoveBG", sublabel: "Recorte imágenes", accent: "border-emerald-500/60 bg-emerald-950/60", glow: "shadow-[0_0_18px_rgba(16,185,129,0.15)]", icon: "🖼️" },
+      { id: "docraptor", label: "DocRaptor", sublabel: "PDF export", accent: "border-emerald-500/60 bg-emerald-950/60", glow: "shadow-[0_0_18px_rgba(16,185,129,0.15)]", icon: "📄" },
     ],
   },
 ];
 
-const Arrow = () => (
-  <div className="flex items-center justify-center px-1">
-    <svg width="32" height="16" viewBox="0 0 32 16" fill="none">
-      <path d="M0 8 H26" stroke="#6b7280" strokeWidth="2" />
-      <path d="M22 3 L30 8 L22 13" stroke="#6b7280" strokeWidth="2" strokeLinejoin="round" />
-    </svg>
-  </div>
-);
+function Arrow() {
+  return (
+    <div className="flex shrink-0 items-center self-stretch px-1 pt-8">
+      <svg width="28" height="14" viewBox="0 0 28 14" fill="none">
+        <defs>
+          <linearGradient id="arrow-grad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#4b5563" />
+            <stop offset="100%" stopColor="#6b7280" />
+          </linearGradient>
+        </defs>
+        <path d="M0 7 H22" stroke="url(#arrow-grad)" strokeWidth="1.8" />
+        <path d="M18 2.5 L26 7 L18 11.5" stroke="url(#arrow-grad)" strokeWidth="1.8" strokeLinejoin="round" fill="none" />
+      </svg>
+    </div>
+  );
+}
+
+function PipelineNodeCard({ node }: { node: PipelineNode }) {
+  return (
+    <div
+      className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center transition-all hover:-translate-y-0.5 ${node.accent} ${node.glow}`}
+    >
+      <span className="text-xl leading-none">{node.icon}</span>
+      <span className="text-sm font-semibold leading-tight text-white">{node.label}</span>
+      {node.sublabel && (
+        <span className="text-[11px] leading-snug text-gray-400">{node.sublabel}</span>
+      )}
+    </div>
+  );
+}
 
 export default function ProjectPipeline() {
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-10 text-center">
-          <h1 className="text-4xl font-bold tracking-tight mb-2">
-            Pipeline del Proyecto
-          </h1>
-          <p className="text-gray-400 text-lg">BeProfesional — Flujo de datos y arquitectura de la aplicación</p>
+    <div className="min-h-screen bg-gray-950 p-8 text-white">
+      <div className="mx-auto max-w-7xl">
+        {/* Header */}
+        <div className="mb-12 text-center">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-blue-500/25 bg-blue-500/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-blue-400">
+            Arquitectura
+          </div>
+          <h1 className="text-4xl font-black tracking-tight">Pipeline del Proyecto</h1>
+          <p className="mt-2 text-gray-500">BeProfesional — Flujo de datos y arquitectura</p>
         </div>
 
-        {/* Horizontal pipeline */}
-        <div className="flex items-start justify-center gap-0 overflow-x-auto pb-4">
-          {layers.map((layer, i) => (
-            <div key={layer.title} className="flex items-start">
-              <div className={`flex flex-col gap-2 min-w-[140px] max-w-[160px]`}>
-                <div className={`text-xs font-semibold uppercase tracking-widest text-center border-b pb-1 mb-1 ${layer.accent.replace("border-", "text-").replace("-500", "-400")} border-gray-700`}>
-                  {layer.title}
-                </div>
-                {layer.nodes.map((node) => (
-                  <div
-                    key={node.id}
-                    className={`border rounded-lg p-3 flex flex-col items-center text-center gap-1 ${node.color}`}
-                  >
-                    <span className="text-2xl">{node.icon}</span>
-                    <span className="font-semibold text-sm leading-tight">{node.label}</span>
-                    {node.sublabel && (
-                      <span className="text-xs text-gray-400 leading-tight">{node.sublabel}</span>
-                    )}
+        {/* Pipeline */}
+        <div className="overflow-x-auto pb-4">
+          <div className="flex min-w-max items-start gap-0">
+            {layers.map((layer, i) => (
+              <div key={layer.title} className="flex items-start">
+                <div className="flex w-[148px] flex-col gap-2">
+                  <div className={`mb-1 border-b border-gray-800 pb-1.5 text-center text-[10px] font-black uppercase tracking-widest ${layer.titleColor}`}>
+                    {layer.title}
                   </div>
-                ))}
-              </div>
-              {i < layers.length - 1 && (
-                <div className="flex items-center self-stretch pt-10">
-                  <Arrow />
+                  {layer.nodes.map((node) => (
+                    <PipelineNodeCard key={node.id} node={node} />
+                  ))}
                 </div>
-              )}
-            </div>
-          ))}
+                {i < layers.length - 1 && <Arrow />}
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Data flow legend */}
-        <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <h3 className="font-semibold text-blue-400 mb-2">📥 Flujo de Entrada</h3>
-            <ol className="text-sm text-gray-300 space-y-1 list-decimal list-inside">
+        {/* Flow legend */}
+        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-blue-900/50 bg-blue-950/30 p-5">
+            <p className="mb-3 flex items-center gap-2 font-bold text-blue-400">
+              <span>📥</span> Flujo de Entrada
+            </p>
+            <ol className="space-y-1.5 text-sm text-gray-400 list-decimal list-inside">
               <li>Usuario accede a la app</li>
               <li>Supabase Auth valida sesión (JWT)</li>
               <li>React renderiza la UI</li>
             </ol>
           </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <h3 className="font-semibold text-orange-400 mb-2">⚙️ Procesamiento</h3>
-            <ol className="text-sm text-gray-300 space-y-1 list-decimal list-inside">
+          <div className="rounded-2xl border border-orange-900/50 bg-orange-950/30 p-5">
+            <p className="mb-3 flex items-center gap-2 font-bold text-orange-400">
+              <span>⚙️</span> Procesamiento
+            </p>
+            <ol className="space-y-1.5 text-sm text-gray-400 list-decimal list-inside">
               <li>API Route recibe petición autenticada</li>
               <li>Backend invoca OpenAI / Supabase / APIs</li>
               <li>PlayMaker genera rutinas de entrenamiento</li>
             </ol>
           </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <h3 className="font-semibold text-green-400 mb-2">📤 Respuesta</h3>
-            <ol className="text-sm text-gray-300 space-y-1 list-decimal list-inside">
+          <div className="rounded-2xl border border-emerald-900/50 bg-emerald-950/30 p-5">
+            <p className="mb-3 flex items-center gap-2 font-bold text-emerald-400">
+              <span>📤</span> Respuesta
+            </p>
+            <ol className="space-y-1.5 text-sm text-gray-400 list-decimal list-inside">
               <li>Datos devueltos al Frontend</li>
               <li>ECharts renderiza estadísticas</li>
               <li>PDF exportado vía DocRaptor</li>
             </ol>
           </div>
         </div>
-
       </div>
     </div>
   );

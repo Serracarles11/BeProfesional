@@ -97,16 +97,20 @@ const SPANISH_EXERCISE_SEARCH_REPLACEMENTS: Array<[RegExp, string]> = [
   [/\belevaciones?\s+laterales?\b/gi, 'lateral raise'],
   [/\belevacion\s+lateral\b/gi, 'lateral raise'],
   [/\bpress\s+militar\b/gi, 'shoulder press'],
+  [/\bsentadillas?\s+con\s+salto\b/gi, 'jump squat'],
   [/\bsentadillas?\b/gi, 'squat'],
   [/\bflexiones?\b/gi, 'push up'],
   [/\bdominadas?\b/gi, 'pull up'],
   [/\bzancadas?\b/gi, 'lunge'],
   [/\bplanchas?\b/gi, 'plank'],
+  [/\bescaladores?\b/gi, 'mountain climber'],
   [/\babdominales?\b/gi, 'sit up'],
   [/\bcurl\s+de\s+biceps\b/gi, 'biceps curl'],
   [/\bpeso\s+muerto\b/gi, 'deadlift'],
   [/\bremo\b/gi, 'row'],
   [/\bgemelos?\b/gi, 'calf raise'],
+  [/\bsprint\s+en\s+el\s+sitio\b/gi, 'run in place'],
+  [/\bcarrera\s+en\s+el\s+sitio\b/gi, 'run in place'],
 ]
 
 const GENERIC_SEARCH_WORDS = new Set([
@@ -469,8 +473,8 @@ async function translateDetail(payload: Record<string, unknown>): Promise<Exerci
     name,
     overview: overview || DEFAULT_OVERVIEW,
     instructions: instructions.length > 0 ? instructions : [DEFAULT_INSTRUCTIONS],
-    imageUrl: parseNullableString(payload.imageUrl ?? payload.image) ?? buildExerciseImageUrl(exerciseId),
-    gifUrl: parseNullableString(payload.gifUrl ?? payload.gif),
+    imageUrl: parseNullableString(payload.imageUrl ?? payload.image),
+    gifUrl: parseNullableString(payload.gifUrl ?? payload.gif) ?? buildExerciseImageUrl(exerciseId),
     videoUrl: parseNullableString(payload.videoUrl),
     bodyParts,
     targetMuscles,
@@ -537,7 +541,7 @@ export async function searchExerciseCatalog(query: string): Promise<ExerciseCata
             exerciseType: detail.exerciseType,
             overview: detail.overview,
           }),
-          imageUrl: detail.imageUrl ?? detail.gifUrl,
+          imageUrl: detail.gifUrl ?? detail.imageUrl,
           bodyParts: detail.bodyParts,
           targetMuscles: detail.targetMuscles,
           equipments: detail.equipments[0] === DEFAULT_EQUIPMENT ? [] : detail.equipments,
@@ -625,8 +629,13 @@ export async function enrichDraftWithExerciseDb(draftInput: RoutineEditorDraft):
     })
   )
 
+  const exerciseMediaUrls = blocks
+    .map((block) => block.exerciseData?.gifUrl ?? block.exerciseData?.imageUrl ?? null)
+    .filter((item): item is string => Boolean(item))
+
   return {
     ...draft,
     blocks,
+    imageUrls: Array.from(new Set([...exerciseMediaUrls, ...draft.imageUrls])),
   }
 }
