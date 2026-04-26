@@ -54,11 +54,11 @@ function unique(values) {
 }
 
 function getSupabaseConfig() {
-  const url = process.env.SUPABASE_URL?.trim() || ''
+  const url = process.env.SUPABASE_URL?.trim() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || ''
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || ''
 
   if (!url || !key) {
-    throw new Error('Missing Supabase credentials. Expected SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.')
+    throw new Error('Missing Supabase credentials. Expected NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL, plus SUPABASE_SERVICE_ROLE_KEY.')
   }
 
   return { url, key }

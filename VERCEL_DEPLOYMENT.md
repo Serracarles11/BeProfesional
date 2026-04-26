@@ -21,6 +21,7 @@ Variables opcionales:
 
 - `PLAYMAKER_OPENAI_API_KEY`
 - `OPENAI_MODEL`
+- `SUPABASE_URL`
 - `EXERCISEDB_BASE_URL`
 - `EXERCISEDB_RAPIDAPI_HOST`
 - `REMOVEBG_API_KEY`
@@ -29,3 +30,4 @@ Notas:
 
 - Si usas `gpt-5`, la ruta de rutinas usa Responses API y no envia `temperature`.
 - `EXERCISEDB_RAPIDAPI_KEY` es necesaria para enriquecer rutinas con imagenes/GIFs de ExerciseDB.
+- La ruta `/api/import/ffib` usa datos cacheados incluidos en `scrapers/`; en Vercel no debe depender de ejecutar Playwright en runtime.
