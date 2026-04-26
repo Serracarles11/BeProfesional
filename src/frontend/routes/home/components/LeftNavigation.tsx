@@ -268,7 +268,7 @@ export function LeftNavigation({
     <>
     <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 shrink-0 border-r border-[#dfe3e8] bg-[#f4f7fc] p-4 xl:flex xl:flex-col">
       <div className="mb-5 px-2 py-4">
-        <h2 className="[font-family:var(--font-plus-jakarta)] text-lg font-black text-[#00468c]">Elite Performance</h2>
+        <h2 className="[font-family:var(--font-plus-jakarta)] text-lg font-black text-[#00468c]">BeProfessional</h2>
         <p className="text-xs font-medium text-[#5f6776]">{teamName}</p>
       </div>
 
