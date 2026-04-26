@@ -16,7 +16,6 @@ import {
   SendHorizontal,
   Sparkles,
   Trash2,
-  Upload,
   User,
   X,
 } from 'lucide-react'
@@ -45,7 +44,6 @@ const inter = Inter({
 })
 
 type TrainingCategory = 'FUERZA' | 'POTENCIA' | 'RESISTENCIA' | 'RECUPERACION'
-type UploadedImage = { id: string; url: string; name: string }
 type ChatRole = 'user' | 'assistant'
 type ChatMessage = { id: string; role: ChatRole; content: string }
 
@@ -78,6 +76,7 @@ function createBlock(seed = 0, phase = 'Fase 1'): RoutineEditorBlock {
     coachingPoints: [],
     progression: '',
     notes: '',
+    imageUrls: [],
   }
 }
 
@@ -89,23 +88,15 @@ function createInitialDraft(
   const normalized = normalizeRoutineDraft(base)
   if (normalized.blocks.length > 0) return normalized
   const firstBlock = createBlock(0, normalized.phases[0] ?? 'Fase 1')
+  const exerciseImage = initialExercise?.gifUrl ?? initialExercise?.imageUrl ?? ''
+  const seededBlock = initialExercise ? mergeRoutineBlockWithExerciseData(firstBlock, initialExercise) : firstBlock
+  const blockWithImage = exerciseImage ? { ...seededBlock, imageUrls: [exerciseImage] } : seededBlock
   return {
     ...normalized,
     title: initialExercise?.name ? `Rutina - ${initialExercise.name}` : normalized.title,
     objective: initialExercise?.overview || normalized.objective,
-    imageUrls: initialExercise?.gifUrl || initialExercise?.imageUrl ? [initialExercise.gifUrl ?? initialExercise.imageUrl ?? ''] : normalized.imageUrls,
-    blocks: [initialExercise ? mergeRoutineBlockWithExerciseData(firstBlock, initialExercise) : firstBlock],
+    blocks: [blockWithImage],
   }
-}
-
-function createInitialImages(
-  initialRoutine: RoutineDetail | null | undefined,
-  initialExercise: ExerciseDbEnrichment | null | undefined
-): UploadedImage[] {
-  const routineImages = (initialRoutine?.imageUrls ?? []).map((url, index) => ({ id: `${index}-${url}`, url, name: `imagen-${index + 1}` }))
-  const exerciseImage = initialExercise?.gifUrl ?? initialExercise?.imageUrl
-  if (!initialExercise || !exerciseImage) return routineImages
-  return [...routineImages, { id: `${initialExercise.exerciseId}-${exerciseImage}`, url: exerciseImage, name: initialExercise.name }]
 }
 
 function normalizeCategory(value: string): TrainingCategory {
@@ -166,16 +157,16 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
   const router = useRouter()
   const backHref = withEquipo('/play-maker', equipo?.id)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const uploadingBlockIdRef = useRef<string | null>(null)
   const isEditing = Boolean(initialRoutine)
   const initialDraft = createInitialDraft(initialRoutine, initialExercise)
   const playerName = equipo?.nombre ?? 'Equipo'
 
   const [draft, setDraft] = useState<RoutineEditorDraft>(initialDraft)
-  const [images, setImages] = useState<UploadedImage[]>(createInitialImages(initialRoutine, initialExercise))
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null)
   const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
+  const [uploadingBlockId, setUploadingBlockId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<'draft' | 'saved'>(initialRoutine ? 'saved' : 'draft')
   const [aiMessages, setAiMessages] = useState<ChatMessage[]>(() => buildStarterMessages(playerName, initialRoutine, initialExercise))
@@ -285,7 +276,6 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
           playerCount: draft.playerCount,
           origin: draft.origin,
           routineId: initialRoutine?.id ?? null,
-          imageUrls: images.map((image) => image.url),
           blocks: validBlocks,
         }),
       })
@@ -302,36 +292,54 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
     }
   }
 
+  function openImagePicker(blockId: string) {
+    uploadingBlockIdRef.current = blockId
+    fileInputRef.current?.click()
+  }
+
   async function handleImageSelection(event: ChangeEvent<HTMLInputElement>) {
     const fileList = event.target.files
-    if (!fileList || fileList.length === 0) return
-    setIsUploading(true)
+    const blockId = uploadingBlockIdRef.current
+    if (!fileList || fileList.length === 0 || !blockId) {
+      uploadingBlockIdRef.current = null
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+
+    setUploadingBlockId(blockId)
     setError(null)
     try {
-      const nextImages: UploadedImage[] = []
+      const uploadedUrls: string[] = []
       for (const file of Array.from(fileList)) {
         const formData = new FormData()
         formData.append('file', file)
         const response = await fetch('/api/play-maker/media', { method: 'POST', body: formData })
         const payload = (await response.json().catch(() => null)) as { ok?: boolean; error?: string; imageUrl?: string; name?: string } | null
         if (!response.ok || !payload?.ok || !payload.imageUrl) throw new Error(payload?.error || 'No se pudo subir una de las imagenes.')
-        nextImages.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, url: payload.imageUrl, name: payload.name || file.name })
+        uploadedUrls.push(payload.imageUrl)
       }
-      setImages((current) => [...current, ...nextImages])
-      patchDraft((current) => ({ ...current, imageUrls: [...current.imageUrls, ...nextImages.map((image) => image.url)] }))
+      patchDraft((current) => ({
+        ...current,
+        blocks: current.blocks.map((block) =>
+          block.id === blockId ? { ...block, imageUrls: [...block.imageUrls, ...uploadedUrls] } : block
+        ),
+      }))
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : 'No se pudieron subir las imagenes.')
     } finally {
-      setIsUploading(false)
+      setUploadingBlockId(null)
+      uploadingBlockIdRef.current = null
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
-  function removeImage(id: string) {
-    const removed = images.find((image) => image.id === id)
-    setImages((current) => current.filter((image) => image.id !== id))
-    if (!removed) return
-    patchDraft((current) => ({ ...current, imageUrls: current.imageUrls.filter((url) => url !== removed.url) }))
+  function removeBlockImage(blockId: string, url: string) {
+    patchDraft((current) => ({
+      ...current,
+      blocks: current.blocks.map((block) =>
+        block.id === blockId ? { ...block, imageUrls: block.imageUrls.filter((item) => item !== url) } : block
+      ),
+    }))
   }
 
   useEffect(() => {
@@ -422,17 +430,15 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
 
       patchDraft((current) => ({
         ...current,
-        imageUrls: mediaUrl && !current.imageUrls.includes(mediaUrl) ? [...current.imageUrls, mediaUrl] : current.imageUrls,
-        blocks: current.blocks.map((block) => (block.id === blockId ? buildExerciseBlock(block, exercise) : block)),
+        blocks: current.blocks.map((block) => {
+          if (block.id !== blockId) return block
+          const enriched = buildExerciseBlock(block, exercise)
+          if (mediaUrl && !enriched.imageUrls.includes(mediaUrl)) {
+            return { ...enriched, imageUrls: [...enriched.imageUrls, mediaUrl] }
+          }
+          return enriched
+        }),
       }))
-
-      if (mediaUrl) {
-        setImages((current) =>
-          current.some((image) => image.url === mediaUrl)
-            ? current
-            : [...current, { id: `${exercise.exerciseId}-${Date.now()}`, url: mediaUrl, name: exercise.name }]
-        )
-      }
 
       setCatalogQuery(exercise.name)
       setCatalogResults([])
@@ -471,24 +477,18 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
       if (!response.ok || !payload?.ok || !payload.draft) throw new Error(payload?.error || 'No se pudo generar la rutina con IA.')
 
       const nextDraft = normalizeRoutineDraft(payload.draft)
-      const preservedImages = nextDraft.imageUrls.length > 0 ? nextDraft.imageUrls : draft.imageUrls
-      const nextImages = preservedImages.map((url, index) => {
-        const existing = images.find((image) => image.url === url)
-        if (existing) return existing
-        const blockMatch = nextDraft.blocks.find((block) => block.exerciseData?.gifUrl === url || block.exerciseData?.imageUrl === url)
-        return {
-          id: `ai-exercisedb-${index}-${url}`,
-          url,
-          name: blockMatch?.exerciseData?.name || blockMatch?.name || `ExerciseDB ${index + 1}`,
+      const blocksWithImages = (nextDraft.blocks.length > 0 ? nextDraft.blocks : [createBlock(0, nextDraft.phases[0] ?? 'Fase 1')]).map(
+        (block) => {
+          if (block.imageUrls.length > 0) return block
+          const exerciseImage = block.exerciseData?.gifUrl ?? block.exerciseData?.imageUrl
+          return exerciseImage ? { ...block, imageUrls: [exerciseImage] } : block
         }
-      })
+      )
       setDraft({
         ...nextDraft,
-        imageUrls: preservedImages,
         origin: 'ai',
-        blocks: nextDraft.blocks.length > 0 ? nextDraft.blocks : [createBlock(0, nextDraft.phases[0] ?? 'Fase 1')],
+        blocks: blocksWithImages,
       })
-      setImages(nextImages)
       setSaveState('draft')
       setAiMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', content: payload.assistantMessage || 'He actualizado la rutina con tus indicaciones.' }])
     } catch (aiRequestError) {
@@ -567,10 +567,22 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
                 {draft.blocks.map((block, index) => (
                   <article key={block.id} onDragOver={(event) => { event.preventDefault(); setDragOverBlockId(block.id) }} onDragLeave={() => setDragOverBlockId((current) => (current === block.id ? null : current))} onDrop={(event) => { event.preventDefault(); if (draggedBlockId) moveBlock(draggedBlockId, block.id); setDraggedBlockId(null); setDragOverBlockId(null) }} className={`overflow-hidden rounded-xl border bg-white shadow-[0_4px_10px_rgba(15,23,42,0.04)] transition ${dragOverBlockId === block.id ? 'border-[#1A73E8] ring-2 ring-[#1A73E8]/15' : 'border-[#E2E8F0]'}`}>
                     <div className="flex flex-col md:flex-row">
-                      <div className="w-full border-b border-[#E2E8F0] bg-slate-50 p-6 md:w-64 md:border-b-0 md:border-r">
-                        <button type="button" onClick={() => fileInputRef.current?.click()} className="group flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 transition hover:border-[#1A73E8] hover:bg-[#E8F0FE]">
+                      <div className="w-full space-y-3 border-b border-[#E2E8F0] bg-slate-50 p-6 md:w-64 md:border-b-0 md:border-r">
+                        {block.imageUrls.length > 0 ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            {block.imageUrls.map((url, imageIndex) => (
+                              <div key={`${block.id}-${url}-${imageIndex}`} className="group relative overflow-hidden rounded-lg border border-[#E2E8F0] bg-white">
+                                <img src={url} alt={`${block.name || 'Ejercicio'} ${imageIndex + 1}`} className="h-24 w-full object-cover" />
+                                <button type="button" onClick={() => removeBlockImage(block.id, url)} className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100" aria-label="Eliminar imagen">
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                        <button type="button" onClick={() => openImagePicker(block.id)} disabled={uploadingBlockId === block.id} className="group flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 transition hover:border-[#1A73E8] hover:bg-[#E8F0FE] disabled:cursor-not-allowed disabled:opacity-60">
                           <ImagePlus className="h-6 w-6 text-slate-400 transition group-hover:text-[#1A73E8]" />
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 group-hover:text-[#1A73E8]">{isUploading ? 'Subiendo...' : 'Multimedia'}</span>
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 group-hover:text-[#1A73E8]">{uploadingBlockId === block.id ? 'Subiendo...' : block.imageUrls.length > 0 ? 'Anadir imagen' : 'Multimedia'}</span>
                         </button>
                       </div>
 
@@ -689,24 +701,6 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
               <div className="sticky top-28 space-y-6">
                 <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple className="hidden" onChange={handleImageSelection} />
                 <section className="rounded-xl border border-[#E2E8F0] bg-white p-8 shadow-[0_4px_10px_rgba(15,23,42,0.04)]">
-                  <div className="mb-8 space-y-3">
-                    <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.16em] text-[#64748B]">
-                      <span>Multimedia</span>
-                      <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1 text-[#1A73E8]"><Upload className="h-3.5 w-3.5" /><span>Anadir</span></button>
-                    </div>
-
-                    {images.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-3">
-                        {images.map((image) => (
-                          <div key={image.id} className="group relative overflow-hidden rounded-xl border border-[#E2E8F0] bg-slate-50">
-                            <img src={image.url} alt={image.name} className="h-28 w-full object-cover" />
-                            <button type="button" onClick={() => removeImage(image.id)} className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100"><X className="h-3.5 w-3.5" /></button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : <div className="rounded-xl border border-dashed border-[#D5DDE8] bg-[#F8FAFC] px-4 py-6 text-sm text-[#64748B]">No hay imagenes cargadas en esta rutina.</div>}
-                  </div>
-
                   <div className="space-y-3">
                     <button type="button" onClick={handleSave} disabled={isSaving} className="w-full rounded-lg bg-[#1A73E8] py-3.5 font-bold text-white transition hover:bg-[#1557B0] disabled:cursor-not-allowed disabled:opacity-60">{isSaving ? 'Guardando...' : isEditing ? 'Actualizar rutina' : 'Guardar rutina'}</button>
                     <Link href={backHref} className="block w-full rounded-lg border border-[#E2E8F0] bg-white py-3.5 text-center font-bold text-[#0F172A] transition hover:bg-slate-50">Volver a IA Coach</Link>

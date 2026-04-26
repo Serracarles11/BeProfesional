@@ -11,6 +11,7 @@ import {
   getModelName,
   getTemperature,
   isBoardDraftPayload,
+  isReasoningModel,
   validateImprovementPayload,
 } from '@/lib/playmaker/server-ai'
 import type { PlaymakerAnalysis } from '@/lib/playmaker/types'
@@ -19,6 +20,8 @@ type RequestBody = {
   draft?: unknown
   analysis?: unknown
 }
+
+const IMPROVEMENT_MAX_OUTPUT_TOKENS = 3000
 
 const IMPROVEMENT_JSON_SCHEMA = {
   name: 'playmaker_improved_play',
@@ -201,12 +204,12 @@ export async function POST(request: NextRequest) {
     let fallbackUsed = false
     let validationErrors: string[] = []
     let responseMeta: { id?: string; model?: string | null; status?: string | null; requestID?: string | null } = {}
+    const usesReasoningParams = isReasoningModel(modelName)
 
     try {
       const response = await openai.responses.create({
         model: modelName,
-        temperature,
-        max_output_tokens: 900,
+        max_output_tokens: IMPROVEMENT_MAX_OUTPUT_TOKENS,
         instructions: buildSystemPrompt(),
         input: [
           {
@@ -226,7 +229,11 @@ export async function POST(request: NextRequest) {
             type: 'json_schema',
             ...IMPROVEMENT_JSON_SCHEMA,
           },
+          ...(usesReasoningParams ? { verbosity: 'low' as const } : {}),
         },
+        ...(usesReasoningParams
+          ? { reasoning: { effort: 'low' } }
+          : { temperature }),
       })
 
       responseMeta = {

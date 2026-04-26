@@ -798,6 +798,7 @@ export default function Home() {
             <InsightCard
               activities={payload.schedule.activityItems}
               isCoach={isCoach}
+              equipoId={payload.equipo?.id ?? null}
               onOpenCreateEvent={openCreateEventModal}
               onOpenWeeklyTraining={openWeeklyTrainingModal}
               onEditEvent={openEditEventModal}

@@ -98,14 +98,14 @@ export default async function PlayMakerPage({
 
   const supabase = await createSupabaseServer()
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (!session) {
+  if (!user) {
     redirect('/login')
   }
 
-  const userId = session.user.id
+  const userId = user.id
 
   const membershipsResult = await supabase
     .from('miembros_equipo')
@@ -139,8 +139,8 @@ export default async function PlayMakerPage({
 
   const playerName =
     profileResult.data?.nombre ??
-    (typeof session.user.user_metadata?.nombre === 'string' ? session.user.user_metadata.nombre : null) ??
-    session.user.email?.split('@')[0] ??
+    (typeof user.user_metadata?.nombre === 'string' ? user.user_metadata.nombre : null) ??
+    user.email?.split('@')[0] ??
     'Jugador'
 
   let routines: ReturnType<typeof buildRoutineSummary>[] = []

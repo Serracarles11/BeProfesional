@@ -98,29 +98,6 @@ export default function EquiposPage() {
 
   return (
     <div className="auth-bg min-h-screen p-4 md:p-8">
-      {/* Emojis flotantes decorativos */}
-      <span className="floating-emoji" style={{ top: '8%', left: '5%' }}>
-        🏆
-      </span>
-      <span
-        className="floating-emoji"
-        style={{ top: '12%', right: '8%', animationDelay: '-2s' }}
-      >
-        ⚽
-      </span>
-      <span
-        className="floating-emoji"
-        style={{ bottom: '15%', left: '8%', animationDelay: '-4s' }}
-      >
-        🎯
-      </span>
-      <span
-        className="floating-emoji"
-        style={{ bottom: '20%', right: '5%', animationDelay: '-1s' }}
-      >
-        🌟
-      </span>
-
       <div className="max-w-4xl mx-auto relative z-10">
         {/* Header */}
         <div className="glass-card rounded-3xl p-6 md:p-8 mb-6 animate-slide-up">
@@ -209,7 +186,6 @@ export default function EquiposPage() {
                 onClick={() => router.push(`/home?equipo=${equipo.id}`)}
               >
                 <div className="flex items-center gap-4">
-                  {/* Team logo/avatar */}
                   <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 flex-shrink-0 text-white">
                     {equipo.logo_url ? (
                       <img
@@ -224,7 +200,6 @@ export default function EquiposPage() {
                     )}
                   </div>
 
-                  {/* Team info */}
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg md:text-xl font-bold text-gray-800 truncate">
                       {equipo.nombre}

@@ -72,6 +72,10 @@ export function getTemperature() {
   return Number.isFinite(value) ? Math.min(Math.max(value, 0), 1) : 0.35
 }
 
+export function isReasoningModel(modelName: string) {
+  return /^(gpt-5|o[134])/i.test(modelName)
+}
+
 export function extractRawResponseText(response: OpenAI.Responses.Response) {
   if (typeof response.output_text === 'string' && response.output_text.trim()) {
     return response.output_text.trim()

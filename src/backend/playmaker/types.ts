@@ -15,6 +15,8 @@ export type BoardElement = {
   label?: string
 }
 
+export type DrawingKind = 'pass' | 'run' | 'support' | 'dribble'
+
 export type BoardDrawing = {
   id: string
   type: 'arrow'
@@ -24,6 +26,10 @@ export type BoardDrawing = {
   endXPct: number
   endYPct: number
   strokeWidthPct: number
+  fromElementId?: string
+  toElementId?: string
+  kind?: DrawingKind
+  label?: string
 }
 
 export type PhaseDraft = {
@@ -58,6 +64,10 @@ export type RecommendationChange =
       endXPct: number
       endYPct: number
       strokeWidthPct: number
+      fromElementId?: string
+      toElementId?: string
+      kind?: DrawingKind
+      label?: string
     }
   | {
       operation: 'delete_drawing'

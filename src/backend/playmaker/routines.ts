@@ -56,6 +56,7 @@ export type RoutineBlock = {
   notes: string
   difficulty: number | null
   exerciseData: ExerciseDbEnrichment | null
+  imageUrls: string[]
 }
 
 export type RoutineSummary = {
@@ -105,6 +106,7 @@ export type RoutineEditorBlock = {
   progression: string
   notes: string
   exerciseData?: ExerciseDbEnrichment | null
+  imageUrls: string[]
 }
 
 export type RoutineEditorDraft = {
@@ -405,6 +407,7 @@ function parseBlock(row: RoutineExerciseRow): RoutineBlock {
     notes: pickLine(description, 'Notas'),
     difficulty: row.dificultad,
     exerciseData: meta.exerciseData ?? null,
+    imageUrls: meta.imageUrls ?? [],
   }
 }
 
@@ -453,6 +456,9 @@ function sanitizeBlock(input: Partial<RoutineEditorBlock>, fallbackPhase: string
     progression: typeof input.progression === 'string' ? input.progression.trim() : '',
     notes: typeof input.notes === 'string' ? input.notes.trim() : '',
     exerciseData: parseExerciseData(input.exerciseData) ?? null,
+    imageUrls: Array.isArray(input.imageUrls)
+      ? input.imageUrls.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean)
+      : [],
   }
 }
 
@@ -483,6 +489,13 @@ export function normalizeRoutineDraft(input: Partial<RoutineEditorDraft> | null 
 }
 
 export function routineDetailToEditorDraft(detail: RoutineDetail): RoutineEditorDraft {
+  const blockImageSets = detail.blocks.map((block) => block.imageUrls ?? [])
+  const firstBlockImagesKey = blockImageSets[0]?.slice().sort().join('|') ?? ''
+  const allBlocksHaveSameImages =
+    blockImageSets.length > 1 &&
+    firstBlockImagesKey.length > 0 &&
+    blockImageSets.every((images) => images.slice().sort().join('|') === firstBlockImagesKey)
+
   return normalizeRoutineDraft({
     title: detail.title,
     objective: detail.objective,
@@ -508,6 +521,7 @@ export function routineDetailToEditorDraft(detail: RoutineDetail): RoutineEditor
       progression: block.progression,
       notes: block.notes,
       exerciseData: block.exerciseData,
+      imageUrls: allBlocksHaveSameImages && index > 0 ? [] : block.imageUrls ?? [],
     })),
   })
 }
@@ -528,6 +542,7 @@ export function mergeRoutineBlockWithExerciseData(block: RoutineEditorBlock, exe
   const primaryMuscles = exerciseData.targetMuscles.join(', ')
   const secondaryMuscles = exerciseData.secondaryMuscles.join(', ')
   const equipments = exerciseData.equipments.join(', ')
+  const exerciseImageUrl = exerciseData.gifUrl ?? exerciseData.imageUrl
 
   return {
     ...block,
@@ -552,6 +567,7 @@ export function mergeRoutineBlockWithExerciseData(block: RoutineEditorBlock, exe
         .join(' ')
     ),
     exerciseData,
+    imageUrls: exerciseImageUrl ? Array.from(new Set([exerciseImageUrl, ...block.imageUrls])) : block.imageUrls,
   }
 }
 
@@ -586,6 +602,9 @@ export function buildRoutineDetails(rows: RoutineExerciseRow[]) {
       const objectiveMeta = parseRoutineObjective(firstRow.objetivo)
       const firstMaterial = parseRoutineMaterial(firstRow.material)
       const blocks = orderedRows.map(parseBlock)
+      const aggregatedBlockImages = Array.from(
+        new Set(blocks.flatMap((block) => block.imageUrls).filter(Boolean))
+      )
       const duration = blocks.reduce((acc, block, index) => acc + fallbackDuration(block, orderedRows[index]?.duracion_estimada_min ?? null), 0)
       const avgDifficulty =
         blocks.reduce((acc, block) => acc + (block.difficulty ?? 3), 0) / Math.max(blocks.length, 1)
@@ -619,7 +638,7 @@ export function buildRoutineDetails(rows: RoutineExerciseRow[]) {
         duration,
         blockCount: blocks.length,
         difficulty: Math.max(1, Math.min(5, Math.round(avgDifficulty))),
-        imageUrls: firstMaterial.imageUrls ?? [],
+        imageUrls: aggregatedBlockImages.length > 0 ? aggregatedBlockImages : firstMaterial.imageUrls ?? [],
         objective,
         targetGroup,
         playerCount,

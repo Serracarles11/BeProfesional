@@ -20,6 +20,7 @@ type ExerciseBlock = {
   progression?: unknown
   notes?: unknown
   exerciseData?: unknown
+  imageUrls?: unknown
 }
 
 type RequestBody = {
@@ -227,7 +228,6 @@ async function validateMembership(
 function buildRows(args: {
   blocks: ExerciseBlock[]
   equipoId: string
-  imageUrls: string[]
   routineId: string
   title: string
   objective: string
@@ -237,7 +237,7 @@ function buildRows(args: {
   origin: RoutineOrigin
   userId: string
 }) {
-  const { blocks, equipoId, imageUrls, routineId, title, objective, trainingCategory, targetGroup, playerCount, origin, userId } = args
+  const { blocks, equipoId, routineId, title, objective, trainingCategory, targetGroup, playerCount, origin, userId } = args
 
   return blocks
     .map((block, index) => {
@@ -255,6 +255,7 @@ function buildRows(args: {
       const progression = normalizeRoutineDetailText(parseString(block.progression))
       const notes = normalizeRoutineDetailText(parseString(block.notes))
       const exerciseData = parseExerciseData(block.exerciseData)
+      const blockImageUrls = parseStringArray(block.imageUrls)
 
       if (!name) return null
 
@@ -286,7 +287,7 @@ function buildRows(args: {
           order: index,
           load,
           phase,
-          imageUrls,
+          imageUrls: blockImageUrls,
           trainingCategory,
           objective,
           targetGroup,
@@ -327,7 +328,6 @@ async function saveRoutine(request: NextRequest, mode: 'create' | 'update') {
   const playerCount = parseString(body.playerCount)
   const origin = parseOrigin(body.origin)
   const routineId = parseString(body.routineId) || randomUUID()
-  const imageUrls = parseStringArray(body.imageUrls)
   const blocks = Array.isArray(body.blocks) ? (body.blocks as ExerciseBlock[]) : []
 
   if (!equipoId) return errorResponse('equipoId es obligatorio.')
@@ -369,7 +369,6 @@ async function saveRoutine(request: NextRequest, mode: 'create' | 'update') {
   const rows = buildRows({
     blocks,
     equipoId,
-    imageUrls,
     routineId,
     title,
     objective,

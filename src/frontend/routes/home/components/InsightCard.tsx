@@ -1,17 +1,50 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { CalendarDays, Clock3, MapPin, Plus, Shield } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { CalendarDays, CheckCircle2, Clock3, HelpCircle, Loader2, MapPin, Plus, Shield, Users, XCircle } from 'lucide-react'
 import { Calendar } from '@/components/ui/calendar'
 import type { DashboardActivityItem } from '../types'
 
 type InsightCardProps = {
   activities: DashboardActivityItem[]
   isCoach: boolean
+  equipoId?: string | null
   onOpenCreateEvent: (dateKey?: string) => void
   onOpenWeeklyTraining?: () => void
   onEditEvent?: (event: DashboardActivityItem) => void
   onDeleteEvent?: (event: DashboardActivityItem) => void
+}
+
+type AttendanceStatus = 'CONFIRMADO' | 'NO_VA' | 'SIN_RESPUESTA'
+
+type Attendee = {
+  usuarioId: string
+  nombre: string
+  fotoUrl: string | null
+  posicion: string | null
+  estado: AttendanceStatus
+  invitado: boolean
+}
+
+type AttendeesResponse = {
+  ok: true
+  totals: { invited: number; confirmed: number; declined: number; noResponse: number }
+  hasExplicitRecipients: boolean
+  players: Attendee[]
+}
+
+function getEventDatabaseId(event: DashboardActivityItem) {
+  const prefix = event.type === 'partido' ? 'match-' : 'training-'
+  return event.id.startsWith(prefix) ? event.id.slice(prefix.length) : event.id
+}
+
+function getInitials(name: string) {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') || '?'
 }
 
 function formatSelectedDate(date?: Date) {
@@ -73,6 +106,7 @@ function getEventTypeLabel(type: DashboardActivityItem['type']) {
 export function InsightCard({
   activities,
   isCoach,
+  equipoId,
   onOpenCreateEvent,
   onOpenWeeklyTraining,
   onEditEvent,
@@ -80,6 +114,52 @@ export function InsightCard({
 }: InsightCardProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
   const [activeEvent, setActiveEvent] = useState<DashboardActivityItem | null>(null)
+  const [attendees, setAttendees] = useState<AttendeesResponse | null>(null)
+  const [isLoadingAttendees, setIsLoadingAttendees] = useState(false)
+  const [attendeesError, setAttendeesError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!activeEvent || !isCoach || activeEvent.type !== 'entrenamiento' || !equipoId) {
+      setAttendees(null)
+      setAttendeesError(null)
+      setIsLoadingAttendees(false)
+      return
+    }
+
+    const trainingId = getEventDatabaseId(activeEvent)
+    const controller = new AbortController()
+
+    setAttendees(null)
+    setAttendeesError(null)
+    setIsLoadingAttendees(true)
+
+    const params = new URLSearchParams({ equipoId, trainingId })
+    fetch(`/api/dashboard/home/trainings/attendees?${params.toString()}`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as
+          | (AttendeesResponse & { ok: true })
+          | { ok: false; error?: string }
+          | null
+
+        if (!response.ok || !payload || payload.ok !== true) {
+          throw new Error((payload && 'error' in payload && payload.error) || 'No se pudo cargar la asistencia.')
+        }
+
+        setAttendees(payload)
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return
+        setAttendeesError(error instanceof Error ? error.message : 'No se pudo cargar la asistencia.')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoadingAttendees(false)
+      })
+
+    return () => controller.abort()
+  }, [activeEvent, isCoach, equipoId])
 
   const selectedDateLabel = useMemo(() => formatSelectedDate(selectedDate), [selectedDate])
   const selectedDateKey = selectedDate ? getDateKey(selectedDate) : ''
@@ -274,7 +354,7 @@ export function InsightCard({
 
       {activeEvent ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-[0_40px_90px_-42px_rgba(15,23,42,0.55)]">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-[0_40px_90px_-42px_rgba(15,23,42,0.55)]">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <span
@@ -337,6 +417,14 @@ export function InsightCard({
               ) : null}
             </div>
 
+            {isCoach && activeEvent.type === 'entrenamiento' ? (
+              <AttendancePanel
+                isLoading={isLoadingAttendees}
+                error={attendeesError}
+                data={attendees}
+              />
+            ) : null}
+
             {isCoach ? (
               <div className="mt-5 flex justify-end gap-2">
                 <button
@@ -367,5 +455,118 @@ export function InsightCard({
         </div>
       ) : null}
     </>
+  )
+}
+
+function AttendancePanel({
+  isLoading,
+  error,
+  data,
+}: {
+  isLoading: boolean
+  error: string | null
+  data: AttendeesResponse | null
+}) {
+  return (
+    <div className="mt-4 rounded-2xl border border-[#e3ebf8] bg-white p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#eaf2ff] text-[#005db6]">
+            <Users className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#738197]">Asistencia</p>
+            <h5 className="[font-family:var(--font-plus-jakarta)] text-sm font-bold text-[#111827]">
+              Quien va al entrenamiento
+            </h5>
+          </div>
+        </div>
+        {data ? (
+          <span className="rounded-full bg-[#eaf2ff] px-3 py-1 text-xs font-bold text-[#005db6]">
+            {data.totals.confirmed}/{data.totals.invited}
+          </span>
+        ) : null}
+      </div>
+
+      {isLoading ? (
+        <div className="mt-3 flex items-center gap-2 text-sm text-[#5f6d86]">
+          <Loader2 className="h-4 w-4 animate-spin text-[#005db6]" />
+          Cargando asistencia...
+        </div>
+      ) : error ? (
+        <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+          {error}
+        </p>
+      ) : data ? (
+        <>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs font-semibold">
+            <div className="rounded-xl bg-[#ecfdf5] px-2 py-2 text-[#047857]">
+              <p className="text-base font-extrabold">{data.totals.confirmed}</p>
+              <p className="text-[10px] uppercase tracking-[0.12em]">Van</p>
+            </div>
+            <div className="rounded-xl bg-[#fef2f2] px-2 py-2 text-[#b91c1c]">
+              <p className="text-base font-extrabold">{data.totals.declined}</p>
+              <p className="text-[10px] uppercase tracking-[0.12em]">No van</p>
+            </div>
+            <div className="rounded-xl bg-[#f1f5f9] px-2 py-2 text-[#475569]">
+              <p className="text-base font-extrabold">{data.totals.noResponse}</p>
+              <p className="text-[10px] uppercase tracking-[0.12em]">Sin respuesta</p>
+            </div>
+          </div>
+
+          {data.players.length === 0 ? (
+            <p className="mt-3 rounded-xl border border-dashed border-[#d7e1f1] bg-[#f8fbff] px-3 py-3 text-center text-xs text-[#5f6d86]">
+              No hay jugadores asignados a este entrenamiento.
+            </p>
+          ) : (
+            <ul className="mt-3 max-h-64 space-y-1.5 overflow-y-auto pr-1">
+              {data.players.map((player) => (
+                <AttendanceRow key={player.usuarioId} player={player} />
+              ))}
+            </ul>
+          )}
+
+          {!data.hasExplicitRecipients && data.players.length > 0 ? (
+            <p className="mt-2 text-[11px] text-[#738197]">
+              Este entrenamiento esta abierto a toda la plantilla.
+            </p>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  )
+}
+
+function AttendanceRow({ player }: { player: Attendee }) {
+  const statusConfig =
+    player.estado === 'CONFIRMADO'
+      ? { Icon: CheckCircle2, label: 'Va', tone: 'text-[#047857] bg-[#ecfdf5]' }
+      : player.estado === 'NO_VA'
+        ? { Icon: XCircle, label: 'No va', tone: 'text-[#b91c1c] bg-[#fef2f2]' }
+        : { Icon: HelpCircle, label: 'Sin responder', tone: 'text-[#475569] bg-[#f1f5f9]' }
+  const StatusIcon = statusConfig.Icon
+
+  return (
+    <li className="flex items-center justify-between gap-3 rounded-xl border border-[#eef2f9] bg-[#fbfcff] px-3 py-2">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#0f172a] text-[10px] font-bold text-white">
+          {player.fotoUrl ? (
+            <img src={player.fotoUrl} alt={player.nombre} className="h-full w-full object-cover" />
+          ) : (
+            getInitials(player.nombre)
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-[#111827]">{player.nombre}</p>
+          {player.posicion ? (
+            <p className="truncate text-[11px] text-[#738197]">{player.posicion}</p>
+          ) : null}
+        </div>
+      </div>
+      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] ${statusConfig.tone}`}>
+        <StatusIcon className="h-3.5 w-3.5" />
+        {statusConfig.label}
+      </span>
+    </li>
   )
 }

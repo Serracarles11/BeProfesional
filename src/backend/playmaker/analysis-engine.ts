@@ -587,7 +587,8 @@ export function sanitizeRecommendationChanges(changes: unknown, phase: PhaseDraf
           typeof payload.strokeWidthPct === 'number' ? clamp(payload.strokeWidthPct, 0.3, 2) : 0.7
 
         if (!type || startXPct === null || startYPct === null || endXPct === null || endYPct === null) return null
-        return {
+
+        const result: RecommendationChange = {
           operation: 'add_drawing',
           type,
           color,
@@ -596,7 +597,27 @@ export function sanitizeRecommendationChanges(changes: unknown, phase: PhaseDraf
           endXPct,
           endYPct,
           strokeWidthPct,
-        } satisfies RecommendationChange
+        }
+
+        if (typeof payload.fromElementId === 'string' && validElementIds.has(payload.fromElementId)) {
+          result.fromElementId = payload.fromElementId
+        }
+        if (typeof payload.toElementId === 'string' && validElementIds.has(payload.toElementId)) {
+          result.toElementId = payload.toElementId
+        }
+        if (
+          payload.kind === 'pass' ||
+          payload.kind === 'run' ||
+          payload.kind === 'support' ||
+          payload.kind === 'dribble'
+        ) {
+          result.kind = payload.kind
+        }
+        if (typeof payload.label === 'string' && payload.label.trim().length > 0) {
+          result.label = payload.label.trim().slice(0, 60)
+        }
+
+        return result
       }
 
       if (payload.operation === 'delete_drawing') {

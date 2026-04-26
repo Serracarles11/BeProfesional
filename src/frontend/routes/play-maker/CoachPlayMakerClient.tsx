@@ -182,6 +182,27 @@ const TOOL_ICON_SRC: Record<ToolbarTool, string> = {
   ERASER: '/playmaker-assets/stopwatch.svg',
 }
 
+const ARROW_COLOR_PALETTE = ['#ffe170', '#7dd3fc', '#86efac', '#fda4af', '#7bb1ff', '#6ed4a0'] as const
+const AI_DRAWING_PREFIXES = ['arrow-ai', 'arrow-improvement'] as const
+
+function describeElementForTag(element: BoardElement | undefined) {
+  if (!element) return ''
+  if (element.type === 'marker' && element.color === 'ball') return '⚽'
+  if (element.type === 'marker') {
+    const prefix = element.color === 'red' ? 'R' : 'B'
+    return `${prefix}${element.label ?? ''}`
+  }
+  return ''
+}
+
+function formatDrawingPlayerTag(drawing: BoardDrawing, elements: BoardElement[]) {
+  const from = describeElementForTag(elements.find((element) => element.id === drawing.fromElementId))
+  const to = describeElementForTag(elements.find((element) => element.id === drawing.toElementId))
+  if (from && to) return `${from} → ${to}`
+  if (from) return from
+  return ''
+}
+
 const COMMUNITY_CATEGORIES: CommunityCategory[] = [
   'All Plays',
   'Attacking',
@@ -275,6 +296,109 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
 
+function formatPct(value: number) {
+  return Number(value.toFixed(2))
+}
+
+function getSafeArrowColor(color: string) {
+  return (ARROW_COLOR_PALETTE as readonly string[]).includes(color) ? color : '#ffe170'
+}
+
+function isAiGeneratedDrawing(drawing: BoardDrawing) {
+  return AI_DRAWING_PREFIXES.some((prefix) => drawing.id === prefix || drawing.id.startsWith(`${prefix}-`))
+}
+
+function getAiBaseDrawings(drawings: BoardDrawing[]) {
+  return drawings.filter((drawing) => !isAiGeneratedDrawing(drawing))
+}
+
+function getDrawingLaneKey(drawing: BoardDrawing) {
+  const start = `${Math.round(drawing.startXPct / 6)},${Math.round(drawing.startYPct / 6)}`
+  const end = `${Math.round(drawing.endXPct / 6)},${Math.round(drawing.endYPct / 6)}`
+  return [start, end].sort().join('|')
+}
+
+function getLabelLaneKey(xPct: number, yPct: number) {
+  return `${Math.round(xPct / 7)},${Math.round(yPct / 5)}`
+}
+
+function buildDrawingRenderItems(drawings: BoardDrawing[]) {
+  const laneTotals = new Map<string, number>()
+  drawings.forEach((drawing) => {
+    const key = getDrawingLaneKey(drawing)
+    laneTotals.set(key, (laneTotals.get(key) ?? 0) + 1)
+  })
+
+  const laneIndexes = new Map<string, number>()
+  const baseItems = drawings.map((drawing, drawingIndex) => {
+    const key = getDrawingLaneKey(drawing)
+    const laneIndex = laneIndexes.get(key) ?? 0
+    laneIndexes.set(key, laneIndex + 1)
+
+    const laneTotal = laneTotals.get(key) ?? 1
+    const lane = laneIndex - (laneTotal - 1) / 2
+    const dx = drawing.endXPct - drawing.startXPct
+    const dy = drawing.endYPct - drawing.startYPct
+    const length = Math.max(Math.hypot(dx, dy), 0.01)
+    const unitX = dx / length
+    const unitY = dy / length
+    const normalX = -unitY
+    const normalY = unitX
+    const isAiDrawing = isAiGeneratedDrawing(drawing)
+    const trimStart = Math.min(2.2, length * 0.18)
+    const trimEnd = Math.min(3.1, length * 0.22)
+    const startX = drawing.startXPct + unitX * trimStart
+    const startY = drawing.startYPct + unitY * trimStart
+    const endX = drawing.endXPct - unitX * trimEnd
+    const endY = drawing.endYPct - unitY * trimEnd
+    const aiCurvePattern = [-3.2, -1.8, 1.8, 3.2, 0]
+    const aiLane = isAiDrawing ? aiCurvePattern[drawingIndex % aiCurvePattern.length] : 0
+    const curveOffset = lane * 4 + aiLane
+    const controlX = clamp((startX + endX) / 2 + normalX * curveOffset, 1.5, 98.5)
+    const controlY = clamp((startY + endY) / 2 + normalY * curveOffset, 1.5, 98.5)
+    const pathD =
+      Math.abs(curveOffset) > 0.2
+        ? `M ${formatPct(startX)} ${formatPct(startY)} Q ${formatPct(controlX)} ${formatPct(controlY)} ${formatPct(endX)} ${formatPct(endY)}`
+        : `M ${formatPct(startX)} ${formatPct(startY)} L ${formatPct(endX)} ${formatPct(endY)}`
+    const labelX = clamp((startX + 2 * controlX + endX) / 4 + normalX * 1.2, 3, 97)
+    const labelY = clamp((startY + 2 * controlY + endY) / 4 + normalY * 1.2, 3, 97)
+
+    return {
+      drawing,
+      pathD,
+      labelX,
+      labelY,
+      normalX,
+      normalY,
+      safeColor: getSafeArrowColor(drawing.color),
+    }
+  })
+
+  const labelTotals = new Map<string, number>()
+  baseItems.forEach((item) => {
+    const key = getLabelLaneKey(item.labelX, item.labelY)
+    labelTotals.set(key, (labelTotals.get(key) ?? 0) + 1)
+  })
+
+  const labelIndexes = new Map<string, number>()
+  return baseItems.map((item) => {
+    const key = getLabelLaneKey(item.labelX, item.labelY)
+    const labelIndex = labelIndexes.get(key) ?? 0
+    labelIndexes.set(key, labelIndex + 1)
+
+    const labelTotal = labelTotals.get(key) ?? 1
+    const labelLane = labelIndex - (labelTotal - 1) / 2
+    const labelX = clamp(item.labelX + item.normalX * labelLane * 4.2, 4, 96)
+    const labelY = clamp(item.labelY + item.normalY * labelLane * 4.2, 4, 96)
+
+    return {
+      ...item,
+      labelX,
+      labelY,
+    }
+  })
+}
+
 function getConfidenceMeta(confidence: PlaymakerAnalysis['confidence']) {
   switch (confidence) {
     case 'high':
@@ -303,7 +427,7 @@ function createPreviewPhaseFromImprovement(
   const nextPhase: PhaseDraft = {
     ...sourcePhase,
     elements: sourcePhase.elements.map((element) => ({ ...element })),
-    drawings: sourcePhase.drawings.map((drawing) => ({ ...drawing })),
+    drawings: getAiBaseDrawings(sourcePhase.drawings).map((drawing) => ({ ...drawing })),
   }
 
   for (const change of improvement.changes) {
@@ -338,6 +462,7 @@ function createPreviewPhaseFromImprovement(
           endXPct: clamp(change.drawing.to.x, 0, 100),
           endYPct: clamp(change.drawing.to.y, 0, 100),
           strokeWidthPct: clamp(change.drawing.strokeWidthPct ?? 0.8, 0.3, 2),
+          kind: change.drawing.kind,
         },
       ]
       continue
@@ -664,6 +789,16 @@ export default function PlayMakerClient() {
   const visiblePhase = previewPhase ?? activePhase
 
   const analysisConfidenceMeta = analysis ? getConfidenceMeta(analysis.confidence) : null
+  const visibleDrawings = useMemo(
+    () => [
+      ...visiblePhase.drawings,
+      ...(drawingState && !visiblePhase.drawings.some((item) => item.id === drawingState.drawing.id)
+        ? [drawingState.drawing]
+        : []),
+    ],
+    [drawingState, visiblePhase.drawings]
+  )
+  const renderedDrawings = useMemo(() => buildDrawingRenderItems(visibleDrawings), [visibleDrawings])
 
   const communityPlays = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
@@ -934,12 +1069,34 @@ export default function PlayMakerClient() {
       setDrawingState(null)
       if (deltaX < 1 && deltaY < 1) return
 
+      const targetElement = activePhase.elements.find((element) => {
+        if (element.id === currentDrawing.fromElementId) return false
+        if (element.type !== 'marker') return false
+        const dx = element.xPct - currentDrawing.endXPct
+        const dy = element.yPct - currentDrawing.endYPct
+        const radius = Math.max(element.widthPct, element.heightPct) / 2 + 1.5
+        return Math.hypot(dx, dy) <= radius
+      })
+
+      const finalizedDrawing: BoardDrawing = targetElement
+        ? {
+            ...currentDrawing,
+            toElementId: targetElement.id,
+            endXPct: targetElement.xPct,
+            endYPct: targetElement.yPct,
+            kind: currentDrawing.kind ?? 'pass',
+          }
+        : {
+            ...currentDrawing,
+            kind: currentDrawing.kind ?? (currentDrawing.fromElementId ? 'run' : undefined),
+          }
+
       setDraft((draftState) => ({
         ...draftState,
         phases: draftState.phases.map((phase) => {
           if (phase.id !== draftState.activePhaseId) return phase
-          if (phase.drawings.some((drawing) => drawing.id === currentDrawing.id)) return phase
-          return { ...phase, drawings: [...phase.drawings, currentDrawing] }
+          if (phase.drawings.some((drawing) => drawing.id === finalizedDrawing.id)) return phase
+          return { ...phase, drawings: [...phase.drawings, finalizedDrawing] }
         }),
       }))
     }
@@ -1190,6 +1347,32 @@ export default function PlayMakerClient() {
       return
     }
 
+    if (activeTool === 'DRAW') {
+      const sourceElement = activePhase.elements.find((element) => element.id === elementId)
+      if (!sourceElement) return
+      event.preventDefault()
+
+      const isBall = sourceElement.type === 'marker' && sourceElement.color === 'ball'
+      setSelectedElementId(null)
+      setSelectedDrawingId(null)
+      setDrawingState({
+        pointerId: event.pointerId,
+        drawing: {
+          id: createId('arrow'),
+          type: 'arrow',
+          color: '#ffe170',
+          startXPct: sourceElement.xPct,
+          startYPct: sourceElement.yPct,
+          endXPct: sourceElement.xPct,
+          endYPct: sourceElement.yPct,
+          strokeWidthPct: isBall ? 0.85 : 0.7,
+          fromElementId: elementId,
+          kind: 'pass',
+        },
+      })
+      return
+    }
+
     setSelectedElementId(elementId)
     setSelectedDrawingId(null)
 
@@ -1287,7 +1470,7 @@ export default function PlayMakerClient() {
       id: nextPhaseId,
       label: nextPhaseLabel,
       elements: sourcePhase.elements.map((element) => ({ ...element })),
-      drawings: sourcePhase.drawings.map((drawing) => ({ ...drawing })),
+      drawings: [],
     }
 
     for (const change of recommendation.changes) {
@@ -1337,6 +1520,10 @@ export default function PlayMakerClient() {
             endXPct,
             endYPct,
             strokeWidthPct,
+            fromElementId: typeof change.fromElementId === 'string' ? change.fromElementId : undefined,
+            toElementId: typeof change.toElementId === 'string' ? change.toElementId : undefined,
+            kind: change.kind,
+            label: typeof change.label === 'string' ? change.label : undefined,
           },
         ]
         continue
@@ -1683,27 +1870,30 @@ export default function PlayMakerClient() {
   if (isEditorOpen) {
     return (
       <div
-        className={`${plusJakarta.variable} ${manrope.variable} fixed inset-0 z-[100] flex h-screen w-screen overflow-hidden bg-[#f7f9fe] [font-family:var(--font-manrope)] text-[#181c20]`}
+        className={`${plusJakarta.variable} ${manrope.variable} fixed inset-0 z-[100] flex h-screen w-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,#eaf2ff_0%,#f7f9fe_45%,#eef1f7_100%)] [font-family:var(--font-manrope)] text-[#181c20]`}
       >
         <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
-          <header className="flex h-16 items-center justify-between border-b border-[#dfe3e8] bg-[#f7f9fe]/95 px-4 backdrop-blur md:px-6">
-            <div className="flex items-center gap-4">
+          <header className="relative z-40 flex h-[72px] items-center justify-between border-b border-white/60 bg-white/85 px-4 shadow-[0_8px_24px_-12px_rgba(14,31,70,0.18)] backdrop-blur-xl md:px-7">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => setIsEditorOpen(false)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#181c20] transition hover:bg-[#f1f4f9]"
+                className="group inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#dfe3e8] bg-white text-[#0e1f46] shadow-[0_4px_12px_rgba(14,31,70,0.06)] transition hover:-translate-x-0.5 hover:border-[#bfd0ef] hover:bg-[#ebf2ff] hover:text-[#005db6]"
                 aria-label="Back to Play Maker"
               >
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft className="h-4.5 w-4.5 transition group-hover:-translate-x-0.5" />
               </button>
-              <div>
-                <p className="hidden text-[11px] font-bold uppercase tracking-[0.18em] text-[#5f6776] md:block">
+              <div className="flex flex-col gap-0.5">
+                <div className="hidden items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-[#5f6776] md:flex">
+                  <span className="inline-flex h-1.5 w-1.5 rounded-full bg-[#005db6]" />
                   Tactical Board
-                </p>
+                  <span className="text-[#bfd0ef]">/</span>
+                  <span className="text-[#005db6]">Editor</span>
+                </div>
                 <input
                   value={draft.name}
                   onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
-                  className="[font-family:var(--font-plus-jakarta)] w-[220px] max-w-full rounded-xl border border-transparent bg-transparent px-2 py-1 text-lg font-extrabold tracking-tight text-[#181c20] outline-none transition focus:border-[#bfd0ef] focus:bg-white md:w-[320px] md:text-xl"
+                  className="[font-family:var(--font-plus-jakarta)] w-[220px] max-w-full rounded-xl border border-transparent bg-transparent px-2 py-1 text-lg font-extrabold tracking-tight text-[#0e1f46] outline-none transition placeholder:text-[#9aa0ae] focus:border-[#bfd0ef] focus:bg-white md:w-[340px] md:text-xl"
                   placeholder="Untitled play"
                   type="text"
                 />
@@ -1714,13 +1904,13 @@ export default function PlayMakerClient() {
               <button
                 type="button"
                 onClick={clearBoard}
-                className="hidden rounded-full border border-[#c1c6d6] px-5 py-2 text-sm font-semibold text-[#414754] transition hover:bg-[#f1f4f9] md:inline-flex"
+                className="hidden rounded-2xl border border-[#dfe3e8] bg-white/90 px-4 py-2.5 text-sm font-bold text-[#414754] shadow-[0_4px_12px_rgba(14,31,70,0.04)] transition hover:border-[#bfd0ef] hover:bg-white hover:text-[#0e1f46] md:inline-flex"
               >
                 Clear
               </button>
               <button
                 type="button"
-                className="hidden rounded-full bg-[#dfe3e8] px-5 py-2 text-sm font-semibold text-[#414754] transition hover:bg-[#e5e8ed] md:inline-flex"
+                className="hidden rounded-2xl border border-[#dfe3e8] bg-white/90 px-4 py-2.5 text-sm font-bold text-[#414754] shadow-[0_4px_12px_rgba(14,31,70,0.04)] transition hover:border-[#bfd0ef] hover:bg-white hover:text-[#0e1f46] md:inline-flex"
               >
                 Export PDF
               </button>
@@ -1728,32 +1918,33 @@ export default function PlayMakerClient() {
                 type="button"
                 onClick={analyzeBoard}
                 disabled={isAnalyzing}
-                className="rounded-full border border-[#bfd0ef] bg-white px-5 py-2 text-sm font-bold text-[#005db6] transition hover:bg-[#ebf2ff] disabled:cursor-wait disabled:opacity-70"
+                className="group relative inline-flex items-center gap-2 overflow-hidden rounded-2xl border border-[#bfd0ef] bg-gradient-to-r from-white to-[#ebf2ff] px-5 py-2.5 text-sm font-black text-[#005db6] shadow-[0_8px_18px_rgba(0,93,182,0.12)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_22px_rgba(0,93,182,0.18)] disabled:cursor-wait disabled:opacity-70"
               >
+                <Sparkles className={`h-4 w-4 ${isAnalyzing ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
                 {isAnalyzing ? 'Analizando...' : 'Analizar IA'}
               </button>
               <button
                 type="button"
                 onClick={saveBoard}
                 disabled={isSaving}
-                className="rounded-full bg-[#005db6] px-5 py-2 text-sm font-black text-white shadow-[0_12px_24px_rgba(0,93,182,0.2)] transition hover:opacity-90 disabled:cursor-wait disabled:opacity-70"
+                className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#005db6] via-[#1f67c6] to-[#2b5bb5] px-5 py-2.5 text-sm font-black text-white shadow-[0_14px_28px_rgba(0,93,182,0.32)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_36px_rgba(0,93,182,0.4)] disabled:cursor-wait disabled:opacity-70"
               >
                 {isSaving ? 'Saving...' : 'Save'}
               </button>
-              <div className="ml-2 hidden items-center gap-1 md:flex">
-                <button type="button" className="rounded-full p-2 text-[#727785] transition hover:bg-[#f1f4f9]">
+              <div className="ml-1 hidden items-center gap-1 md:flex">
+                <button type="button" className="rounded-2xl border border-transparent p-2.5 text-[#727785] transition hover:border-[#dfe3e8] hover:bg-white hover:text-[#0e1f46]" aria-label="History">
                   <History className="h-4 w-4" />
                 </button>
-                <button type="button" className="rounded-full p-2 text-[#727785] transition hover:bg-[#f1f4f9]">
+                <button type="button" className="rounded-2xl border border-transparent p-2.5 text-[#727785] transition hover:border-[#dfe3e8] hover:bg-white hover:text-[#0e1f46]" aria-label="Settings">
                   <Settings className="h-4 w-4" />
                 </button>
               </div>
             </div>
           </header>
 
-          <main className="relative flex flex-1 overflow-hidden bg-[#f1f4f9]">
-            <nav className="absolute left-3 top-3 bottom-28 z-30 flex w-[72px] flex-col items-center rounded-[28px] border border-white/60 bg-white/75 px-2 py-5 shadow-[0_20px_40px_rgba(0,93,182,0.08)] backdrop-blur md:left-4 md:top-6 md:w-20">
-              <div className="flex w-full flex-1 flex-col items-center gap-4">
+          <main className="relative flex flex-1 overflow-hidden bg-transparent">
+            <nav className="absolute left-3 top-3 bottom-28 z-30 flex w-[80px] flex-col items-center rounded-[32px] border border-white/70 bg-white/80 px-2 py-5 shadow-[0_24px_48px_-16px_rgba(14,31,70,0.18)] ring-1 ring-black/5 backdrop-blur-xl md:left-5 md:top-6 md:w-[88px]">
+              <div className="flex w-full flex-1 flex-col items-center gap-2.5">
                 {TOOLBAR_ITEMS.map((tool) => {
                   const isActive = activeTool === tool.id
                   return (
@@ -1762,25 +1953,29 @@ export default function PlayMakerClient() {
                       type="button"
                       onClick={() => activateTool(tool.id)}
                       className={[
-                        'flex h-14 w-14 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold uppercase tracking-[0.12em] transition',
+                        'group relative flex h-[60px] w-[68px] flex-col items-center justify-center gap-1 rounded-2xl text-[9.5px] font-black uppercase tracking-[0.14em] transition-all duration-200',
                         isActive
-                          ? 'bg-[#005db6] text-white shadow-[0_14px_28px_rgba(0,93,182,0.22)]'
-                          : 'text-[#727785] hover:bg-[#ebf2ff] hover:text-[#005db6]',
+                          ? 'bg-gradient-to-br from-[#005db6] to-[#1f67c6] text-white shadow-[0_14px_28px_-6px_rgba(0,93,182,0.55)]'
+                          : 'text-[#5f6776] hover:bg-[#ebf2ff] hover:text-[#005db6]',
                       ].join(' ')}
                       aria-pressed={isActive}
                     >
+                      {isActive ? (
+                        <span className="absolute -left-2 top-1/2 h-7 w-1 -translate-y-1/2 rounded-full bg-[#005db6]" />
+                      ) : null}
                       <PlaymakerAsset
                         src={TOOL_ICON_SRC[tool.id]}
                         alt={tool.label}
-                        className={`h-4 w-4 ${isActive ? 'brightness-[8]' : 'opacity-75'}`}
+                        className={`h-5 w-5 transition ${isActive ? 'brightness-[8]' : 'opacity-70 group-hover:opacity-100'}`}
                       />
                       <span>{tool.label}</span>
                     </button>
                   )
                 })}
 
-                <div className="mt-auto flex flex-col gap-2 text-center">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#727785]">
+                <div className="mt-auto flex w-full flex-col items-center gap-2 px-1 pt-2 text-center">
+                  <span className="h-[1px] w-8 rounded-full bg-[#dfe3e8]" />
+                  <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#727785]">
                     {saveNotice}
                   </span>
                 </div>
@@ -1788,13 +1983,19 @@ export default function PlayMakerClient() {
             </nav>
 
             {(activeTool === 'TOOLS' || activeTool === 'BALL') && (
-              <div className="absolute left-[92px] top-6 z-30 w-[220px] rounded-[28px] border border-white/70 bg-white/92 p-4 shadow-[0_20px_40px_rgba(0,93,182,0.08)] backdrop-blur">
+              <div className="absolute left-[100px] top-6 z-30 w-[240px] overflow-hidden rounded-[28px] border border-white/80 bg-white/95 shadow-[0_24px_48px_-16px_rgba(14,31,70,0.2)] ring-1 ring-black/5 backdrop-blur-xl">
+                <div className="flex items-center justify-between border-b border-[#eef1f7] bg-gradient-to-r from-[#f6f9ff] to-white px-4 py-3">
+                  <p className="text-[10.5px] font-black uppercase tracking-[0.2em] text-[#0e1f46]">
+                    {activeTool === 'TOOLS' ? 'Training Equipment' : 'Marker Colors'}
+                  </p>
+                  <span className="inline-flex h-6 items-center justify-center rounded-full bg-[#ebf2ff] px-2.5 text-[9px] font-black uppercase tracking-[0.16em] text-[#005db6]">
+                    {activeTool === 'TOOLS' ? `${EQUIPMENT_OPTIONS.length}` : 'Players'}
+                  </span>
+                </div>
+                <div className="p-4">
                 {activeTool === 'TOOLS' ? (
                   <>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#5f6776]">
-                      Training Equipment
-                    </p>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       {EQUIPMENT_OPTIONS.map((option) => {
                         const active =
                           paletteSelection?.kind === 'equipment' && paletteSelection.type === option.type
@@ -1804,30 +2005,27 @@ export default function PlayMakerClient() {
                             type="button"
                             onClick={() => handleEquipmentOptionClick(option.type)}
                             className={[
-                              'rounded-2xl border px-3 py-3 text-left transition',
+                              'group rounded-2xl border px-3 py-3 text-left transition-all duration-200',
                               active
-                                ? 'border-[#005db6]/20 bg-[#ebf2ff] text-[#005db6]'
-                                : 'border-[#dfe3e8] bg-[#f8fafc] text-[#414754] hover:border-[#bfd0ef]',
+                                ? 'border-[#005db6]/30 bg-gradient-to-br from-[#ebf2ff] to-white text-[#005db6] shadow-[0_8px_18px_-8px_rgba(0,93,182,0.35)]'
+                                : 'border-[#eef1f7] bg-[#f8fafc] text-[#414754] hover:-translate-y-0.5 hover:border-[#bfd0ef] hover:bg-white hover:shadow-[0_8px_18px_-10px_rgba(0,93,182,0.25)]',
                             ].join(' ')}
                           >
-                            <div className="mb-2 flex h-9 items-center justify-center rounded-xl bg-transparent">
+                            <div className="mb-2 flex h-10 items-center justify-center rounded-xl bg-white/70">
                               <EquipmentPreview type={option.type} />
                             </div>
-                            <span className="text-xs font-bold">{option.label}</span>
+                            <span className="text-[11px] font-black uppercase tracking-[0.08em]">{option.label}</span>
                           </button>
                         )
                       })}
                     </div>
-                    <p className="mt-3 text-[11px] text-[#727785]">
+                    <p className="mt-3 rounded-2xl bg-[#f8fafc] px-3 py-2 text-[11px] font-medium text-[#5f6776]">
                       Choose equipment, then click on the pitch to place it.
                     </p>
                   </>
                 ) : (
                   <>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#5f6776]">
-                      Marker Colors
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="space-y-2">
                       {MARKER_OPTIONS.map((color) => {
                         const active = paletteSelection?.kind === 'marker' && paletteSelection.color === color
                         const isBall = color === 'ball'
@@ -1837,59 +2035,78 @@ export default function PlayMakerClient() {
                             type="button"
                             onClick={() => handleMarkerOptionClick(color)}
                             className={[
-                              'flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] transition',
+                              'flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition-all duration-200',
                               active
-                                ? 'border-[#005db6]/20 bg-[#ebf2ff] text-[#005db6]'
-                                : 'border-[#dfe3e8] bg-[#f8fafc] text-[#414754] hover:border-[#bfd0ef]',
+                                ? 'border-[#005db6]/30 bg-gradient-to-r from-[#ebf2ff] to-white text-[#005db6] shadow-[0_8px_18px_-8px_rgba(0,93,182,0.35)]'
+                                : 'border-[#eef1f7] bg-[#f8fafc] text-[#414754] hover:border-[#bfd0ef] hover:bg-white',
                             ].join(' ')}
                           >
                             {isBall ? (
-                              <span className="flex h-4 w-4 items-center justify-center">
-                                <PlaymakerAsset src="/playmaker-assets/pelota.png" alt="ball" className="h-5.5 w-5.5 object-contain" />
+                              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-inner">
+                                <PlaymakerAsset src="/playmaker-assets/pelota.png" alt="ball" className="h-5 w-5 object-contain" />
                               </span>
                             ) : (
                               <span
                                 className={[
-                                  'h-4 w-4 rounded-full border border-black/10',
+                                  'flex h-7 w-7 items-center justify-center rounded-full border border-black/10 text-[10px] font-black text-white shadow-inner',
                                   MARKER_STYLES[color],
                                 ].join(' ')}
-                              />
+                              >
+                                {color === 'blue' ? '8' : '5'}
+                              </span>
                             )}
-                            {color}
+                            <div className="flex flex-1 flex-col">
+                              <span className="text-[11px] font-black uppercase tracking-[0.14em]">{color}</span>
+                              <span className="text-[10px] font-semibold text-[#727785]">
+                                {isBall ? 'Place the ball' : `${color === 'blue' ? 'Tu equipo' : 'Rival'} · 1-11`}
+                              </span>
+                            </div>
+                            {active ? (
+                              <span className="text-[9px] font-black uppercase tracking-[0.16em] text-[#005db6]">Active</span>
+                            ) : null}
                           </button>
                         )
                       })}
                     </div>
-                    <p className="mt-3 text-[11px] text-[#727785]">
+                    <p className="mt-3 rounded-2xl bg-[#f8fafc] px-3 py-2 text-[11px] font-medium text-[#5f6776]">
                       Add blue or red players with numbers 1-11, or place the ball.
                     </p>
                   </>
                 )}
+                </div>
               </div>
             )}
 
-            <aside className="absolute right-3 top-3 bottom-28 z-30 flex w-[300px] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-[28px] border border-white/70 bg-white/92 p-4 shadow-[0_20px_40px_rgba(0,93,182,0.08)] backdrop-blur md:right-6 md:top-6">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#5f6776]">
-                    Analisis IA
-                  </p>
-                  <p className="mt-1 text-xs text-[#727785]">
-                    Lectura tactica contextual sobre la fase actual.
-                  </p>
-                </div>
-                <div className="inline-flex items-center gap-1 rounded-full bg-[#ebf2ff] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#005db6]">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Coach
+            <aside className="absolute right-3 top-3 bottom-28 z-30 flex w-[320px] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-[32px] border border-white/80 bg-white/95 shadow-[0_24px_48px_-16px_rgba(14,31,70,0.2)] ring-1 ring-black/5 backdrop-blur-xl md:right-6 md:top-6">
+              <div className="relative overflow-hidden border-b border-[#eef1f7] bg-gradient-to-br from-[#0e1f46] via-[#1f3a8a] to-[#005db6] px-5 py-4 text-white">
+                <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
+                <div className="pointer-events-none absolute -left-4 bottom-0 h-16 w-16 rounded-full bg-[#ffe170]/15 blur-xl" />
+                <div className="relative flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/70">
+                      Analisis IA
+                    </p>
+                    <p className="mt-1 [font-family:var(--font-plus-jakarta)] text-base font-extrabold leading-tight text-white">
+                      Coach Tactico
+                    </p>
+                    <p className="mt-1 text-[11px] font-medium text-white/75">
+                      Lectura profesional de la fase actual
+                    </p>
+                  </div>
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-[#ffe170] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-[#3a3100] shadow-[0_4px_12px_rgba(255,225,112,0.4)]">
+                    <Sparkles className="h-3 w-3" />
+                    Pro
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-4 flex-1 overflow-y-auto pr-1">
+              <div className="flex-1 overflow-y-auto px-4 pb-4 pt-4">
                 <div>
                   <label
                     htmlFor="playmaker-analysis-context"
-                    className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#5f6776]"
+                    className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#0e1f46]"
                   >
+                    <span className="inline-flex h-1.5 w-1.5 rounded-full bg-[#005db6]" />
                     Contexto de la jugada
                   </label>
                   <textarea
@@ -1901,11 +2118,12 @@ export default function PlayMakerClient() {
                         analysisContext: event.target.value,
                       }))
                     }
-                    placeholder="Ejemplo: buscamos fijar por dentro y activar al extremo en lado debil, o atraer presion para salir por fuera."
-                    className="mt-2 min-h-[104px] w-full resize-none rounded-2xl border border-[#dfe3e8] bg-[#f8fafc] px-3 py-3 text-sm font-medium text-[#181c20] outline-none transition focus:border-[#759efd] focus:ring-2 focus:ring-[#759efd]/25"
+                    placeholder="Ej: buscamos fijar por dentro y activar al extremo en el lado debil, o atraer presion para salir por fuera y romper la primera linea."
+                    className="mt-2 min-h-[112px] w-full resize-none rounded-2xl border border-[#eef1f7] bg-[#f8fafc] px-3 py-3 text-sm font-medium leading-relaxed text-[#181c20] outline-none transition placeholder:text-[#9aa0ae] focus:border-[#759efd] focus:bg-white focus:ring-2 focus:ring-[#759efd]/25"
                   />
-                  <p className="mt-2 text-xs text-[#727785]">
-                    Aqui puedes explicar la idea, el objetivo o el contexto para que la IA valore mejor la jugada.
+                  <p className="mt-2 flex items-start gap-1.5 text-[11px] font-medium text-[#727785]">
+                    <span className="mt-0.5 inline-flex h-1 w-1 shrink-0 rounded-full bg-[#bfd0ef]" />
+                    Cuanto mejor expliques tu idea, mas exigente y especifica sera la lectura tactica.
                   </p>
                 </div>
 
@@ -2147,51 +2365,75 @@ export default function PlayMakerClient() {
                     ) : null}
                   </div>
                 ) : (
-                  <div className="mt-4 rounded-3xl border border-dashed border-[#dfe3e8] bg-[#f8fafc] p-4">
+                  <div className="mt-5">
                     {isAnalyzing ? (
-                      <div className="space-y-3">
-                        <div className="h-4 w-28 animate-pulse rounded-full bg-[#d8e4f6]" />
-                        <div className="h-16 animate-pulse rounded-2xl bg-[#eaf1fb]" />
-                        <div className="h-12 animate-pulse rounded-2xl bg-[#eef3fa]" />
-                        <p className="text-sm font-semibold text-[#414754]">
-                          Analizando contexto, estructura, apoyos y riesgo tras perdida...
+                      <div className="overflow-hidden rounded-3xl border border-[#dbe5f3] bg-gradient-to-br from-white to-[#f4f8ff] p-4 shadow-[0_12px_28px_-12px_rgba(0,93,182,0.18)]">
+                        <div className="flex items-center gap-2">
+                          <span className="relative inline-flex h-2.5 w-2.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#005db6] opacity-60" />
+                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#005db6]" />
+                          </span>
+                          <p className="text-[10.5px] font-black uppercase tracking-[0.2em] text-[#005db6]">
+                            Analizando jugada
+                          </p>
+                        </div>
+                        <div className="mt-3 space-y-2.5">
+                          <div className="h-3 w-2/3 animate-pulse rounded-full bg-[#d8e4f6]" />
+                          <div className="h-16 animate-pulse rounded-2xl bg-gradient-to-r from-[#eaf1fb] via-[#dfe9f8] to-[#eaf1fb] [background-size:200%_100%]" />
+                          <div className="h-12 animate-pulse rounded-2xl bg-gradient-to-r from-[#eef3fa] via-[#e1ebf7] to-[#eef3fa] [background-size:200%_100%]" />
+                        </div>
+                        <p className="mt-3 text-[11.5px] font-semibold text-[#0e1f46]">
+                          Leyendo contexto, estructura, apoyos, lado debil y riesgo tras perdida...
                         </p>
                       </div>
                     ) : (
-                      <>
-                        <p className="text-sm font-semibold text-[#414754]">
-                          Pulsa &quot;Analizar IA&quot; para recibir una opinion de entrenador sobre esta fase.
+                      <div className="overflow-hidden rounded-3xl border border-[#dbe5f3] bg-gradient-to-br from-white to-[#f4f8ff] p-5 shadow-[0_12px_28px_-12px_rgba(0,93,182,0.18)]">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#005db6] to-[#1f67c6] text-white shadow-[0_10px_22px_-6px_rgba(0,93,182,0.5)]">
+                          <Sparkles className="h-5 w-5" />
+                        </div>
+                        <p className="mt-4 [font-family:var(--font-plus-jakarta)] text-[15px] font-extrabold leading-snug text-[#0e1f46]">
+                          Pulsa &quot;Analizar IA&quot; para recibir una opinion profesional sobre esta fase.
                         </p>
-                        <p className="mt-2 text-xs text-[#727785]">
-                          La IA ahora valora lado fuerte, lado debil, apoyos, rest defence, espacio a la espalda y viabilidad real de la idea.
+                        <p className="mt-2 text-[12px] font-medium leading-relaxed text-[#5f6776]">
+                          La IA valora lado fuerte / debil, apoyos reales, rest defence, espalda de la linea, lineas de pase, tercer hombre y viabilidad real de la idea.
                         </p>
-                      </>
+                        <div className="mt-4 grid grid-cols-2 gap-2">
+                          {[
+                            'Lado fuerte/debil',
+                            'Rest defence',
+                            'Apoyos reales',
+                            'Espalda linea',
+                          ].map((tag) => (
+                            <div
+                              key={tag}
+                              className="rounded-xl border border-[#dfe3e8] bg-white px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#5f6776]"
+                            >
+                              {tag}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
 
                 {analysisMeta && analysis ? (
-                  <p className="mt-3 text-[11px] font-semibold text-[#727785]">
-                    Modelo: {analysisMeta.model}
+                  <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#f1f4f9] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#5f6776]">
+                    <span className="inline-flex h-1.5 w-1.5 rounded-full bg-[#005db6]" />
+                    Modelo · {analysisMeta.model}
                   </p>
                 ) : null}
 
                 {analysisError ? (
-                  <p className="mt-3 rounded-2xl bg-[#ffdad6] px-3 py-2 text-sm font-semibold text-[#93000a]">
+                  <p className="mt-3 rounded-2xl border border-[#ffb4ab]/40 bg-[#ffdad6] px-3 py-2 text-sm font-semibold text-[#93000a]">
                     {analysisError}
                   </p>
                 ) : null}
 
                 {improvementError ? (
-                  <p className="mt-3 rounded-2xl bg-[#ffdad6] px-3 py-2 text-sm font-semibold text-[#93000a]">
+                  <p className="mt-3 rounded-2xl border border-[#ffb4ab]/40 bg-[#ffdad6] px-3 py-2 text-sm font-semibold text-[#93000a]">
                     {improvementError}
                   </p>
-                ) : null}
-
-                {!analysis && !analysisError && !isAnalyzing ? (
-                  <div className="mt-3 rounded-2xl bg-white/70 px-3 py-2 text-xs font-medium text-[#727785]">
-                    Cuanto mejor expliques el objetivo en el contexto, mas exigente y precisa sera la lectura tactica.
-                  </div>
                 ) : null}
               </div>
             </aside>
@@ -2199,73 +2441,141 @@ export default function PlayMakerClient() {
             <section className="flex flex-1 items-center justify-center px-3 pb-28 pt-3 md:px-6 md:pt-5">
               <div className="relative aspect-[9/14] h-full max-h-[82vh] w-full max-w-[540px]">
                 {previewPhase ? (
-                  <div className="absolute left-4 right-4 top-4 z-40 rounded-2xl border border-white/60 bg-[#0e1f46]/88 px-4 py-3 text-white shadow-[0_12px_28px_rgba(14,31,70,0.28)] backdrop-blur">
-                    <p className="text-[11px] font-black uppercase tracking-[0.16em] text-white/75">Preview mejora</p>
-                    <p className="mt-1 text-sm font-semibold">
+                  <div className="absolute left-4 right-4 top-4 z-40 overflow-hidden rounded-2xl border border-white/60 bg-gradient-to-r from-[#0e1f46]/95 via-[#1f3a8a]/95 to-[#005db6]/95 px-4 py-3 text-white shadow-[0_18px_36px_-12px_rgba(14,31,70,0.5)] backdrop-blur-xl">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-[#ffe170]" />
+                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/85">Preview mejora</p>
+                    </div>
+                    <p className="mt-1 text-sm font-semibold leading-snug">
                       Estas viendo una version propuesta de la fase actual. Puedes ocultarla o aplicarla desde el panel IA.
                     </p>
+                  </div>
+                ) : activeTool === 'DRAW' ? (
+                  <div className="absolute left-4 right-4 top-4 z-40 inline-flex items-center gap-2 self-start rounded-full border border-[#ffe170]/40 bg-black/70 px-3 py-1.5 text-[11px] font-bold text-white shadow-[0_8px_24px_-8px_rgba(0,0,0,0.4)] backdrop-blur md:left-1/2 md:right-auto md:-translate-x-1/2 md:px-4">
+                    <span className="inline-flex h-1.5 w-1.5 rounded-full bg-[#ffe170]" />
+                    Pulsa un jugador para que la flecha arranque desde el. Suelta sobre otro para enlazarlos.
                   </div>
                 ) : null}
                 <div
                   ref={pitchRef}
                   onPointerDown={handlePitchPointerDown}
                   onClick={handlePitchClick}
-                  className="relative h-full w-full overflow-hidden rounded-[32px] border-[12px] border-white/10 bg-gradient-to-b from-[#2e7d32] to-[#1b5e20] shadow-2xl ring-1 ring-black/5"
+                  className="relative h-full w-full overflow-hidden rounded-[32px] border-[10px] border-[#0e1f46]/85 bg-gradient-to-b from-[#3aa052] via-[#2a8a44] to-[#1d6c33] shadow-[0_36px_60px_-20px_rgba(14,31,70,0.45)] ring-1 ring-black/10"
                 >
-                <div className="absolute inset-0 opacity-20 [background-image:repeating-linear-gradient(180deg,transparent,transparent_5%,rgba(255,255,255,0.05)_5%,rgba(255,255,255,0.05)_10%)]" />
-                <div className="absolute inset-4 rounded-sm border-2 border-white/40" />
-                <div className="absolute left-0 top-1/2 h-[2px] w-full -translate-y-1/2 bg-white/40" />
-                <div className="absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/40" />
-                <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/40" />
-                <div className="absolute left-1/2 top-4 h-20 w-48 -translate-x-1/2 border-2 border-t-0 border-white/40" />
-                <div className="absolute left-1/2 top-4 h-8 w-24 -translate-x-1/2 border-2 border-t-0 border-white/40" />
-                <div className="absolute bottom-4 left-1/2 h-20 w-48 -translate-x-1/2 border-2 border-b-0 border-white/40" />
-                <div className="absolute bottom-4 left-1/2 h-8 w-24 -translate-x-1/2 border-2 border-b-0 border-white/40" />
-                <div className="absolute -top-1 left-1/2 flex h-4 w-20 -translate-x-1/2 items-end justify-center rounded-b-lg border-2 border-white/60 bg-white/20 shadow-inner">
-                  <div className="mb-1 h-[1px] w-full bg-white/30" />
+                <div className="pointer-events-none absolute inset-0 opacity-[0.22] [background-image:repeating-linear-gradient(180deg,rgba(255,255,255,0.18)_0_5%,transparent_5%_10%)]" />
+                <div className="pointer-events-none absolute inset-0 [background:radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.28)_100%)]" />
+                <div className="pointer-events-none absolute inset-0 mix-blend-soft-light [background-image:repeating-linear-gradient(90deg,rgba(255,255,255,0.04)_0_2px,transparent_2px_8px)]" />
+                <div className="absolute inset-4 rounded-md border-2 border-white/55" />
+                <div className="absolute left-0 top-1/2 h-[2px] w-full -translate-y-1/2 bg-white/55" />
+                <div className="absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/55" />
+                <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/70 shadow-[0_0_8px_rgba(255,255,255,0.4)]" />
+                <div className="absolute left-1/2 top-4 h-20 w-48 -translate-x-1/2 border-2 border-t-0 border-white/55" />
+                <div className="absolute left-1/2 top-4 h-8 w-24 -translate-x-1/2 border-2 border-t-0 border-white/55" />
+                <div className="absolute left-1/2 top-[88px] h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/55" />
+                <div className="absolute left-1/2 top-[80px] h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-white/60" />
+                <div className="absolute bottom-4 left-1/2 h-20 w-48 -translate-x-1/2 border-2 border-b-0 border-white/55" />
+                <div className="absolute bottom-4 left-1/2 h-8 w-24 -translate-x-1/2 border-2 border-b-0 border-white/55" />
+                <div className="absolute bottom-[88px] left-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/55" />
+                <div className="absolute bottom-[80px] left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-white/60" />
+                <div className="absolute -top-1 left-1/2 flex h-5 w-24 -translate-x-1/2 items-end justify-center rounded-b-xl border-2 border-white/70 bg-white/25 shadow-inner backdrop-blur-sm">
+                  <div className="mb-1 h-[1px] w-full bg-white/40" />
                 </div>
-                <div className="absolute -bottom-1 left-1/2 flex h-4 w-20 -translate-x-1/2 items-start justify-center rounded-t-lg border-2 border-white/60 bg-white/20 shadow-inner">
-                  <div className="mt-1 h-[1px] w-full bg-white/30" />
+                <div className="absolute -bottom-1 left-1/2 flex h-5 w-24 -translate-x-1/2 items-start justify-center rounded-t-xl border-2 border-white/70 bg-white/25 shadow-inner backdrop-blur-sm">
+                  <div className="mt-1 h-[1px] w-full bg-white/40" />
                 </div>
+                <div className="absolute left-4 top-4 h-3 w-3 rounded-br-full border-r-2 border-b-2 border-white/55" />
+                <div className="absolute right-4 top-4 h-3 w-3 rounded-bl-full border-l-2 border-b-2 border-white/55" />
+                <div className="absolute left-4 bottom-4 h-3 w-3 rounded-tr-full border-r-2 border-t-2 border-white/55" />
+                <div className="absolute right-4 bottom-4 h-3 w-3 rounded-tl-full border-l-2 border-t-2 border-white/55" />
 
-                <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
                   <defs>
-                    <marker id="play-maker-arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                      <polygon points="0 0, 6 3, 0 6" fill="#ffe170" />
-                    </marker>
+                    {ARROW_COLOR_PALETTE.map((color) => (
+                      <marker
+                        key={color}
+                        id={`play-maker-arrowhead-${color.replace('#', '')}`}
+                        markerWidth="6"
+                        markerHeight="6"
+                        refX="5"
+                        refY="3"
+                        orient="auto"
+                      >
+                        <polygon points="0 0, 6 3, 0 6" fill={color} />
+                      </marker>
+                    ))}
                   </defs>
 
-                  {[
-                    ...visiblePhase.drawings,
-                    ...(drawingState &&
-                    !visiblePhase.drawings.some((item) => item.id === drawingState.drawing.id)
-                      ? [drawingState.drawing]
-                      : []),
-                  ].map((drawing) => {
+                  {renderedDrawings.map(({ drawing, pathD, safeColor }) => {
                     const isSelected = selectedDrawingId === drawing.id
+                    const isAiDrawing = isAiGeneratedDrawing(drawing)
+                    const dimOriginal = Boolean(previewPhase) && !isAiDrawing
+                    const dashArray = dimOriginal
+                      ? '1.6 2.4'
+                      : isAiDrawing && Boolean(previewPhase)
+                        ? '3.2 1.6'
+                        : drawing.kind === 'pass'
+                          ? undefined
+                          : '2.5 1.8'
+                    const arrowsAreInteractive = activeTool === 'SELECT' || activeTool === 'ERASER'
                     return (
                       <g
                         key={drawing.id}
                         data-drawing-item="true"
                         onPointerDown={(event) => handleDrawingPointerDown(drawing.id, event)}
                         onClick={() => handleDrawingClick(drawing.id)}
-                        className={activeTool === 'SELECT' ? 'cursor-move' : 'cursor-pointer'}
+                        className={[
+                          arrowsAreInteractive ? 'pointer-events-auto' : 'pointer-events-none',
+                          activeTool === 'SELECT' ? 'cursor-move' : 'cursor-pointer',
+                        ].join(' ')}
+                        opacity={dimOriginal ? 0.32 : 1}
                       >
                         <path
                           data-drawing-item="true"
-                          d={`M ${drawing.startXPct} ${drawing.startYPct} L ${drawing.endXPct} ${drawing.endYPct}`}
+                          d={pathD}
                           fill="none"
-                          stroke={drawing.color}
+                          stroke={safeColor}
                           strokeWidth={isSelected ? drawing.strokeWidthPct + 0.35 : drawing.strokeWidthPct}
-                          strokeDasharray="2.5 1.8"
-                          markerEnd="url(#play-maker-arrowhead)"
+                          strokeDasharray={dashArray}
+                          markerEnd={`url(#play-maker-arrowhead-${safeColor.replace('#', '')})`}
                           strokeLinecap="round"
-                          pointerEvents="stroke"
+                          pointerEvents={arrowsAreInteractive ? 'stroke' : 'none'}
                         />
                       </g>
                     )
                   })}
                 </svg>
+
+                {renderedDrawings.map(({ drawing, labelX, labelY, safeColor }) => {
+                  const tag = drawing.label ?? formatDrawingPlayerTag(drawing, visiblePhase.elements)
+                  if (!tag) return null
+                  const isAiDrawing = isAiGeneratedDrawing(drawing)
+                  const dimOriginal = Boolean(previewPhase) && !isAiDrawing
+                  return (
+                    <div
+                      key={`label-${drawing.id}`}
+                      className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2"
+                      style={{ left: `${labelX}%`, top: `${labelY}%`, opacity: dimOriginal ? 0.35 : 1 }}
+                    >
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-white shadow-[0_2px_6px_rgba(0,0,0,0.35)] backdrop-blur"
+                        style={{
+                          borderColor: isAiDrawing && Boolean(previewPhase) ? safeColor : `${safeColor}90`,
+                          background: isAiDrawing && Boolean(previewPhase) ? 'rgba(0, 93, 182, 0.92)' : 'rgba(0, 0, 0, 0.72)',
+                          boxShadow:
+                            isAiDrawing && Boolean(previewPhase)
+                              ? `0 0 0 1.5px ${safeColor}, 0 6px 14px rgba(0,93,182,0.35)`
+                              : undefined,
+                        }}
+                      >
+                        <span
+                          className="inline-block h-1.5 w-1.5 rounded-full"
+                          style={{ background: safeColor }}
+                        />
+                        {tag}
+                      </span>
+                    </div>
+                  )
+                })}
 
                 {visiblePhase.elements.map((element) => {
                   const isSelected = selectedElementId === element.id
@@ -2299,8 +2609,8 @@ export default function PlayMakerClient() {
               </div>
             </section>
 
-            <footer className="absolute bottom-0 left-0 right-0 z-30 flex h-24 items-center justify-center border-t border-[#dfe3e8] bg-white/95 px-4 shadow-[0_-10px_30px_rgba(0,0,0,0.03)] backdrop-blur">
-              <div className="flex items-center gap-2 md:gap-4">
+            <footer className="absolute bottom-0 left-0 right-0 z-30 flex h-24 items-center justify-center border-t border-white/60 bg-white/85 px-4 shadow-[0_-12px_36px_-12px_rgba(14,31,70,0.18)] backdrop-blur-xl">
+              <div className="flex items-center gap-1.5 rounded-full border border-[#eef1f7] bg-[#f8fafc] p-1.5 shadow-[inset_0_2px_6px_rgba(14,31,70,0.04)]">
                 {draft.phases.map((phase, index) => {
                   const active = draft.activePhaseId === phase.id
                   return (
@@ -2309,16 +2619,23 @@ export default function PlayMakerClient() {
                       type="button"
                       onClick={() => setActivePhase(phase.id)}
                       className={[
-                        'flex flex-col items-center justify-center rounded-2xl px-4 py-2 text-xs font-bold transition md:px-6',
+                        'group relative flex items-center gap-2 rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.1em] transition-all duration-200 md:px-5',
                         active
-                          ? 'border-2 border-[#005db6]/10 bg-[#ebf2ff] text-[#005db6]'
-                          : 'text-[#727785] hover:bg-[#f8fafc]',
+                          ? 'bg-gradient-to-br from-[#005db6] to-[#1f67c6] text-white shadow-[0_10px_22px_-6px_rgba(0,93,182,0.5)]'
+                          : 'text-[#5f6776] hover:bg-white hover:text-[#0e1f46] hover:shadow-[0_4px_12px_rgba(14,31,70,0.06)]',
                       ].join(' ')}
                     >
-                      <span className="mb-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-current/10 text-[11px]">
+                      <span
+                        className={[
+                          'inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black transition',
+                          active
+                            ? 'bg-white/25 text-white'
+                            : 'bg-[#ebf2ff] text-[#005db6]',
+                        ].join(' ')}
+                      >
                         {index + 1}
                       </span>
-                      {phase.label}
+                      <span>{phase.label}</span>
                     </button>
                   )
                 })}
@@ -2326,10 +2643,10 @@ export default function PlayMakerClient() {
                 <button
                   type="button"
                   onClick={addPhase}
-                  className="ml-1 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#e5e8ed] text-[#005db6] transition hover:bg-[#d6e3ff]"
+                  className="ml-1 inline-flex h-9 w-9 items-center justify-center rounded-full border border-dashed border-[#bfd0ef] bg-white text-[#005db6] transition hover:rotate-90 hover:border-[#005db6] hover:bg-[#ebf2ff]"
                   aria-label="Add phase"
                 >
-                  <Plus className="h-5 w-5" />
+                  <Plus className="h-4 w-4" />
                 </button>
               </div>
             </footer>
@@ -2338,15 +2655,15 @@ export default function PlayMakerClient() {
               <div
                 ref={trashRef}
                 className={[
-                  'flex h-16 w-16 items-center justify-center rounded-full border-2 shadow-[0_16px_30px_rgba(0,0,0,0.12)] transition-all',
+                  'flex h-16 w-16 items-center justify-center rounded-2xl border-2 shadow-[0_18px_32px_-10px_rgba(14,31,70,0.25)] transition-all duration-200',
                   isOverTrash
-                    ? 'scale-110 border-[#ba1a1a] bg-[#ba1a1a] text-white'
-                    : 'border-white/80 bg-white/92 text-[#727785] backdrop-blur',
+                    ? 'scale-110 rotate-6 border-[#ba1a1a] bg-gradient-to-br from-[#ba1a1a] to-[#7d0d0d] text-white shadow-[0_22px_36px_-8px_rgba(186,26,26,0.5)]'
+                    : 'border-white/80 bg-white/95 text-[#727785] backdrop-blur-xl ring-1 ring-black/5',
                 ].join(' ')}
               >
                 <Trash2 className="h-6 w-6" />
               </div>
-              <p className="mt-2 text-center text-[10px] font-bold uppercase tracking-[0.14em] text-[#5f6776]">
+              <p className="mt-2 text-center text-[10px] font-black uppercase tracking-[0.18em] text-[#5f6776]">
                 Trash
               </p>
             </div>

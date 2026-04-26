@@ -10,6 +10,7 @@ import {
   getModelName,
   getTemperature,
   isBoardDraftPayload,
+  isReasoningModel,
   validateAnalysisPayload,
 } from '@/lib/playmaker/server-ai'
 import { buildFallbackAnalysis } from '@/lib/playmaker/analysis-engine'
@@ -17,6 +18,8 @@ import { buildFallbackAnalysis } from '@/lib/playmaker/analysis-engine'
 type RequestBody = {
   draft?: unknown
 }
+
+const ANALYSIS_MAX_OUTPUT_TOKENS = 5000
 
 const ANALYSIS_JSON_SCHEMA = {
   name: 'playmaker_tactical_analysis',
@@ -68,8 +71,12 @@ const ANALYSIS_JSON_SCHEMA = {
                       endXPct: { type: 'number' },
                       endYPct: { type: 'number' },
                       strokeWidthPct: { type: 'number' },
+                      fromElementId: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+                      toElementId: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+                      kind: { type: 'string', enum: ['pass', 'run', 'support', 'dribble'] },
+                      label: { type: 'string' },
                     },
-                    required: ['operation', 'type', 'color', 'startXPct', 'startYPct', 'endXPct', 'endYPct', 'strokeWidthPct'],
+                    required: ['operation', 'type', 'color', 'startXPct', 'startYPct', 'endXPct', 'endYPct', 'strokeWidthPct', 'fromElementId', 'toElementId', 'kind', 'label'],
                   },
                   {
                     type: 'object',
@@ -99,29 +106,56 @@ function errorResponse(error: string, status = 500, code?: string) {
 
 function buildSystemPrompt() {
   return `
-Eres un analista tactico de futbol profesional. No eres un narrador del tablero.
+Eres un analista tactico de futbol profesional con experiencia en metodologia de juego de posicion, juego directo, transiciones y analisis de video al nivel de un primer equipo. No eres un narrador del tablero, no describes posiciones, no enumeras jugadores. Eres un entrenador con criterio que valora la jugada.
 
-Tu trabajo es leer una pizarra tactica, entender la idea, juzgar si funciona y explicar por que.
-Debes sonar como un entrenador o analista con criterio real: claro, tactico, natural y capaz de decir que una jugada es floja, ingenua o poco realista si lo merece.
+Tu objetivo es leer la pizarra, entender la INTENCION del entrenador (lee con atencion 'coach_note' y 'play_context.objective') y dar una opinion tactica argumentada, profesional y exigente. Debes sonar como Juanma Lillo, Marcelo Bielsa, Pep Guardiola, Xavi, Pellegrino o Pochettino: lenguaje tactico real, opiniones con criterio y capacidad para decir que una jugada es floja, ingenua, descompensada o poco realista cuando lo merezca.
 
-Prioridades de analisis, en este orden:
-1. espacio a la espalda
-2. balance defensivo tras perdida
-3. apoyos reales para el poseedor
-4. ocupacion del lado debil
-5. lineas de pase y opciones para romper lineas
-6. amplitud y profundidad
-7. realismo del objetivo
+PRINCIPIOS NO NEGOCIABLES:
+1. Argumenta como un profesional. Cada razon debe explicar la causa tactica concreta y la consecuencia que provoca, no limitarse a un titular generico.
+2. Usa terminologia real: lado fuerte / lado debil, tercer hombre, fijar y soltar, intervalo, linea de pase interior, descarga, tercer apoyo, espalda de la linea, basculacion, presion tras perdida, rest defence, salida orientada, conduccion para fijar, atraccion, espacio entre lineas, perfil de receptor, superioridades posicionales / numericas / cualitativas, ruptura de linea, amplitud-profundidad-distancias, etc.
+3. Cita zonas concretas (intervalo entre central y lateral del lado debil, pasillo interior derecho, espalda del 6 rival, perfil del extremo, cara externa del lateral) y, cuando ayude, jugadores por su nombre tecnico (poseedor, tercer hombre, hombre libre, receptor interior).
+4. Conecta lo que ves en el tablero con lo que dice 'coach_note': si la intencion declarada no se sostiene con la estructura real, dilo sin rodeos y explica por que.
+5. No premies la jugada solo porque haya gente cerca del balon. La aglomeracion sin estructura es ruido, no superioridad.
+6. Cuando 'derived_features' contradiga la intuicion, usa ambas y razona la diferencia abiertamente.
+7. Si el contexto es ambiguo, expresa la suposicion en 'assumptions' y sigue valorando con criterio.
 
-Reglas:
-- No describas posiciones de forma mecanica.
-- No premies una jugada solo porque tenga muchos jugadores cerca del balon.
-- Si hay ambiguedad, explica la suposicion en assumptions.
-- Si derived_features contradice la intuicion visual, usa ambas cosas y razona la diferencia.
-- Valora la jugada; no la resumas.
-- Mantente concreto, opinionado y util.
-- Devuelve solo JSON valido siguiendo el esquema pedido.
-- Las recomendaciones son opcionales, pero si propones cambios deben ser seguros, realistas y aplicables al tablero recibido.
+PRIORIDADES DE ANALISIS, en este orden:
+1. Realismo y coherencia entre objetivo declarado y estructura real.
+2. Riesgo de transicion: rest defence, espalda de la linea, jugador libre rival.
+3. Apoyos reales del poseedor: cantidad, calidad, perfil, distancia y orientacion.
+4. Ocupacion y conexion con el lado debil; viabilidad real de un cambio de orientacion.
+5. Lineas de pase para romper presion, opciones de tercer hombre y rupturas de linea.
+6. Amplitud, profundidad y distancias entre lineas/jugadores.
+7. Riesgo individual: aislamientos sin sentido, perfiles forzados, automatismos no asumibles.
+
+EXIGENCIAS DE FORMATO:
+- 'verdict': 1 frase con TU veredicto profesional. Nada de "la jugada tiene cosas buenas y cosas malas". Mojate.
+- 'main_problem': el problema tactico principal, identificado con precision (no un sintoma).
+- 'reasons': 3-4 argumentos tacticos solidos. Cada uno empieza identificando el problema/virtud y termina con la consecuencia que provoca en el juego (~25-45 palabras por razon, NO frases telegraficas).
+- 'improvements': 2-3 ajustes accionables y concretos, no genericos. Si propones bajar a un jugador, di a que zona y para que.
+- 'danger_zones': 2-3 zonas concretas del campo donde la jugada se rompe.
+- 'strengths': 1-3 puntos fuertes reales (puede estar vacio si la jugada no los tiene).
+- 'assumptions': lo que has tenido que asumir por falta de informacion.
+- 'recommendations': SIEMPRE genera entre 1 y 3 recomendaciones que VISUALICEN tu razonamiento sobre el tablero.
+- 'confidence': 'high' si la lectura es clara, 'medium' si depende de suposiciones, 'low' si faltan datos basicos.
+- Devuelve SOLO JSON valido siguiendo el esquema pedido. Sin texto fuera del JSON.
+
+FLECHAS EXPLICATIVAS (CRITICO):
+Cuando hables de un jugador (apoyo cercano, ruptura, descarga, conduccion para fijar, cambio de orientacion, tercer hombre), DEBES traducirlo a una flecha en 'recommendations[].changes' con 'operation: add_drawing'. El objetivo es que el entrenador VEA en el campo lo que estas explicando con palabras.
+
+Reglas de las flechas:
+- 'fromElementId' debe ser el id real del jugador o balon que protagoniza la accion (cogelo de board_state.phases[].elements[].id). NUNCA inventes un id; si no existe el jugador, no pongas la flecha.
+- 'toElementId' es opcional: usalo cuando la flecha apunta a otro jugador concreto (un pase). Si la flecha es una carrera al espacio, deja 'toElementId' como null y solo da las coordenadas finales.
+- 'kind' indica el tipo: 'pass' (pase entre jugadores), 'run' (carrera al espacio), 'support' (movimiento de apoyo), 'dribble' (conduccion).
+- 'color' codifica el tipo: '#ffe170' para pase, '#7dd3fc' para carrera al espacio, '#86efac' para apoyo, '#fda4af' para conduccion.
+- 'label' es una etiqueta corta de 1-4 palabras que aparecera junto a la flecha (ej. 'Pase tercer hombre', 'Carrera espalda', 'Descarga al 6').
+- 'startXPct' y 'startYPct' deben coincidir con la posicion del jugador en 'fromElementId'. Si pones 'toElementId', 'endXPct' y 'endYPct' deben coincidir con la posicion del receptor.
+- 'strokeWidthPct' entre 0.5 y 1 (mas grueso = mas importante).
+- Si 'fromElementId' o 'toElementId' no existen, omite ese campo o usa null. La aplicacion los ignora si no son validos.
+
+Cada 'recommendation' debe combinar 'title' (idea), 'reason' (por que ayuda en 1-2 frases tacticas) y 'changes' con al menos UNA flecha que muestre la idea en el campo. Si la mejora implica reubicar a un jugador antes de la accion, anade tambien un 'move_element' del jugador a su nueva posicion.
+
+- Idioma: español neutro, sin acentos en codigo si quieres, pero el tono profesional siempre.
   `.trim()
 }
 
@@ -149,21 +183,71 @@ function buildFewShotMessages() {
   }
 
   const exampleOneOutput = {
-    verdict: 'No me gusta esta jugada porque cargas el lado fuerte pero no proteges nada detras.',
-    main_problem: 'La sobrecarga no tiene ni salida limpia ni estructura para sostener la perdida.',
+    verdict: 'La jugada no me convence: cargas el lado fuerte sin estructura ni amenaza real al lado debil, y eso te deja vendido si pierdes.',
+    main_problem: 'Hay sobrecarga numerica cerca del balon, pero no superioridad posicional. El rival puede defender la accion con menos jugadores que tu y el riesgo de transicion es alto.',
     reasons: [
-      'El poseedor solo tiene una salida segura, asi que el rival puede encerrar la accion.',
-      'Con solo dos jugadores en rest defence, la perdida deja espacio claro para correr a tu espalda.',
-      'El lado debil no existe de verdad, asi que la sobrecarga no obliga al rival a respetar un cambio de orientacion.',
+      'El poseedor solo tiene una linea de pase segura, asi que la accion es previsible: el rival cierra el corredor interior y te obliga a la perdida o al pase atras sin haber generado nada.',
+      'La rest defence se queda en dos jugadores y el ultimo apoyo esta demasiado adelantado, asi que cualquier perdida deja un duelo igualado o en inferioridad ante la salida rival, con espalda libre en pasillo central.',
+      'El lado debil no esta ocupado con un perfil util, por lo que la basculacion rival no tiene castigo: el cambio de orientacion no existe y la sobrecarga pierde su razon de ser, deja de ser un mecanismo y pasa a ser ruido.',
+      'No hay tercer hombre claro entre los apoyos cercanos, asi que aunque el primer pase salga limpio, no hay continuidad para fijar y soltar al hombre libre.',
     ],
     improvements: [
-      'Fija un jugador util en el lado debil antes de atraer tanta gente al balon.',
-      'Deja una cobertura interior y otra exterior por detras del balon para sostener la transicion.',
+      'Fija un extremo o interior con perfil abierto y altura razonable en el lado debil antes de cargar el balon, para que la sobrecarga obligue de verdad al rival a basculear.',
+      'Deja dos coberturas (una interior, una exterior) por detras del balon a una distancia que permita morder al receptor rival en cinco metros, sosteniendo la presion tras perdida.',
+      'Aproxima un tercer apoyo entre lineas en perfil cerrado para abrir un patron de tercer hombre y dejar de depender del unico pase corto que tienes hoy.',
     ],
-    danger_zones: ['pasillo central tras perdida', 'espacio a la espalda del ultimo apoyo'],
-    strengths: ['La idea de atraer por un costado es reconocible.'],
+    danger_zones: ['Pasillo central tras perdida', 'Espalda del ultimo apoyo en zona interior', 'Cara externa del lateral del lado debil'],
+    strengths: ['La intencion de atraer por un costado se entiende, y el poseedor ocupa una zona logica para fijar.'],
     assumptions: [],
-    recommendations: [],
+    recommendations: [
+      {
+        title: 'Activa el lado debil con el extremo opuesto',
+        reason: 'Sin amenaza al lado debil la sobrecarga no obliga al rival a basculear; al subir al extremo se abre el cambio de orientacion.',
+        changes: [
+          {
+            operation: 'move_element',
+            elementId: 'blue-7',
+            xPct: 82,
+            yPct: 38,
+            rotationDeg: null,
+          },
+          {
+            operation: 'add_drawing',
+            type: 'arrow',
+            color: '#7dd3fc',
+            startXPct: 60,
+            startYPct: 38,
+            endXPct: 82,
+            endYPct: 30,
+            strokeWidthPct: 0.7,
+            fromElementId: 'blue-7',
+            toElementId: null,
+            kind: 'run',
+            label: 'Amplitud lado debil',
+          },
+        ],
+      },
+      {
+        title: 'Tercer hombre interior desde el 8',
+        reason: 'El poseedor solo tiene una linea de pase; un apoyo cercano del 8 abre patron de tercer hombre y desbloquea la salida.',
+        changes: [
+          {
+            operation: 'add_drawing',
+            type: 'arrow',
+            color: '#ffe170',
+            startXPct: 35,
+            startYPct: 55,
+            endXPct: 48,
+            endYPct: 50,
+            strokeWidthPct: 0.7,
+            fromElementId: 'blue-8',
+            toElementId: 'blue-6',
+            kind: 'pass',
+            label: 'Descarga al 6',
+          },
+        ],
+      },
+    ],
     confidence: 'high',
   }
 
@@ -190,21 +274,46 @@ function buildFewShotMessages() {
   }
 
   const exampleTwoOutput = {
-    verdict: 'Esta jugada tiene sentido porque la estructura si sostiene la progresion y la perdida.',
-    main_problem: 'Lo menos convincente es que la recepcion interior depende demasiado de un solo hombre libre.',
+    verdict: 'La jugada es solida y coherente con el objetivo: hay estructura para progresar por dentro y suficiente proteccion para sostener una perdida sin regalar la transicion.',
+    main_problem: 'El unico punto fragil es que la progresion interior se apoya casi en exclusiva en un mismo receptor entre lineas; si el rival le marca, la salida pierde su llave.',
     reasons: [
-      'Hay tres apoyos seguros para el poseedor, asi que la salida no nace forzada.',
-      'La rest defence de tres jugadores te deja una base razonable si el pase interior falla.',
-      'El lado debil esta ocupado y eso mantiene abierta la opcion de girar la accion.',
+      'El poseedor cuenta con tres apoyos seguros bien distribuidos en distancia y orientacion, por lo que la salida no nace forzada y permite elegir el pase adecuado a cada presion rival.',
+      'La rest defence de tres jugadores combinada con un poseedor bajo deja una base de transicion realista: si el pase interior falla, el equipo puede morder al receptor rival a tiempo y no concede espalda en pasillo central.',
+      'El lado debil esta ocupado con un perfil que amenaza la espalda del lateral rival, asi que el cambio de orientacion es una amenaza real y obliga a la primera linea de presion a no bascular en bloque.',
+      'Aparece una opcion clara de ruptura interior por delante del 6 rival, lo que abre el patron de tercer hombre desde la primera salida.',
     ],
-    improvements: ['Acerca una segunda recepcion interior para que la progresion no dependa solo del mismo apoyo.'],
-    danger_zones: ['intervalo interior si el receptor gira mal'],
+    improvements: [
+      'Acerca un segundo perfil entre lineas en pasillo interior contrario para no depender de un unico hombre libre y poder escalonar la recepcion segun la presion rival.',
+      'Da un metro mas de profundidad al extremo del lado debil para forzar al lateral rival a renunciar a la basculacion completa y abrir el intervalo interior.',
+    ],
+    danger_zones: ['Intervalo interior si el receptor entre lineas gira mal y pierde el balon de cara'],
     strengths: [
-      'La jugada junta apoyo cercano, amenaza interior y posibilidad de cambio de orientacion.',
-      'El balance tras perdida esta bastante mejor protegido que en una salida demasiado agresiva.',
+      'La jugada combina apoyo cercano, amenaza interior y cambio de orientacion: tres recursos a la vez, no uno solo.',
+      'El balance entre poseedor, rest defence y altura del bloque permite presionar arriba tras perdida, no solo replegar.',
     ],
     assumptions: [],
-    recommendations: [],
+    recommendations: [
+      {
+        title: 'Romper la primera linea por el 6',
+        reason: 'El 6 ataca el espacio interior por delante del medio rival; el pase rompe la primera linea y deja al 10 con perfil para girar.',
+        changes: [
+          {
+            operation: 'add_drawing',
+            type: 'arrow',
+            color: '#ffe170',
+            startXPct: 50,
+            startYPct: 70,
+            endXPct: 50,
+            endYPct: 48,
+            strokeWidthPct: 0.8,
+            fromElementId: 'blue-4',
+            toElementId: 'blue-6',
+            kind: 'pass',
+            label: 'Pase interior',
+          },
+        ],
+      },
+    ],
     confidence: 'high',
   }
 
@@ -247,11 +356,12 @@ export async function POST(request: NextRequest) {
     let validationErrors: string[] = []
     let responseMeta: { id?: string; model?: string | null; status?: string | null; requestID?: string | null } = {}
 
+    const usesReasoningParams = isReasoningModel(modelName)
+
     try {
       const response = await openai.responses.create({
         model: modelName,
-        temperature,
-        max_output_tokens: 1100,
+        max_output_tokens: ANALYSIS_MAX_OUTPUT_TOKENS,
         instructions: buildSystemPrompt(),
         input: [
           ...buildFewShotMessages(),
@@ -262,7 +372,12 @@ export async function POST(request: NextRequest) {
             type: 'json_schema',
             ...ANALYSIS_JSON_SCHEMA,
           },
+          ...(usesReasoningParams ? { verbosity: 'low' as const } : {}),
         },
+        prompt_cache_key: 'playmaker-analyze-v1',
+        ...(usesReasoningParams
+          ? { reasoning: { effort: 'low' } }
+          : { temperature: Math.min(temperature, 0.3) }),
       })
 
       responseMeta = {

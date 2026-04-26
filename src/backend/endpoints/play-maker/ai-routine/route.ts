@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
-import { enrichDraftWithExerciseDb } from '@/lib/exercisedb'
+import { enrichDraftWithExerciseDb, searchExerciseCatalog } from '@/lib/exercisedb'
 import { getServerOpenAiConfig, getServerOpenAiKeyError } from '@/lib/openai-server'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
 import { buildRoutineDetails, buildRoutineSummary, normalizeRoutineDetailText, normalizeRoutineDraft, splitRoutineDetailText, type RoutineEditorBlock, type RoutineEditorDraft, type RoutineExerciseRow } from '@/lib/playmaker/routines'
-import { formatOpenAiError, getModelName, getTemperature } from '@/lib/playmaker/server-ai'
+import { extractRawResponseText, formatOpenAiError, getModelName, getTemperature, isReasoningModel } from '@/lib/playmaker/server-ai'
 
 type RequestBody = {
   equipoId?: unknown
@@ -16,6 +16,93 @@ type RequestBody = {
 type ChatMessage = {
   role: 'user' | 'assistant'
   content: string
+}
+
+type ExerciseDbPreviewItem = {
+  name: string
+  subtitle: string
+  imageUrl: string | null
+  bodyParts: string[]
+  targetMuscles: string[]
+  equipments: string[]
+}
+
+const AI_ROUTINE_MAX_OUTPUT_TOKENS = 6000
+
+const EXERCISE_DB_QUERY_HINTS = [
+  'sentadilla con salto',
+  'sentadilla',
+  'flexiones',
+  'dominadas',
+  'zancadas',
+  'plancha',
+  'escaladores',
+  'abdominales',
+  'peso muerto',
+  'remo',
+  'gemelos',
+  'burpees',
+  'jumping jacks',
+  'mountain climbers',
+  'squat',
+  'push up',
+  'pull up',
+  'lunge',
+  'plank',
+  'deadlift',
+  'row',
+]
+
+const AI_ROUTINE_JSON_SCHEMA = {
+  name: 'playmaker_ai_routine',
+  strict: true,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      assistantMessage: { type: 'string' },
+      draft: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          title: { type: 'string' },
+          objective: { type: 'string' },
+          trainingCategory: { type: 'string', enum: ['FUERZA', 'POTENCIA', 'RESISTENCIA', 'RECUPERACION'] },
+          targetGroup: { type: 'string' },
+          playerCount: { type: 'string' },
+          phases: { type: 'array', items: { type: 'string' } },
+          origin: { type: 'string', enum: ['ai'] },
+          imageUrls: { type: 'array', items: { type: 'string' } },
+          blocks: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                id: { type: 'string' },
+                phase: { type: 'string' },
+                name: { type: 'string' },
+                duration: { type: 'string' },
+                sets: { type: 'string' },
+                reps: { type: 'string' },
+                rest: { type: 'string' },
+                load: { type: 'string' },
+                purpose: { type: 'string' },
+                setup: { type: 'string' },
+                instructions: { type: 'string' },
+                coachingPoints: { type: 'array', items: { type: 'string' } },
+                progression: { type: 'string' },
+                notes: { type: 'string' },
+              },
+              required: ['id', 'phase', 'name', 'duration', 'sets', 'reps', 'rest', 'load', 'purpose', 'setup', 'instructions', 'coachingPoints', 'progression', 'notes'],
+            },
+          },
+        },
+        required: ['title', 'objective', 'trainingCategory', 'targetGroup', 'playerCount', 'phases', 'origin', 'imageUrls', 'blocks'],
+      },
+    },
+    required: ['assistantMessage', 'draft'],
+  },
 }
 
 function errorResponse(error: string, status = 400) {
@@ -39,6 +126,62 @@ function normalizeMessages(value: unknown): ChatMessage[] {
     })
     .filter((item): item is ChatMessage => Boolean(item))
     .slice(-12)
+}
+
+function normalizeComparableText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+function uniqueByNormalizedText(values: string[]) {
+  const seen = new Set<string>()
+  return values.filter((value) => {
+    const key = normalizeComparableText(value).replace(/[^a-z0-9]+/g, ' ').trim()
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+function buildExerciseDbQueries(prompt: string, currentDraft: RoutineEditorDraft) {
+  const normalizedPrompt = normalizeComparableText(prompt)
+  const hintedExercises = EXERCISE_DB_QUERY_HINTS.filter((hint) =>
+    normalizedPrompt.includes(normalizeComparableText(hint))
+  )
+  const blockNames = currentDraft.blocks.map((block) => block.name.trim()).filter(Boolean)
+
+  return uniqueByNormalizedText([...blockNames, ...hintedExercises]).slice(0, 5)
+}
+
+async function buildExerciseDbPreview(prompt: string, currentDraft: RoutineEditorDraft): Promise<ExerciseDbPreviewItem[]> {
+  const queries = buildExerciseDbQueries(prompt, currentDraft)
+  if (queries.length === 0) return []
+
+  try {
+    const results = await Promise.all(queries.map((query) => searchExerciseCatalog(query).catch(() => [])))
+    const seen = new Set<string>()
+    return results
+      .flat()
+      .filter((item) => {
+        const key = item.exerciseId || normalizeComparableText(item.name)
+        if (!key || seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      .slice(0, 8)
+      .map((item) => ({
+        name: item.name,
+        subtitle: item.subtitle,
+        imageUrl: item.imageUrl,
+        bodyParts: item.bodyParts,
+        targetMuscles: item.targetMuscles,
+        equipments: item.equipments,
+      }))
+  } catch {
+    return []
+  }
 }
 
 async function validateMembership(
@@ -183,9 +326,10 @@ function buildContextPrompt(args: {
   currentDraft: RoutineEditorDraft
   messages: ChatMessage[]
   libraryPreview: Array<{ title: string; category: string; duration: number; objective: string }>
+  exerciseDbPreview: ExerciseDbPreviewItem[]
   upcomingSessions: Array<{ titulo: string; tipo: string | null; fecha: string }>
 }) {
-  const { team, prompt, currentDraft, messages, libraryPreview, upcomingSessions } = args
+  const { team, prompt, currentDraft, messages, libraryPreview, exerciseDbPreview, upcomingSessions } = args
 
   return JSON.stringify(
     {
@@ -195,6 +339,7 @@ function buildContextPrompt(args: {
       conversacion_reciente: messages,
       borrador_actual: currentDraft,
       referencias_biblioteca: libraryPreview,
+      referencias_exercisedb: exerciseDbPreview,
       proximos_entrenamientos: upcomingSessions,
       reglas: [
         'La respuesta debe ser una rutina completa, coherente y guardable.',
@@ -204,6 +349,8 @@ function buildContextPrompt(args: {
         'No metas varias actividades dentro de un mismo campo instructions/Consignas. Si hay Jumping jacks, sentadillas, burpees u otras tareas, cada una debe ser un block independiente.',
         'Usa instructions para explicar solo el block actual, no para listar otros ejercicios.',
         'Separa calentamiento, bloque principal y cierre en blocks distintos, con phase clara para cada parte.',
+        'Cuando referencias_exercisedb tenga resultados relevantes, prioriza esos nombres de ejercicio para que el backend pueda enriquecerlos con imagenes reales.',
+        'No inventes imageUrls ni exerciseData: el backend los rellena despues con ExerciseDB.',
         'Usa trainingCategory solo entre FUERZA, POTENCIA, RESISTENCIA o RECUPERACION.',
         'El origen debe ser ai.',
       ],
@@ -274,6 +421,7 @@ export async function POST(request: NextRequest) {
       }))
 
     const upcomingSessions = (upcomingResult.data ?? []) as Array<{ titulo: string; tipo: string | null; fecha: string }>
+    const exerciseDbPreview = await buildExerciseDbPreview(prompt, currentDraft)
 
     const systemPrompt = [
       'Eres el disenador de entrenamientos de BeProfesional.',
@@ -293,18 +441,45 @@ export async function POST(request: NextRequest) {
     ].join(' ')
 
     const openai = new OpenAI({ apiKey })
-    const completion = await openai.chat.completions.create({
-      model: getModelName(),
-      temperature: Math.min(getTemperature(), 0.5),
-      response_format: { type: 'json_object' },
-      max_tokens: 2600,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: buildContextPrompt({ team, prompt, currentDraft, messages, libraryPreview, upcomingSessions }) },
-      ],
-    })
+    const modelName = getModelName()
+    const contextPrompt = buildContextPrompt({ team, prompt, currentDraft, messages, libraryPreview, exerciseDbPreview, upcomingSessions })
+    let responseModel = modelName
+    let rawText = ''
 
-    const rawText = completion.choices[0]?.message?.content?.trim()
+    if (isReasoningModel(modelName)) {
+      const response = await openai.responses.create({
+        model: modelName,
+        max_output_tokens: AI_ROUTINE_MAX_OUTPUT_TOKENS,
+        instructions: systemPrompt,
+        input: [{ role: 'user', content: contextPrompt }],
+        text: {
+          format: {
+            type: 'json_schema',
+            ...AI_ROUTINE_JSON_SCHEMA,
+          },
+          verbosity: 'low',
+        },
+        reasoning: { effort: 'low' },
+      })
+
+      responseModel = response.model ?? modelName
+      rawText = extractRawResponseText(response)
+    } else {
+      const completion = await openai.chat.completions.create({
+        model: modelName,
+        temperature: Math.min(getTemperature(), 0.5),
+        response_format: { type: 'json_object' },
+        max_completion_tokens: 2600,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: contextPrompt },
+        ],
+      })
+
+      responseModel = completion.model
+      rawText = completion.choices[0]?.message?.content?.trim() ?? ''
+    }
+
     if (!rawText) {
       return errorResponse('La IA no devolvio contenido.', 502)
     }
@@ -344,7 +519,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       draft,
       assistantMessage: sanitizeAssistantMessage(payload.assistantMessage),
-      model: completion.model,
+      model: responseModel,
     })
   } catch (error) {
     console.error('Error en POST /api/play-maker/ai-routine:', formatOpenAiError(error))
