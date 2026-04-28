@@ -1,0 +1,7 @@
+services:
+  web:
+    image: serracarles11/beprofesional:v1
+    container_name: beprofesional-web
+    ports:
+      - "3000:3000"
+    restart: always
