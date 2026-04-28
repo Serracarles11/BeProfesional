@@ -6,6 +6,8 @@ function safePath(value: string) {
   return value.startsWith('/') ? value : '/equipos'
 }
 
+const CLUB_STAFF_ROLES = ['ADMINISTRATIVO', 'DIRECTOR', 'COORDINADOR']
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -70,9 +72,22 @@ export async function POST(request: NextRequest) {
       console.error('Error verificando equipos:', membershipError)
     }
 
+    const { data: clubMemberships, error: clubMembershipError } = await supabase
+      .from('miembros_club')
+      .select('id')
+      .eq('usuario_id', data.user.id)
+      .eq('estado', 'ACTIVO')
+      .in('rol', CLUB_STAFF_ROLES)
+      .limit(1)
+
+    if (clubMembershipError) {
+      console.error('Error verificando club:', clubMembershipError)
+    }
+
     // Decidir redireccion
     const hasTeam = memberships && memberships.length > 0
-    const redirectTo = hasTeam ? '/equipos' : '/unirse'
+    const hasClubPanel = clubMemberships && clubMemberships.length > 0
+    const redirectTo = hasTeam ? '/equipos' : hasClubPanel ? '/club' : '/unirse'
 
     if (!perfil?.foto_url) {
       const next = encodeURIComponent(safePath(redirectTo))

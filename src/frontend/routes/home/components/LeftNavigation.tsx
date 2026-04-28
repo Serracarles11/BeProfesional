@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import {
   BarChart3,
   Bell,
+  Building2,
   CalendarDays,
   KeyRound,
   LayoutDashboard,
@@ -16,6 +17,7 @@ import {
   X,
 } from 'lucide-react'
 import { createSupabaseBrowser } from '@/lib/supabase/client'
+import { useClubPanelAccess } from '@/frontend/lib/use-club-panel-access'
 import { isActivePath, withEquipo } from '../utils'
 
 type LeftNavigationProps = {
@@ -74,6 +76,7 @@ export function LeftNavigation({
   const [unreadCount, setUnreadCount] = useState(0)
   const [notificationsLoading, setNotificationsLoading] = useState(true)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const clubMembership = useClubPanelAccess()
   const playMakerMode = searchParams.get('mode')
   const menuItems = isCoach
     ? [
@@ -81,6 +84,9 @@ export function LeftNavigation({
         { label: 'IA Maker', href: '/play-maker?mode=maker', icon: Sparkles },
       ]
     : MENU_ITEMS
+  const visibleMenuItems = clubMembership
+    ? [...menuItems, { label: 'Panel de club', href: '/club', icon: Building2 }]
+    : menuItems
 
   useEffect(() => {
     let cancelled = false
@@ -273,7 +279,7 @@ export function LeftNavigation({
       </div>
 
       <nav className="space-y-1">
-        {menuItems.map((item) => {
+        {visibleMenuItems.map((item) => {
           const isMakerItem = item.href.includes('mode=maker')
           const active = isMakerItem
             ? pathname === '/play-maker' && playMakerMode === 'maker'
@@ -285,7 +291,7 @@ export function LeftNavigation({
           return (
             <Link
               key={item.href}
-              href={withEquipo(item.href, equipoId)}
+              href={item.href === '/club' ? item.href : withEquipo(item.href, equipoId)}
               className={[
                 'flex items-center gap-3 rounded-xl p-3 text-sm transition-transform duration-200 hover:translate-x-1',
                 active

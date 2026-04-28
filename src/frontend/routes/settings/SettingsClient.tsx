@@ -6,6 +6,14 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Camera, Loader2, Save, UserRound } from 'lucide-react'
 import Sidebar from '@/app/home/components/Sidebar'
 import { createSupabaseBrowser } from '@/lib/supabase/client'
+import DatosClubForm, { type DatosClubFormValue } from '@/frontend/components/DatosClubForm'
+import {
+  CATEGORIAS_EQUIPO,
+  esCategoriaEquipo,
+  getAniosPorCategoria,
+  normalizarNombreClub,
+  obtenerOcrearClub,
+} from '@/frontend/lib/team-clubs'
 
 type SettingsProfile = {
   nombre: string
@@ -24,6 +32,21 @@ type SettingsProfile = {
   foto_url: string | null
 }
 
+type TeamSettings = {
+  nombre: string
+  club: string
+  club_id: string | null
+  categoria: string
+  categoria_anio: string
+  temporada: string
+  ubicacion: string
+  campo_juego: string
+  direccion_campo: string
+  ciudad: string
+  provincia: string
+  pais: string
+}
+
 const EMPTY_PROFILE: SettingsProfile = {
   nombre: '',
   genero: '',
@@ -39,6 +62,21 @@ const EMPTY_PROFILE: SettingsProfile = {
   instagram: '',
   objetivo: '',
   foto_url: null,
+}
+
+const EMPTY_TEAM: TeamSettings = {
+  nombre: '',
+  club: '',
+  club_id: null,
+  categoria: '',
+  categoria_anio: '',
+  temporada: '',
+  ubicacion: '',
+  campo_juego: '',
+  direccion_campo: '',
+  ciudad: '',
+  provincia: '',
+  pais: 'España',
 }
 
 function toStringOrEmpty(value: unknown) {
@@ -123,6 +161,34 @@ function TextareaField({
   )
 }
 
+function SelectField({
+  label,
+  value,
+  onChange,
+  disabled = false,
+  children,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  disabled?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <label className="space-y-1.5">
+      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#6f86b8]">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        className="w-full rounded-xl border border-[#d7e2fb] bg-white px-3 py-2.5 text-sm text-[#0e1f46] outline-none transition focus:border-[#5086F2] focus:ring-2 focus:ring-[#5086F2]/20 disabled:cursor-not-allowed disabled:bg-[#f4f7fc] disabled:text-[#7b8dab]"
+      >
+        {children}
+      </select>
+    </label>
+  )
+}
+
 export default function SettingsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -130,6 +196,8 @@ export default function SettingsPage() {
   const supabase = useMemo(() => createSupabaseBrowser(), [])
 
   const [profile, setProfile] = useState<SettingsProfile>({ ...EMPTY_PROFILE })
+  const [team, setTeam] = useState<TeamSettings>({ ...EMPTY_TEAM })
+  const [teamLoaded, setTeamLoaded] = useState(false)
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [saving, setSaving] = useState(false)
@@ -137,6 +205,7 @@ export default function SettingsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const aniosCategoria = getAniosPorCategoria(team.categoria)
 
   const loadSettings = useCallback(async () => {
     setStatus('loading')
@@ -161,12 +230,61 @@ export default function SettingsPage() {
       setProfile(normalized)
       setPreviewUrl(normalized.foto_url)
       setEmail(data.email || '')
+
+      if (equipoId) {
+        const { data: equipo, error: equipoError } = await supabase
+          .from('equipos')
+          .select('nombre, club, club_id, categoria, categoria_anio, temporada, ubicacion, campo_juego, direccion_campo, ciudad, provincia, pais')
+          .eq('id', equipoId)
+          .maybeSingle()
+
+        if (equipoError) {
+          setStatus('error')
+          setError(equipoError.message || 'No se pudieron cargar los datos del equipo.')
+          return
+        }
+
+        let clubName = toStringOrEmpty(equipo?.club)
+        const clubId = typeof equipo?.club_id === 'string' ? equipo.club_id : null
+
+        if (clubId) {
+          const { data: clubById } = await supabase
+            .from('clubes')
+            .select('id, nombre')
+            .eq('id', clubId)
+            .maybeSingle()
+
+          if (typeof clubById?.nombre === 'string') {
+            clubName = clubById.nombre
+          }
+        }
+
+        setTeam({
+          nombre: toStringOrEmpty(equipo?.nombre),
+          club: clubName,
+          club_id: clubId,
+          categoria: toStringOrEmpty(equipo?.categoria),
+          categoria_anio: toStringOrEmpty(equipo?.categoria_anio),
+          temporada: toStringOrEmpty(equipo?.temporada),
+          ubicacion: toStringOrEmpty(equipo?.ubicacion),
+          campo_juego: toStringOrEmpty(equipo?.campo_juego),
+          direccion_campo: toStringOrEmpty(equipo?.direccion_campo),
+          ciudad: toStringOrEmpty(equipo?.ciudad),
+          provincia: toStringOrEmpty(equipo?.provincia),
+          pais: toStringOrEmpty(equipo?.pais) || 'España',
+        })
+        setTeamLoaded(true)
+      } else {
+        setTeam({ ...EMPTY_TEAM })
+        setTeamLoaded(false)
+      }
+
       setStatus('ready')
     } catch {
       setStatus('error')
       setError('No se pudo cargar ajustes.')
     }
-  }, [])
+  }, [equipoId, supabase])
 
   useEffect(() => {
     void loadSettings()
@@ -176,6 +294,41 @@ export default function SettingsPage() {
 
   const setField = (field: keyof SettingsProfile, value: string) => {
     setProfile((current) => ({ ...current, [field]: value }))
+  }
+
+  const setTeamField = (field: keyof TeamSettings, value: string | null) => {
+    setTeam((current) => ({ ...current, [field]: value }))
+  }
+
+  const handleTeamCategoriaChange = (value: string) => {
+    setTeam((current) => {
+      if (value === 'AMATEUR') {
+        return { ...current, categoria: value, categoria_anio: '' }
+      }
+
+      const anioValido = getAniosPorCategoria(value).some((option) => option.value === current.categoria_anio)
+
+      return {
+        ...current,
+        categoria: value,
+        categoria_anio: anioValido ? current.categoria_anio : '',
+      }
+    })
+  }
+
+  const datosClubValue: DatosClubFormValue = {
+    club: team.club,
+    club_id: team.club_id,
+    ubicacion: team.ubicacion,
+    campo_juego: team.campo_juego,
+    direccion_campo: team.direccion_campo,
+    ciudad: team.ciudad,
+    provincia: team.provincia,
+    pais: team.pais,
+  }
+
+  const handleDatosClubChange = (next: DatosClubFormValue) => {
+    setTeam((current) => ({ ...current, ...next }))
   }
 
   const removeBackground = useCallback(async (file: File): Promise<Blob> => {
@@ -211,6 +364,101 @@ export default function SettingsPage() {
     setSuccess('')
 
     try {
+      let savedTeam = false
+
+      if (equipoId && teamLoaded) {
+        const nombreClub = normalizarNombreClub(team.club)
+
+        if (!nombreClub) {
+          setError('El club es obligatorio.')
+          return
+        }
+
+        if (!esCategoriaEquipo(team.categoria)) {
+          setError('La categoria es obligatoria.')
+          return
+        }
+
+        if (
+          team.categoria !== 'AMATEUR' &&
+          !getAniosPorCategoria(team.categoria).some((option) => option.value === team.categoria_anio)
+        ) {
+          setError('El anio de categoria es obligatorio.')
+          return
+        }
+
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser()
+
+        if (userError || !user) {
+          setError('Usuario no autenticado.')
+          return
+        }
+
+        const clubFinal = team.club_id
+          ? { id: team.club_id, nombre: nombreClub }
+          : await obtenerOcrearClub(nombreClub, user.id, supabase)
+
+        const equipoResponse = await fetch('/api/equipos/settings', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            equipoId,
+            club_id: clubFinal.id,
+            club: clubFinal.nombre,
+            categoria: team.categoria,
+            categoria_anio: team.categoria === 'AMATEUR' ? null : team.categoria_anio,
+            temporada: normalizarNombreClub(team.temporada) || null,
+            ubicacion: normalizarNombreClub(team.ubicacion) || null,
+            campo_juego: normalizarNombreClub(team.campo_juego) || null,
+            direccion_campo: normalizarNombreClub(team.direccion_campo) || null,
+            ciudad: normalizarNombreClub(team.ciudad) || null,
+            provincia: normalizarNombreClub(team.provincia) || null,
+            pais: normalizarNombreClub(team.pais) || 'España',
+          }),
+        })
+
+        const equipoData = (await equipoResponse.json()) as {
+          ok?: boolean
+          error?: string
+          equipo?: {
+            club_id?: string | null
+            club?: string | null
+            categoria?: string | null
+            categoria_anio?: string | null
+            temporada?: string | null
+            ubicacion?: string | null
+            campo_juego?: string | null
+            direccion_campo?: string | null
+            ciudad?: string | null
+            provincia?: string | null
+            pais?: string | null
+          }
+        }
+
+        if (!equipoResponse.ok || !equipoData.ok) {
+          setError(equipoData.error || 'No se pudieron guardar los datos del club.')
+          return
+        }
+
+        setTeam((current) => ({
+          ...current,
+          club: equipoData.equipo?.club || current.club,
+          club_id: equipoData.equipo?.club_id || current.club_id,
+          categoria_anio: current.categoria === 'AMATEUR' ? '' : current.categoria_anio,
+          temporada: equipoData.equipo?.temporada || current.temporada,
+          ubicacion: equipoData.equipo?.ubicacion || '',
+          campo_juego: equipoData.equipo?.campo_juego || '',
+          direccion_campo: equipoData.equipo?.direccion_campo || '',
+          ciudad: equipoData.equipo?.ciudad || '',
+          provincia: equipoData.equipo?.provincia || '',
+          pais: equipoData.equipo?.pais || 'España',
+        }))
+        savedTeam = true
+      }
+
       const response = await fetch('/api/profile/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -229,9 +477,10 @@ export default function SettingsPage() {
         return
       }
 
-      setSuccess('Cambios guardados correctamente.')
-    } catch {
-      setError('No se pudo guardar.')
+      setSuccess(savedTeam ? 'Perfil y datos del club guardados correctamente.' : 'Cambios guardados correctamente.')
+    } catch (saveError) {
+      const message = saveError instanceof Error ? saveError.message : 'No se pudo guardar.'
+      setError(message)
     } finally {
       setSaving(false)
     }
@@ -390,6 +639,60 @@ export default function SettingsPage() {
             </aside>
 
             <section className="rounded-2xl border border-[#d8e3f8] bg-white/90 p-5 shadow-[0_12px_30px_rgba(7,25,71,0.08)]">
+              {equipoId && teamLoaded ? (
+                <div className="mb-6 space-y-3">
+                  <DatosClubForm
+                    value={datosClubValue}
+                    onChange={handleDatosClubChange}
+                    supabase={supabase}
+                    disabled={saving}
+                    compact
+                  />
+
+                  <div className="rounded-2xl border border-[#d8e3f8] bg-[#f8fbff] p-4">
+                    <div className="mb-4">
+                      <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-[#6f86b8]">
+                        Datos deportivos
+                      </h2>
+                      <p className="mt-1 text-sm text-[#45629c]">{team.nombre || 'Equipo seleccionado'}</p>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+
+                    <SelectField label="Categoria" value={team.categoria} onChange={handleTeamCategoriaChange} disabled={saving}>
+                      <option value="">Selecciona categoria</option>
+                      {CATEGORIAS_EQUIPO.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </SelectField>
+
+                    <SelectField
+                      label="Año de categoria"
+                      value={team.categoria_anio}
+                      onChange={(value) => setTeamField('categoria_anio', value)}
+                      disabled={saving || team.categoria === 'AMATEUR' || aniosCategoria.length === 0}
+                    >
+                      <option value="">{team.categoria === 'AMATEUR' ? 'No aplica' : 'Selecciona año'}</option>
+                      {aniosCategoria.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </SelectField>
+
+                    <InputField
+                      label="Temporada"
+                      value={team.temporada}
+                      onChange={(value) => setTeamField('temporada', value)}
+                      placeholder="2025/2026"
+                    />
+                  </div>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="grid gap-3 md:grid-cols-2">
                 <InputField label="Nombre" value={profile.nombre} onChange={(value) => setField('nombre', value)} />
                 <InputField label="Email (solo lectura)" value={email} onChange={() => {}} readOnly />

@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowRight,
@@ -11,6 +11,15 @@ import {
   Trophy,
   Users,
 } from 'lucide-react'
+import DatosClubForm, { type DatosClubFormValue } from '@/frontend/components/DatosClubForm'
+import {
+  CATEGORIAS_EQUIPO,
+  esCategoriaEquipo,
+  getAniosPorCategoria,
+  normalizarNombreClub,
+  obtenerOcrearClub,
+} from '@/frontend/lib/team-clubs'
+import { createSupabaseBrowser } from '@/lib/supabase/client'
 
 type CreateTeamResponse = {
   ok: boolean
@@ -33,13 +42,25 @@ type SuccessData = {
 
 export default function CrearEquipoPage() {
   const router = useRouter()
+  const supabase = useMemo(() => createSupabaseBrowser(), [])
 
   const [nombreEquipo, setNombreEquipo] = useState('')
-  const [club, setClub] = useState('')
+  const [datosClub, setDatosClub] = useState<DatosClubFormValue>({
+    club: '',
+    club_id: null,
+    ubicacion: '',
+    campo_juego: '',
+    direccion_campo: '',
+    ciudad: '',
+    provincia: '',
+    pais: 'España',
+  })
   const [categoria, setCategoria] = useState('')
+  const [categoriaAnio, setCategoriaAnio] = useState('')
   const [temporada, setTemporada] = useState('')
 
   const [loading, setLoading] = useState(false)
+  const [clubSaving, setClubSaving] = useState(false)
   const [error, setError] = useState('')
   const [errorDebug, setErrorDebug] = useState<{
     code?: string | null
@@ -48,6 +69,20 @@ export default function CrearEquipoPage() {
   } | null>(null)
   const [success, setSuccess] = useState<SuccessData | null>(null)
   const [copied, setCopied] = useState<'entrenador' | 'jugadores' | null>(null)
+  const aniosCategoria = getAniosPorCategoria(categoria)
+
+  function handleCategoriaChange(value: string) {
+    setCategoria(value)
+
+    if (value === 'AMATEUR') {
+      setCategoriaAnio('')
+      return
+    }
+
+    if (categoriaAnio && !getAniosPorCategoria(value).some((option) => option.value === categoriaAnio)) {
+      setCategoriaAnio('')
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -58,19 +93,62 @@ export default function CrearEquipoPage() {
       return
     }
 
+    if (!normalizarNombreClub(datosClub.club)) {
+      setError('El club es obligatorio.')
+      setErrorDebug(null)
+      return
+    }
+
+    if (!esCategoriaEquipo(categoria)) {
+      setError('La categoria es obligatoria.')
+      setErrorDebug(null)
+      return
+    }
+
+    if (categoria !== 'AMATEUR' && !getAniosPorCategoria(categoria).some((option) => option.value === categoriaAnio)) {
+      setError('El anio de categoria es obligatorio.')
+      setErrorDebug(null)
+      return
+    }
+
     setLoading(true)
+    setClubSaving(true)
     setError('')
     setErrorDebug(null)
 
     try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError || !user) {
+        throw new Error('Usuario no autenticado')
+      }
+
+      const clubFinal = datosClub.club_id
+        ? { id: datosClub.club_id, nombre: normalizarNombreClub(datosClub.club) }
+        : await obtenerOcrearClub(datosClub.club, user.id, supabase)
+
+      setDatosClub((current) => ({ ...current, club: clubFinal.nombre, club_id: clubFinal.id }))
+      setClubSaving(false)
+
       const response = await fetch('/api/crear-equipo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nombre_equipo: nombreEquipo,
-          club,
+          club_id: clubFinal.id,
+          club: clubFinal.nombre,
           categoria,
+          categoria_anio: categoria === 'AMATEUR' ? null : categoriaAnio,
           temporada,
+          ubicacion: datosClub.ubicacion,
+          campo_juego: datosClub.campo_juego,
+          direccion_campo: datosClub.direccion_campo,
+          ciudad: datosClub.ciudad,
+          provincia: datosClub.provincia,
+          pais: datosClub.pais || 'España',
         }),
       })
 
@@ -103,11 +181,13 @@ export default function CrearEquipoPage() {
         codigoJugadores: data.codigoJugadores,
         redirectTo: data.redirectTo,
       })
-    } catch {
-      setError('Error de conexion. Vuelve a intentarlo.')
+    } catch (submitError) {
+      const message = submitError instanceof Error ? submitError.message : 'Error de conexion. Vuelve a intentarlo.'
+      setError(message)
       setErrorDebug(null)
     } finally {
       setLoading(false)
+      setClubSaving(false)
     }
   }
 
@@ -230,38 +310,57 @@ export default function CrearEquipoPage() {
               />
             </div>
 
-            <div>
-              <label htmlFor="club" className="mb-2 block text-sm font-medium text-gray-700">
-                Club (opcional)
-              </label>
-              <input
-                id="club"
-                type="text"
-                value={club}
-                onChange={(event) => setClub(event.target.value)}
-                placeholder="Ej: Atletico Norte"
-                disabled={loading}
-                className="input-premium"
-              />
-            </div>
+            <DatosClubForm
+              value={datosClub}
+              onChange={setDatosClub}
+              supabase={supabase}
+              userId={null}
+              disabled={loading}
+            />
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label htmlFor="categoria" className="mb-2 block text-sm font-medium text-gray-700">
-                  Categoria (opcional)
+                  Categoria *
                 </label>
-                <input
+                <select
                   id="categoria"
-                  type="text"
                   value={categoria}
-                  onChange={(event) => setCategoria(event.target.value)}
-                  placeholder="Ej: Sub-17"
+                  onChange={(event) => handleCategoriaChange(event.target.value)}
                   disabled={loading}
                   className="input-premium"
-                />
+                >
+                  <option value="">Selecciona categoria</option>
+                  {CATEGORIAS_EQUIPO.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
+                <label htmlFor="categoria_anio" className="mb-2 block text-sm font-medium text-gray-700">
+                  Año de categoria{categoria === 'AMATEUR' ? '' : ' *'}
+                </label>
+                <select
+                  id="categoria_anio"
+                  value={categoriaAnio}
+                  onChange={(event) => setCategoriaAnio(event.target.value)}
+                  disabled={loading || categoria === 'AMATEUR' || aniosCategoria.length === 0}
+                  className="input-premium"
+                >
+                  <option value="">{categoria === 'AMATEUR' ? 'No aplica' : 'Selecciona año'}</option>
+                  {aniosCategoria.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
                 <label htmlFor="temporada" className="mb-2 block text-sm font-medium text-gray-700">
                   Temporada (opcional)
                 </label>
@@ -274,7 +373,6 @@ export default function CrearEquipoPage() {
                   disabled={loading}
                   className="input-premium"
                 />
-              </div>
             </div>
 
             {error && (
@@ -297,13 +395,19 @@ export default function CrearEquipoPage() {
 
             <button
               type="submit"
-              disabled={loading || !nombreEquipo.trim()}
+              disabled={
+                loading ||
+                !nombreEquipo.trim() ||
+                !normalizarNombreClub(datosClub.club) ||
+                !categoria ||
+                (categoria !== 'AMATEUR' && !categoriaAnio)
+              }
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 font-semibold text-white shadow-soft transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
                 <>
                   <span className="spinner" />
-                  Creando equipo...
+                  {clubSaving ? 'Preparando club...' : 'Creando equipo...'}
                 </>
               ) : (
                 <>

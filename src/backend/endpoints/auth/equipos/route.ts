@@ -1,11 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { createSupabaseRouteHandler } from '@/lib/supabase/server'
 
 type EquipoRelation = {
   id: string
   nombre: string
   logo_url?: string | null
+}
+
+type ClubRelation = {
+  id: string
+  nombre: string
+}
+
+type ClubMembership = {
+  id: string
+  rol: string | null
+  estado: string | null
+  club_id: string
+  clubes?: ClubRelation | ClubRelation[] | null
+}
+
+const CLUB_STAFF_ROLES = ['ADMINISTRATIVO', 'DIRECTOR', 'COORDINADOR']
+
+function normalizeRole(value: string | null | undefined) {
+  return value?.trim().toUpperCase() ?? ''
+}
+
+function isClubStaffRole(value: string | null | undefined) {
+  return CLUB_STAFF_ROLES.includes(normalizeRole(value))
+}
+
+function isActiveStatus(value: string | null | undefined) {
+  return normalizeRole(value) === 'ACTIVO'
 }
 
 // GET: Obtener equipos del usuario
@@ -105,9 +133,102 @@ export async function GET() {
       })
     )
 
+    const clubDb = createSupabaseAdmin() ?? supabase
+
+    const { data: clubesUsuario, error: clubesError } = await clubDb
+      .from('miembros_club')
+      .select(
+        `
+        id,
+        rol,
+        estado,
+        club_id,
+        clubes (
+          id,
+          nombre
+        )
+      `
+      )
+      .eq('usuario_id', user.id)
+
+    console.log('clubesUsuario', clubesUsuario)
+    console.log('clubesError', clubesError)
+
+    if (clubesError) {
+      console.error('Error obteniendo clubes:', clubesError)
+    }
+
+    let clubes = ((clubesUsuario || []) as ClubMembership[])
+      .filter((membership) => isActiveStatus(membership.estado) && isClubStaffRole(membership.rol))
+      .map((membership) => {
+        const clubRaw = membership.clubes
+        const club = Array.isArray(clubRaw) ? clubRaw[0] : clubRaw
+
+        return {
+          id: membership.id,
+          club_id: membership.club_id,
+          rol: membership.rol || 'ADMINISTRATIVO',
+          estado: membership.estado || 'ACTIVO',
+          club: club
+            ? {
+                id: club.id,
+                nombre: club.nombre,
+              }
+            : null,
+        }
+      })
+
+    if (clubesError || clubes.some((membership) => !membership.club)) {
+      const { data: miembrosClubFallback, error: miembrosClubFallbackError } = await clubDb
+        .from('miembros_club')
+        .select('id, rol, estado, club_id')
+        .eq('usuario_id', user.id)
+
+      console.log('miembrosClubFallback', miembrosClubFallback)
+      console.log('miembrosClubFallbackError', miembrosClubFallbackError)
+
+      if (!miembrosClubFallbackError) {
+        const memberships = ((miembrosClubFallback || []) as ClubMembership[]).filter(
+          (membership) => isActiveStatus(membership.estado) && isClubStaffRole(membership.rol)
+        )
+        const clubIds = [...new Set(memberships.map((membership) => membership.club_id).filter(Boolean))]
+        const { data: clubsById, error: clubsByIdError } = clubIds.length
+          ? await clubDb.from('clubes').select('id, nombre').in('id', clubIds)
+          : { data: [], error: null }
+
+        console.log('clubsByIdFallback', clubsById)
+        console.log('clubsByIdFallbackError', clubsByIdError)
+
+        const clubById = new Map(
+          ((clubsById || []) as ClubRelation[]).map((club) => [club.id, club])
+        )
+
+        clubes = memberships.map((membership) => {
+          const club = clubById.get(membership.club_id) ?? null
+
+          return {
+            id: membership.id,
+            club_id: membership.club_id,
+            rol: normalizeRole(membership.rol) || 'ADMINISTRATIVO',
+            estado: membership.estado || 'ACTIVO',
+            club: club
+              ? {
+                  id: club.id,
+                  nombre: club.nombre,
+                }
+              : {
+                  id: membership.club_id,
+                  nombre: `Club ${membership.club_id.slice(0, 8)}`,
+                },
+          }
+        })
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       equipos: equiposConConteo,
+      clubes,
     })
   } catch (err) {
     console.error('Error en GET equipos:', err)

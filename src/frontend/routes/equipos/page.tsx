@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+/* eslint-disable @next/next/no-img-element */
+
+import { useCallback, useMemo, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { createSupabaseBrowser } from '@/lib/supabase/client'
 
 interface Equipo {
   id: string
@@ -12,18 +15,79 @@ interface Equipo {
   miembros_count?: number
 }
 
+interface ClubUsuario {
+  id: string
+  club_id: string
+  rol: string
+  estado: string
+  club: {
+    id: string
+    nombre: string
+  } | null
+}
+
+type ClubRelation = ClubUsuario['club'] | ClubUsuario['club'][]
+
+type ClubMembershipRow = {
+  id: string
+  rol: string | null
+  estado: string | null
+  club_id: string
+  clubes: ClubRelation | null
+}
+
+type ClubMembershipBaseRow = {
+  id: string
+  rol: string | null
+  estado: string | null
+  club_id: string
+}
+
+function normalizeClubMemberships(rows: ClubMembershipRow[]) {
+  return rows.map((membership) => {
+    const clubRaw = membership.clubes
+    const club = Array.isArray(clubRaw) ? clubRaw[0] : clubRaw
+
+    return {
+      id: membership.id,
+      club_id: membership.club_id,
+      rol: membership.rol || 'ADMINISTRATIVO',
+      estado: membership.estado || 'ACTIVO',
+      club: club
+        ? {
+            id: club.id,
+            nombre: club.nombre,
+          }
+        : null,
+    }
+  })
+}
+
+function normalizeRole(value: string | null | undefined) {
+  return value?.trim().toUpperCase() ?? ''
+}
+
+function isClubStaffRole(value: string | null | undefined) {
+  return ['ADMINISTRATIVO', 'DIRECTOR', 'COORDINADOR'].includes(normalizeRole(value))
+}
+
+function isActiveStatus(value: string | null | undefined) {
+  return normalizeRole(value) === 'ACTIVO'
+}
+
 export default function EquiposPage() {
   const router = useRouter()
+  const supabase = useMemo(() => createSupabaseBrowser(), [])
   const [equipos, setEquipos] = useState<Equipo[]>([])
+  const [clubesUsuario, setClubesUsuario] = useState<ClubUsuario[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingClubes, setLoadingClubes] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
   const [error, setError] = useState('')
+  const [clubesError, setClubesError] = useState('')
+  const [clubesLoadedFromServer, setClubesLoadedFromServer] = useState(false)
 
-  useEffect(() => {
-    fetchEquipos()
-  }, [])
-
-  const fetchEquipos = async () => {
+  const fetchEquipos = useCallback(async () => {
     try {
       const res = await fetch('/api/auth/equipos', {
         method: 'GET',
@@ -41,12 +105,147 @@ export default function EquiposPage() {
       }
 
       setEquipos(data.equipos || [])
+      if (Array.isArray(data.clubes) && data.clubes.length > 0) {
+        setClubesUsuario(data.clubes)
+        setClubesLoadedFromServer(true)
+      }
     } catch {
       setError('Error de conexion')
     } finally {
       setLoading(false)
     }
-  }
+  }, [router])
+
+  const fetchClubesUsuario = useCallback(async () => {
+    if (clubesLoadedFromServer) {
+      setLoadingClubes(false)
+      return
+    }
+
+    setLoadingClubes(true)
+    setClubesError('')
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError || !user) {
+        setClubesError('No se pudo obtener el usuario autenticado')
+        setClubesUsuario([])
+        return
+      }
+
+      console.log('USER ID:', user.id)
+
+      const { data: clubesUsuario, error: clubesError } = await supabase
+        .from('miembros_club')
+        .select(
+          `
+          id,
+          rol,
+          estado,
+          club_id,
+          clubes (
+            id,
+            nombre
+          )
+        `
+        )
+        .eq('usuario_id', user.id)
+        .in('rol', ['ADMINISTRATIVO', 'DIRECTOR', 'COORDINADOR'])
+
+      console.log('clubesUsuario:', clubesUsuario)
+      console.log('clubesError:', clubesError)
+
+      let normalizedClubes = normalizeClubMemberships(
+        ((clubesUsuario || []) as ClubMembershipRow[]).filter((membership) =>
+          isActiveStatus(membership.estado) && isClubStaffRole(membership.rol)
+        )
+      )
+
+      if (clubesError || normalizedClubes.length === 0 || normalizedClubes.some((membership) => !membership.club)) {
+        const { data: miembrosClub, error: miembrosClubError } = await supabase
+          .from('miembros_club')
+          .select('id, rol, estado, club_id')
+          .eq('usuario_id', user.id)
+
+        console.log('miembrosClubFallback:', miembrosClub)
+        console.log('miembrosClubFallbackError:', miembrosClubError)
+
+        if (miembrosClubError) {
+          setClubesError(
+            clubesError?.message || miembrosClubError.message || 'Error al cargar clubes'
+          )
+          setClubesUsuario([])
+          return
+        }
+
+        const memberships = ((miembrosClub || []) as ClubMembershipBaseRow[]).filter((membership) =>
+          isActiveStatus(membership.estado) && isClubStaffRole(membership.rol)
+        )
+        const clubIds = [...new Set(memberships.map((membership) => membership.club_id).filter(Boolean))]
+
+        const { data: clubes, error: clubesByIdError } = clubIds.length
+          ? await supabase.from('clubes').select('id, nombre').in('id', clubIds)
+          : { data: [], error: null }
+
+        console.log('clubesByIdFallback:', clubes)
+        console.log('clubesByIdFallbackError:', clubesByIdError)
+
+        const clubById = new Map(
+          ((clubes || []) as Array<{ id: string; nombre: string }>).map((club) => [club.id, club])
+        )
+
+        normalizedClubes = memberships.map((membership) => {
+          const club = clubById.get(membership.club_id) ?? null
+
+          return {
+            id: membership.id,
+            club_id: membership.club_id,
+            rol: membership.rol || 'ADMINISTRATIVO',
+            estado: membership.estado || 'ACTIVO',
+            club: club
+              ? {
+                  id: club.id,
+                  nombre: club.nombre,
+                }
+              : {
+                  id: membership.club_id,
+                  nombre: `Club ${membership.club_id.slice(0, 8)}`,
+                },
+          }
+        })
+
+        if (clubesByIdError) {
+          setClubesError(clubesByIdError.message || 'No se pudo cargar el nombre del club')
+        }
+      }
+
+      if (normalizedClubes.length === 0) {
+        const response = await fetch('/api/auth/equipos', { method: 'GET' })
+        const data = await response.json().catch(() => null)
+
+        if (Array.isArray(data?.clubes) && data.clubes.length > 0) {
+          normalizedClubes = data.clubes
+        }
+      }
+
+      setClubesUsuario((current) => (normalizedClubes.length > 0 ? normalizedClubes : current))
+    } catch (clubError) {
+      const message = clubError instanceof Error ? clubError.message : 'Error al cargar clubes'
+      setClubesError(message)
+      setClubesUsuario([])
+    } finally {
+      setLoadingClubes(false)
+    }
+  }, [clubesLoadedFromServer, supabase])
+
+  useEffect(() => {
+    fetchEquipos()
+    fetchClubesUsuario()
+  }, [fetchEquipos, fetchClubesUsuario])
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -96,6 +295,11 @@ export default function EquiposPage() {
     }
   }
 
+  const hasEquipos = equipos.length > 0
+  const hasClubes = clubesUsuario.length > 0
+  const isLoadingInitial = loading || loadingClubes
+  const showEmptyState = !isLoadingInitial && !hasEquipos && !hasClubes
+
   return (
     <div className="auth-bg min-h-screen p-4 md:p-8">
       <div className="max-w-4xl mx-auto relative z-10">
@@ -107,8 +311,10 @@ export default function EquiposPage() {
                 Mis equipos
               </h1>
               <p className="text-gray-500 mt-1">
-                {equipos.length > 0
+                {hasEquipos
                   ? `Perteneces a ${equipos.length} equipo${equipos.length > 1 ? 's' : ''}`
+                  : hasClubes
+                    ? 'Tienes acceso administrativo a paneles de club'
                   : 'Aun no perteneces a ningun equipo'}
               </p>
             </div>
@@ -137,15 +343,79 @@ export default function EquiposPage() {
         )}
 
         {/* Loading */}
-        {loading && (
+        {isLoadingInitial && (
           <div className="glass-card rounded-3xl p-12 text-center">
             <div className="spinner spinner-dark mx-auto mb-4 w-8 h-8" />
-            <p className="text-gray-500">Cargando equipos...</p>
+            <p className="text-gray-500">Cargando equipos y clubes...</p>
           </div>
         )}
 
+        {clubesError && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-xl mb-6">
+            {clubesError}
+          </div>
+        )}
+
+        {!isLoadingInitial && hasClubes && (
+          <section
+            className="glass-card rounded-3xl p-6 md:p-8 mb-6 animate-slide-up"
+            style={{ animationDelay: '0.05s' }}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
+              <div>
+                <h2 className="text-xl md:text-2xl font-bold text-gray-800">
+                  Paneles de club
+                </h2>
+                <p className="text-gray-500 mt-1">
+                  Gestionas {clubesUsuario.length} club{clubesUsuario.length !== 1 ? 'es' : ''}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              {clubesUsuario.map((membership, index) => (
+                <div
+                  key={membership.id}
+                  className="team-card animate-slide-up"
+                  style={{ animationDelay: `${0.1 + index * 0.05}s` }}
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                    <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0 text-white">
+                      <span className="text-2xl md:text-3xl font-bold">
+                        {(membership.club?.nombre || 'Club').charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg md:text-xl font-bold text-gray-800 truncate">
+                        {membership.club?.nombre || 'Club'}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium border bg-sky-100 text-sky-700 border-sky-200">
+                          {membership.rol}
+                        </span>
+                        <span className="text-gray-400 text-sm">
+                          {membership.estado}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/club-dashboard/${encodeURIComponent(membership.club_id)}`)}
+                      className="px-4 py-2 md:px-6 md:py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-700 text-white font-medium shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] flex-shrink-0"
+                    >
+                      Entrar al panel del club
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Empty state */}
-        {!loading && equipos.length === 0 && (
+        {showEmptyState && (
           <div
             className="glass-card rounded-3xl p-8 md:p-12 text-center animate-slide-up"
             style={{ animationDelay: '0.1s' }}
@@ -176,7 +446,7 @@ export default function EquiposPage() {
         )}
 
         {/* Team list */}
-        {!loading && equipos.length > 0 && (
+        {!isLoadingInitial && hasEquipos && (
           <div className="grid gap-4">
             {equipos.map((equipo, index) => (
               <div
@@ -240,7 +510,7 @@ export default function EquiposPage() {
         )}
 
         {/* Footer actions */}
-        {!loading && equipos.length > 0 && (
+        {!isLoadingInitial && (hasEquipos || hasClubes) && (
           <div
             className="mt-6 glass-card rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-slide-up"
             style={{ animationDelay: '0.3s' }}

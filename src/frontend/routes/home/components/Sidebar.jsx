@@ -1,7 +1,8 @@
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Dumbbell, Home, MessageSquare, Settings, Sparkles, Trophy, Users } from 'lucide-react'
+import { Building2, Dumbbell, Home, MessageSquare, Settings, Sparkles, Trophy, Users } from 'lucide-react'
+import { useClubPanelAccess } from '@/frontend/lib/use-club-panel-access'
 
 function withTeam(path, teamId) {
   if (!teamId) return path
@@ -19,8 +20,9 @@ export default function Sidebar({ equipoId }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const activeTeamId = equipoId ?? searchParams.get('equipo')
+  const clubMembership = useClubPanelAccess()
 
-  const items = [
+  const baseItems = [
     { id: 'home', label: 'Home', icon: Home, path: '/home', href: withTeam('/home', activeTeamId) },
     { id: 'team', label: 'Estadisticas', icon: Users, path: '/estadisticas', href: withTeam('/estadisticas', activeTeamId) },
     { id: 'train', label: 'Entrenamiento', icon: Dumbbell, path: '/entrenamientos', href: withTeam('/entrenamientos', activeTeamId) },
@@ -29,6 +31,9 @@ export default function Sidebar({ equipoId }) {
     { id: 'play-maker', label: 'Play Maker', icon: Sparkles, path: '/play-maker', href: withTeam('/play-maker', activeTeamId) },
     { id: 'settings', label: 'Ajustes', icon: Settings, path: '/settings', href: withTeam('/settings', activeTeamId) },
   ]
+  const items = clubMembership
+    ? [...baseItems, { id: 'club', label: 'Panel club', icon: Building2, path: '/club', href: '/club' }]
+    : baseItems
 
   return (
     <>
@@ -59,7 +64,11 @@ export default function Sidebar({ equipoId }) {
       <div className="hidden w-[86px] shrink-0 lg:block" aria-hidden="true" />
 
       <nav className="fixed bottom-3 left-3 right-3 z-40 lg:hidden">
-        <div className="grid grid-cols-7 gap-1 rounded-2xl border border-[#4a79df] bg-[#07205f]/90 p-2 backdrop-blur-xl">
+        <div
+          className={`grid gap-1 rounded-2xl border border-[#4a79df] bg-[#07205f]/90 p-2 backdrop-blur-xl ${
+            items.length > 7 ? 'grid-cols-4 sm:grid-cols-8' : 'grid-cols-7'
+          }`}
+        >
           {items.map((item) => {
             const Icon = item.icon
             const active = isActive(pathname, item.path)
