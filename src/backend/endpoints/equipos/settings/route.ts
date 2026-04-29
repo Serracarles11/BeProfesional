@@ -16,6 +16,15 @@ type UpdateTeamSettingsBody = {
   pais?: string | null
 }
 
+type ClubLocationPayload = {
+  ubicacion: string | null
+  campo_juego: string | null
+  direccion_campo: string | null
+  ciudad: string | null
+  provincia: string | null
+  pais: string | null
+}
+
 function normalizeOptionalText(value?: string | null) {
   const clean = value?.trim().replace(/\s+/g, ' ')
   return clean ? clean : null
@@ -39,6 +48,17 @@ function isCategoriaValida(categoria: string | null) {
   return ['PREBENJAMIN', 'BENJAMIN', 'ALEVIN', 'INFANTIL', 'CADETE', 'JUVENIL', 'AMATEUR'].includes(categoria ?? '')
 }
 
+function buildClubLocationPayload(body: UpdateTeamSettingsBody): ClubLocationPayload {
+  return {
+    ubicacion: normalizeOptionalText(body.ubicacion),
+    campo_juego: normalizeOptionalText(body.campo_juego),
+    direccion_campo: normalizeOptionalText(body.direccion_campo),
+    ciudad: normalizeOptionalText(body.ciudad),
+    provincia: normalizeOptionalText(body.provincia),
+    pais: normalizeOptionalText(body.pais) || 'España',
+  }
+}
+
 export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createSupabaseRouteHandler()
@@ -57,6 +77,7 @@ export async function PATCH(request: NextRequest) {
     const clubId = normalizeOptionalText(body.club_id)
     const categoria = normalizeOptionalText(body.categoria)
     const categoriaAnio = categoria === 'AMATEUR' ? null : normalizeOptionalText(body.categoria_anio)
+    const clubLocation = buildClubLocationPayload(body)
 
     if (!equipoId) {
       return NextResponse.json({ ok: false, error: 'Falta el equipo.' }, { status: 400 })
@@ -105,18 +126,27 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ ok: false, error: clubError?.message || 'No se pudo validar el club.' }, { status: 400 })
     }
 
+    const { error: updateClubError } = await supabase
+      .from('clubes')
+      .update(clubLocation)
+      .eq('id', club.id)
+
+    if (updateClubError) {
+      return NextResponse.json({ ok: false, error: updateClubError.message || 'No se pudieron guardar los datos del club.' }, { status: 400 })
+    }
+
     const payload = {
       club_id: club.id,
       club: club.nombre,
       categoria,
       categoria_anio: categoria === 'AMATEUR' ? null : categoriaAnio,
       temporada: normalizeOptionalText(body.temporada),
-      ubicacion: normalizeOptionalText(body.ubicacion),
-      campo_juego: normalizeOptionalText(body.campo_juego),
-      direccion_campo: normalizeOptionalText(body.direccion_campo),
-      ciudad: normalizeOptionalText(body.ciudad),
-      provincia: normalizeOptionalText(body.provincia),
-      pais: normalizeOptionalText(body.pais) || 'España',
+      ubicacion: clubLocation.ubicacion,
+      campo_juego: clubLocation.campo_juego,
+      direccion_campo: clubLocation.direccion_campo,
+      ciudad: clubLocation.ciudad,
+      provincia: clubLocation.provincia,
+      pais: clubLocation.pais,
     }
 
     const { data: updated, error: updateError } = await supabase

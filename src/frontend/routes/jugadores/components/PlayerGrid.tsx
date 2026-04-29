@@ -4,8 +4,6 @@ import { useState } from 'react'
 import { Eye } from 'lucide-react'
 import type { SquadPlayer } from '../types'
 import {
-  formatGoalsPer90,
-  goalsPer90,
   playerInitials,
   positionTagLabel,
 } from '../utils'
@@ -105,7 +103,13 @@ function PlayerCard({ player, index, onViewDetails }: PlayerCardProps) {
         <div className="grid grid-cols-3 gap-2 border-t border-[#ebeef3] pt-4">
           <StatItem label="Minutos Totales" value={String(player.stats.minutes)} />
           <StatItem label="Goles" value={String(player.stats.goals)} accent />
-          <StatItem label="Goles/90" value={formatGoalsPer90(goalsPer90(player))} />
+          <StatItem label="Asistencias" value={String(player.stats.assists)} />
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-2 border-t border-[#ebeef3] pt-4">
+          <StatItem label="Partidos" value={String(player.stats.apps)} />
+          <StatItem label="Altura" value={player.heightCm ? `${player.heightCm}` : '--'} />
+          <StatItem label="Peso" value={player.weightKg ? `${player.weightKg}` : '--'} />
         </div>
       </div>
     </article>

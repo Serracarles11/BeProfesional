@@ -1,8 +1,7 @@
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Building2, Dumbbell, Home, MessageSquare, Settings, Sparkles, Trophy, Users } from 'lucide-react'
-import { useClubPanelAccess } from '@/frontend/lib/use-club-panel-access'
+import { Dumbbell, Home, MessageSquare, Settings, Sparkles, Trophy, Users } from 'lucide-react'
 
 function withTeam(path, teamId) {
   if (!teamId) return path
@@ -20,9 +19,8 @@ export default function Sidebar({ equipoId }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const activeTeamId = equipoId ?? searchParams.get('equipo')
-  const clubMembership = useClubPanelAccess()
 
-  const baseItems = [
+  const items = [
     { id: 'home', label: 'Home', icon: Home, path: '/home', href: withTeam('/home', activeTeamId) },
     { id: 'team', label: 'Estadisticas', icon: Users, path: '/estadisticas', href: withTeam('/estadisticas', activeTeamId) },
     { id: 'train', label: 'Entrenamiento', icon: Dumbbell, path: '/entrenamientos', href: withTeam('/entrenamientos', activeTeamId) },
@@ -31,9 +29,6 @@ export default function Sidebar({ equipoId }) {
     { id: 'play-maker', label: 'Play Maker', icon: Sparkles, path: '/play-maker', href: withTeam('/play-maker', activeTeamId) },
     { id: 'settings', label: 'Ajustes', icon: Settings, path: '/settings', href: withTeam('/settings', activeTeamId) },
   ]
-  const items = clubMembership
-    ? [...baseItems, { id: 'club', label: 'Panel club', icon: Building2, path: '/club', href: '/club' }]
-    : baseItems
 
   return (
     <>

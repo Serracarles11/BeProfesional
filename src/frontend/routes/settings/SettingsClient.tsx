@@ -232,7 +232,7 @@ export default function SettingsPage() {
       setEmail(data.email || '')
 
       if (equipoId) {
-        const { data: equipo, error: equipoError } = await supabase
+        const { data: equipoRaw, error: equipoError } = await supabase
           .from('equipos')
           .select('nombre, club, club_id, categoria, categoria_anio, temporada, ubicacion, campo_juego, direccion_campo, ciudad, provincia, pais')
           .eq('id', equipoId)
@@ -244,18 +244,31 @@ export default function SettingsPage() {
           return
         }
 
+        let equipo = equipoRaw
         let clubName = toStringOrEmpty(equipo?.club)
         const clubId = typeof equipo?.club_id === 'string' ? equipo.club_id : null
 
         if (clubId) {
           const { data: clubById } = await supabase
             .from('clubes')
-            .select('id, nombre')
+            .select('id, nombre, ubicacion, campo_juego, direccion_campo, ciudad, provincia, pais')
             .eq('id', clubId)
             .maybeSingle()
 
           if (typeof clubById?.nombre === 'string') {
             clubName = clubById.nombre
+          }
+
+          if (clubById && equipo) {
+            equipo = {
+              ...equipo,
+              ubicacion: equipo?.ubicacion ?? clubById.ubicacion,
+              campo_juego: equipo?.campo_juego ?? clubById.campo_juego,
+              direccion_campo: equipo?.direccion_campo ?? clubById.direccion_campo,
+              ciudad: equipo?.ciudad ?? clubById.ciudad,
+              provincia: equipo?.provincia ?? clubById.provincia,
+              pais: equipo?.pais ?? clubById.pais,
+            }
           }
         }
 

@@ -16,6 +16,15 @@ type CrearEquipoBody = {
   pais?: string | null
 }
 
+type ClubLocationPayload = {
+  ubicacion: string | null
+  campo_juego: string | null
+  direccion_campo: string | null
+  ciudad: string | null
+  provincia: string | null
+  pais: string | null
+}
+
 type SupabaseRpcError = {
   message: string
   code?: string
@@ -40,21 +49,55 @@ function isCategoriaValida(categoria: string | null) {
   return ['PREBENJAMIN', 'BENJAMIN', 'ALEVIN', 'INFANTIL', 'CADETE', 'JUVENIL', 'AMATEUR'].includes(categoria ?? '')
 }
 
+function buildClubLocationPayload(body: CrearEquipoBody): ClubLocationPayload {
+  return {
+    ubicacion: normalizeOptionalText(body.ubicacion),
+    campo_juego: normalizeOptionalText(body.campo_juego),
+    direccion_campo: normalizeOptionalText(body.direccion_campo),
+    ciudad: normalizeOptionalText(body.ciudad),
+    provincia: normalizeOptionalText(body.provincia),
+    pais: normalizeOptionalText(body.pais) || 'España',
+  }
+}
+
+function hasClubLocationData(payload: ClubLocationPayload) {
+  return Object.values(payload).some(Boolean)
+}
+
 async function obtenerOcrearClub(
   supabase: RouteSupabase,
   nombreClub: string | null,
   userId: string,
-  clubId?: string | null
+  clubId?: string | null,
+  location?: ClubLocationPayload
 ) {
   if (clubId) {
     const { data, error } = await supabase
       .from('clubes')
-      .select('id, nombre')
+      .select('id, nombre, ubicacion, campo_juego, direccion_campo, ciudad, provincia, pais')
       .eq('id', clubId)
       .maybeSingle()
 
     if (error || !data?.id || !data.nombre) {
       throw new Error(error?.message || 'No se pudo validar el club seleccionado.')
+    }
+
+    if (location && hasClubLocationData(location)) {
+      const { error: updateClubError } = await supabase
+        .from('clubes')
+        .update({
+          ubicacion: location.ubicacion ?? data.ubicacion,
+          campo_juego: location.campo_juego ?? data.campo_juego,
+          direccion_campo: location.direccion_campo ?? data.direccion_campo,
+          ciudad: location.ciudad ?? data.ciudad,
+          provincia: location.provincia ?? data.provincia,
+          pais: location.pais ?? data.pais ?? 'España',
+        })
+        .eq('id', data.id)
+
+      if (updateClubError) {
+        throw new Error(updateClubError.message || 'No se pudieron actualizar los datos del club.')
+      }
     }
 
     return data
@@ -79,7 +122,7 @@ async function obtenerOcrearClub(
 
   const { data, error } = await supabase
     .from('clubes')
-    .insert({ nombre, creado_por: userId })
+    .insert({ nombre, creado_por: userId, ...(location ?? {}) })
     .select('id, nombre')
     .single()
 
@@ -116,6 +159,7 @@ export async function POST(request: NextRequest) {
     const clubId = normalizeOptionalText(body.club_id)
     const categoria = normalizeOptionalText(body.categoria)
     const categoriaAnio = categoria === 'AMATEUR' ? null : normalizeOptionalText(body.categoria_anio)
+    const clubLocation = buildClubLocationPayload(body)
 
     if (!nombreEquipo) {
       return NextResponse.json(
@@ -126,7 +170,7 @@ export async function POST(request: NextRequest) {
 
     let clubFinal: { id: string; nombre: string }
     try {
-      clubFinal = await obtenerOcrearClub(supabase, body.club ?? null, user.id, clubId)
+      clubFinal = await obtenerOcrearClub(supabase, body.club ?? null, user.id, clubId, clubLocation)
     } catch (clubError) {
       const message = clubError instanceof Error ? clubError.message : 'No se pudo crear el club.'
       return NextResponse.json(
@@ -194,12 +238,12 @@ export async function POST(request: NextRequest) {
         categoria,
         categoria_anio: categoria === 'AMATEUR' ? null : categoriaAnio,
         temporada: normalizeOptionalText(body.temporada),
-        ubicacion: normalizeOptionalText(body.ubicacion),
-        campo_juego: normalizeOptionalText(body.campo_juego),
-        direccion_campo: normalizeOptionalText(body.direccion_campo),
-        ciudad: normalizeOptionalText(body.ciudad),
-        provincia: normalizeOptionalText(body.provincia),
-        pais: normalizeOptionalText(body.pais) || 'España',
+        ubicacion: clubLocation.ubicacion,
+        campo_juego: clubLocation.campo_juego,
+        direccion_campo: clubLocation.direccion_campo,
+        ciudad: clubLocation.ciudad,
+        provincia: clubLocation.provincia,
+        pais: clubLocation.pais,
       })
       .eq('id', equipoId)
 

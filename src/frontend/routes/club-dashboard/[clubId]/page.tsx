@@ -2,12 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Building2, Users } from 'lucide-react'
+import { ArrowLeft, Building2, Info, Users } from 'lucide-react'
 import { createSupabaseBrowser } from '@/lib/supabase/client'
 
 type Club = {
   id: string
   nombre: string
+  ubicacion: string | null
+  campo_juego: string | null
+  ciudad: string | null
 }
 
 type EquipoClub = {
@@ -71,7 +74,7 @@ export default function ClubDashboardByIdPage() {
 
         const { data: clubData, error: clubError } = await supabase
           .from('clubes')
-          .select('id, nombre')
+          .select('id, nombre, ubicacion, campo_juego, ciudad')
           .eq('id', clubId)
           .maybeSingle()
 
@@ -129,14 +132,27 @@ export default function ClubDashboardByIdPage() {
   return (
     <main className="auth-bg min-h-screen p-4 md:p-8">
       <div className="relative z-10 mx-auto max-w-5xl">
-        <button
-          type="button"
-          onClick={() => router.push('/equipos')}
-          className="mb-5 inline-flex items-center gap-2 rounded-xl bg-white/80 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-white"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver a equipos
-        </button>
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <button
+            type="button"
+            onClick={() => router.push('/equipos')}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/80 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-white"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver a equipos
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              router.push(`/club-dashboard/${encodeURIComponent(clubId)}/informacion-club`)
+            }
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-sky-600/20 transition hover:bg-sky-700"
+          >
+            <Info className="h-4 w-4" />
+            Ver Informacion club
+          </button>
+        </div>
 
         <section className="glass-card mb-6 rounded-3xl p-6 md:p-8">
           {loading ? (
@@ -217,9 +233,9 @@ export default function ClubDashboardByIdPage() {
                       </div>
 
                       <div className="text-sm text-gray-500 md:text-right">
-                        <p>{equipo.ciudad || equipo.ubicacion || '-'}</p>
+                        <p>{equipo.ciudad || equipo.ubicacion || club?.ciudad || club?.ubicacion || '-'}</p>
                         <p className="font-semibold text-gray-700">
-                          {equipo.campo_juego || 'Campo no indicado'}
+                          {equipo.campo_juego || club?.campo_juego || 'Campo no indicado'}
                         </p>
                       </div>
                     </div>

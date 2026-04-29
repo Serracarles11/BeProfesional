@@ -2,7 +2,7 @@
 
 import { type ReactNode, useEffect } from 'react'
 import Link from 'next/link'
-import { CalendarDays, Footprints, MapPin, Ruler, Scale, ShieldCheck, X } from 'lucide-react'
+import { CalendarDays, Footprints, MapPin, Phone, Ruler, Scale, ShieldCheck, UserRound, X } from 'lucide-react'
 import type { SquadPlayer } from '../types'
 import { positionTagLabel, ratingValue, withEquipo } from '../utils'
 
@@ -29,6 +29,21 @@ function dominantFootLabel(value: string | null) {
 function ageLabel(value: number | null) {
   if (!value || value <= 0) return '--'
   return `${value} anos`
+}
+
+function valueOrDash(value: string | null | undefined) {
+  return value?.trim() || '--'
+}
+
+function joinedAtLabel(value: string | null | undefined) {
+  if (!value) return '--'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '--'
+  return date.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
 }
 
 function positionLabel(position: string | null) {
@@ -159,7 +174,32 @@ export function PlayerDetailsModal({ player, equipoId, onClose }: PlayerDetailsM
               label="Peso"
               value={player.weightKg ? `${player.weightKg} kg` : '--'}
             />
+            <BadgeItem icon={<UserRound className="h-4 w-4 text-[#005db6]" />} label="Genero" value={valueOrDash(player.gender)} />
+            <BadgeItem icon={<Phone className="h-4 w-4 text-[#005db6]" />} label="Telefono" value={valueOrDash(player.phone)} />
+            <BadgeItem icon={<CalendarDays className="h-4 w-4 text-[#005db6]" />} label="Alta" value={joinedAtLabel(player.joinedAt)} />
           </div>
+
+          <section>
+            <h2 className="[font-family:var(--font-plus-jakarta)] text-xl font-bold text-[#181c20]">
+              Datos del jugador
+            </h2>
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <InfoCard label="Equipo" value={valueOrDash(player.team)} />
+              <InfoCard label="Posicion" value={positionLabel(player.position)} />
+              <InfoCard label="Dorsal" value={jersey} />
+              <InfoCard label="Edad" value={ageLabel(player.age)} />
+              <InfoCard label="Ciudad" value={valueOrDash(player.city)} />
+              <InfoCard label="Pais" value={valueOrDash(player.country)} />
+              <InfoCard label="Instagram" value={valueOrDash(player.instagram)} />
+              <InfoCard label="Objetivo" value={valueOrDash(player.objective)} />
+            </div>
+            {player.bio ? (
+              <div className="mt-4 rounded-2xl bg-white p-5 shadow-[0_14px_28px_rgba(0,93,182,0.05)]">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#727785]">Bio</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#181c20]">{player.bio}</p>
+              </div>
+            ) : null}
+          </section>
 
           <section>
             <h2 className="[font-family:var(--font-plus-jakarta)] text-xl font-bold text-[#181c20]">
@@ -172,6 +212,7 @@ export function PlayerDetailsModal({ player, equipoId, onClose }: PlayerDetailsM
               <StatCard label="Asistencias" value={player.stats.assists} />
               <StatCard label="Amarillas" value={player.stats.yellows} />
               <StatCard label="Rojas" value={player.stats.reds} />
+              <StatCard label="Titular" value={player.stats.starts} />
             </div>
           </section>
 
@@ -222,6 +263,17 @@ function StatCard({ label, value }: { label: string; value: number }) {
       <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-[#414754] group-hover:text-white/85">
         {label}
       </div>
+    </div>
+  )
+}
+
+function InfoCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-white p-5 shadow-[0_14px_28px_rgba(0,93,182,0.05)]">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-[#727785]">{label}</p>
+      <p className="mt-2 [font-family:var(--font-plus-jakarta)] text-base font-extrabold text-[#181c20]">
+        {value}
+      </p>
     </div>
   )
 }

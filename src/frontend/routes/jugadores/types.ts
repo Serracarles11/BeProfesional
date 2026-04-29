@@ -9,6 +9,14 @@ export type SquadPlayer = {
   dominantFoot: string | null
   heightCm: number | null
   weightKg: number | null
+  gender?: string | null
+  phone?: string | null
+  city?: string | null
+  country?: string | null
+  bio?: string | null
+  instagram?: string | null
+  objective?: string | null
+  joinedAt?: string | null
   stats: {
     apps: number
     minutes: number

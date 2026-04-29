@@ -2,7 +2,6 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
-  Building2,
   Dumbbell,
   Home,
   MessageSquare,
@@ -12,7 +11,6 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react'
-import { useClubPanelAccess } from '@/frontend/lib/use-club-panel-access'
 
 type DashboardSidebarProps = {
   equipoId?: string | null
@@ -81,9 +79,8 @@ export default function DashboardSidebar({ equipoId }: DashboardSidebarProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const activeTeamId = equipoId ?? searchParams.get('equipo')
-  const clubMembership = useClubPanelAccess()
 
-  const baseItems: NavItem[] = [
+  const items: NavItem[] = [
     {
       id: 'home',
       label: 'Home',
@@ -134,18 +131,6 @@ export default function DashboardSidebar({ equipoId }: DashboardSidebarProps) {
       href: withEquipoQuery('/settings', activeTeamId),
     },
   ]
-  const items: NavItem[] = clubMembership
-    ? [
-        ...baseItems,
-        {
-          id: 'club',
-          label: 'Panel de club',
-          icon: Building2,
-          path: '/club',
-          href: '/club',
-        },
-      ]
-    : baseItems
 
   return (
     <>
