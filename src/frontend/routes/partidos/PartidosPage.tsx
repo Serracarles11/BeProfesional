@@ -9,6 +9,8 @@ import {
   ChevronRight,
   LayoutDashboard,
   MessageSquare,
+  Minus,
+  Plus,
   Save,
   UserPlus,
   Users,
@@ -671,6 +673,7 @@ function PlayerPartidosView({
   isSubmitting,
   submitError,
   canSubmitStats,
+  isDirectStatsFlow,
   openStatsModal,
   closeModal,
   isCallupOpen,
@@ -692,6 +695,7 @@ function PlayerPartidosView({
   isSubmitting: boolean
   submitError: string
   canSubmitStats: boolean
+  isDirectStatsFlow: boolean
   isCallupOpen: boolean
   callupPlayerIds: string[]
   callupError: string
@@ -1186,15 +1190,29 @@ function PlayerPartidosView({
 
       {isModalOpen && featuredMatch ? (
         <div
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-[#181c20]/40 p-4 backdrop-blur-sm"
+          className={`fixed inset-0 z-[120] flex bg-[#181c20]/40 backdrop-blur-sm ${
+            isDirectStatsFlow ? 'items-stretch justify-center p-0 md:items-center md:p-4' : 'items-center justify-center p-4'
+          }`}
           onClick={closeModal}
         >
           <div
-            className="w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl"
+            className={`w-full bg-white shadow-2xl ${
+              isDirectStatsFlow ? 'relative min-h-screen overflow-y-auto md:min-h-0 md:max-w-xl md:rounded-3xl' : 'max-w-xl rounded-3xl p-6'
+            }`}
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="mb-5 flex items-start justify-between gap-4">
+            <div
+              className={
+                isDirectStatsFlow
+                  ? 'sticky top-0 z-10 border-b border-[#dfe6f2] bg-white px-5 pb-5 pt-4 shadow-[0_8px_30px_rgba(24,28,32,0.08)] md:rounded-t-3xl'
+                  : 'mb-5 flex items-start justify-between gap-4'
+              }
+            >
+              <div className="flex w-full items-start justify-between gap-4">
               <div>
+                {isDirectStatsFlow ? (
+                  <p className="mb-1 text-xs font-black uppercase text-[#005db6]">Datos del partido</p>
+                ) : null}
                 <h2 className="[font-family:var(--font-plus-jakarta)] text-2xl font-black text-[#181c20]">
                   Registrar Estadisticas
                 </h2>
@@ -1209,24 +1227,65 @@ function PlayerPartidosView({
               >
                 <X className="h-4 w-4" />
               </button>
+              </div>
+              {isDirectStatsFlow ? (
+                <div className="mt-4 rounded-2xl bg-[#f7f9fe] px-4 py-3">
+                  <p className="text-sm font-bold text-[#181c20]">Rellena solo tus numeros y guarda.</p>
+                  <p className="mt-1 text-xs font-semibold text-[#687386]">Usa + y - para hacerlo rapido desde el movil.</p>
+                </div>
+              ) : null}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <FieldInput label="Minutos" value={form.minutes} onChange={(value) => setFormValue('minutes', value)} min={0} max={130} />
-              <FieldInput label="Goles" value={form.goals} onChange={(value) => setFormValue('goals', value)} min={0} max={30} />
-              <FieldInput label="Asistencias" value={form.assists} onChange={(value) => setFormValue('assists', value)} min={0} max={30} />
-              <FieldInput label="Tarjetas amarillas" value={form.yellowCards} onChange={(value) => setFormValue('yellowCards', value)} min={0} max={30} />
-              <div className="col-span-2 sm:col-span-1">
-                <FieldInput label="Tarjetas rojas" value={form.redCards} onChange={(value) => setFormValue('redCards', value)} min={0} max={30} />
-              </div>
+            <div className={isDirectStatsFlow ? 'space-y-3 bg-[#eef3fb] px-4 pb-32 pt-4 md:rounded-b-3xl' : 'grid grid-cols-2 gap-4'}>
+              {isDirectStatsFlow ? (
+                <>
+                  <DirectStatsControl label="Minutos" detail="Tiempo jugado" value={form.minutes} onChange={(value) => setFormValue('minutes', value)} min={0} max={130} accent="blue" />
+                  <DirectStatsControl label="Goles" detail="Goles que has marcado" value={form.goals} onChange={(value) => setFormValue('goals', value)} min={0} max={30} accent="green" />
+                  <DirectStatsControl label="Asistencias" detail="Pases de gol" value={form.assists} onChange={(value) => setFormValue('assists', value)} min={0} max={30} accent="blue" />
+                  <DirectStatsControl label="Tarjetas amarillas" detail="Amonestaciones" value={form.yellowCards} onChange={(value) => setFormValue('yellowCards', value)} min={0} max={30} accent="amber" />
+                  <DirectStatsControl label="Tarjetas rojas" detail="Expulsiones" value={form.redCards} onChange={(value) => setFormValue('redCards', value)} min={0} max={30} accent="red" />
+                </>
+              ) : (
+                <>
+                  <FieldInput label="Minutos" value={form.minutes} onChange={(value) => setFormValue('minutes', value)} min={0} max={130} />
+                  <FieldInput label="Goles" value={form.goals} onChange={(value) => setFormValue('goals', value)} min={0} max={30} />
+                  <FieldInput label="Asistencias" value={form.assists} onChange={(value) => setFormValue('assists', value)} min={0} max={30} />
+                  <FieldInput label="Tarjetas amarillas" value={form.yellowCards} onChange={(value) => setFormValue('yellowCards', value)} min={0} max={30} />
+                  <div className="col-span-2 sm:col-span-1">
+                    <FieldInput label="Tarjetas rojas" value={form.redCards} onChange={(value) => setFormValue('redCards', value)} min={0} max={30} />
+                  </div>
+                </>
+              )}
             </div>
 
             {submitError ? (
-              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+              <div className={isDirectStatsFlow ? 'mx-4 mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700' : 'mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700'}>
                 {submitError}
               </div>
             ) : null}
 
+            {isDirectStatsFlow ? (
+              <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[#dfe6f2] bg-white/95 px-4 pb-5 pt-3 shadow-[0_-12px_30px_rgba(24,28,32,0.12)] backdrop-blur md:absolute md:rounded-b-3xl">
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => void submitStats()}
+                  className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#005db6] to-[#18794e] text-base font-black text-white shadow-[0_12px_26px_rgba(0,93,182,0.24)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Save className="h-5 w-5" />
+                  {isSubmitting ? 'Guardando...' : 'Guardar mis estadisticas'}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="mt-2 h-10 w-full rounded-xl text-sm font-bold text-[#687386]"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : null}
+
+            {!isDirectStatsFlow ? (
             <div className="mt-6 flex flex-wrap justify-end gap-3">
               <button
                 type="button"
@@ -1244,6 +1303,7 @@ function PlayerPartidosView({
                 {isSubmitting ? 'Guardando...' : 'Guardar estadisticas'}
               </button>
             </div>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -1629,6 +1689,7 @@ export default function PartidosPage() {
         isSubmitting={isSubmitting}
         submitError={submitError}
         canSubmitStats={canSubmitStats}
+        isDirectStatsFlow={shouldOpenStatsFromLink}
         isCallupOpen={isCallupOpen}
         callupPlayerIds={callupPlayerIds}
         callupError={callupError}
@@ -1670,6 +1731,77 @@ function FieldInput({
         className="w-full rounded-xl border border-[#dfe3e8] bg-[#f7f9fe] px-3 py-2.5 text-sm font-semibold text-[#181c20] outline-none transition focus:border-[#759efd]"
       />
     </label>
+  )
+}
+
+function DirectStatsControl({
+  label,
+  detail,
+  value,
+  onChange,
+  min,
+  max,
+  accent = 'blue',
+}: {
+  label: string
+  detail: string
+  value: number
+  onChange: (value: number) => void
+  min: number
+  max: number
+  accent?: 'blue' | 'green' | 'amber' | 'red'
+}) {
+  const accentClasses = {
+    blue: 'bg-[#005db6] text-white shadow-[0_10px_22px_rgba(0,93,182,0.2)]',
+    green: 'bg-[#18794e] text-white shadow-[0_10px_22px_rgba(24,121,78,0.18)]',
+    amber: 'bg-[#b7791f] text-white shadow-[0_10px_22px_rgba(183,121,31,0.18)]',
+    red: 'bg-[#c2410c] text-white shadow-[0_10px_22px_rgba(194,65,12,0.18)]',
+  }[accent]
+
+  const changeBy = (delta: number) => onChange(clampInt(value + delta, min, max))
+
+  return (
+    <section className="rounded-2xl border border-[#dfe6f2] bg-white p-4 shadow-[0_14px_35px_rgba(24,28,32,0.06)]">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="[font-family:var(--font-plus-jakarta)] text-base font-black text-[#181c20]">{label}</h3>
+          <p className="mt-0.5 text-xs font-semibold text-[#687386]">{detail}</p>
+        </div>
+        <div className={`flex h-11 min-w-14 items-center justify-center rounded-2xl px-3 text-lg font-black ${accentClasses}`}>
+          {value}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-[56px_1fr_56px] items-center gap-3">
+        <button
+          type="button"
+          onClick={() => changeBy(-1)}
+          disabled={value <= min}
+          aria-label={`Restar ${label.toLowerCase()}`}
+          className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#dfe6f2] bg-[#f7f9fe] text-[#181c20] transition active:scale-95 disabled:opacity-40"
+        >
+          <Minus className="h-5 w-5" />
+        </button>
+        <input
+          type="number"
+          inputMode="numeric"
+          min={min}
+          max={max}
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+          className="h-14 w-full rounded-2xl border border-[#dfe6f2] bg-[#f7f9fe] text-center text-2xl font-black text-[#181c20] outline-none transition focus:border-[#005db6] focus:bg-white"
+        />
+        <button
+          type="button"
+          onClick={() => changeBy(1)}
+          disabled={value >= max}
+          aria-label={`Sumar ${label.toLowerCase()}`}
+          className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#181c20] text-white transition active:scale-95 disabled:opacity-40"
+        >
+          <Plus className="h-5 w-5" />
+        </button>
+      </div>
+    </section>
   )
 }
 
