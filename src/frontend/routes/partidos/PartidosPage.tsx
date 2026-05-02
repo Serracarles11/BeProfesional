@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   MessageSquare,
   Save,
+  UserPlus,
   Users,
   X,
 } from 'lucide-react'
@@ -58,6 +59,7 @@ type CoachPlayerSubmission = {
   avatarUrl?: string | null
   position?: string | null
   dorsal?: number | null
+  calledUp?: boolean
   submission: MatchSubmission | null
 }
 
@@ -111,6 +113,16 @@ type MatchScoreResponse =
         golesContra: number
         golesContraMinutos: number[]
       }
+    }
+  | {
+      ok: false
+      error: string
+    }
+
+type MatchCallupResponse =
+  | {
+      ok: true
+      calledUpPlayerIds: string[]
     }
   | {
       ok: false
@@ -190,6 +202,13 @@ function statusPillLabel(match: MatchItem) {
 
 function featuredBadgeLabel(openForStats: boolean) {
   return openForStats ? 'Edicion abierta' : 'Edicion cerrada'
+}
+
+function isFutureMatch(match: MatchItem | null) {
+  if (!match) return false
+  if (normalizeText(match.estado) === 'FINALIZADO') return false
+  const matchTime = new Date(match.fechaHora).getTime()
+  return Number.isNaN(matchTime) ? false : matchTime > Date.now()
 }
 
 function clampInt(value: number, min: number, max: number) {
@@ -654,6 +673,13 @@ function PlayerPartidosView({
   canSubmitStats,
   openStatsModal,
   closeModal,
+  isCallupOpen,
+  callupPlayerIds,
+  callupError,
+  openCallupModal,
+  closeCallupModal,
+  toggleCallupPlayer,
+  saveCallup,
   setFormValue,
   submitStats,
 }: {
@@ -666,13 +692,22 @@ function PlayerPartidosView({
   isSubmitting: boolean
   submitError: string
   canSubmitStats: boolean
+  isCallupOpen: boolean
+  callupPlayerIds: string[]
+  callupError: string
   openStatsModal: () => void
   closeModal: () => void
+  openCallupModal: () => void
+  closeCallupModal: () => void
+  toggleCallupPlayer: (playerId: string) => void
+  saveCallup: () => void
   setFormValue: (key: NumericStatsField, value: number) => void
   submitStats: () => void
 }) {
   const liveGoalsFavor = featuredMeta?.totals.goals ?? featuredMatch?.golesFavor ?? 0
   const liveGoalsContra = featuredMatch?.golesContra ?? 0
+  const canManageCallup = payload.isCoach && isFutureMatch(featuredMatch)
+  const hasCallup = payload.featuredMeta.playerSubmissions.some((player) => player.calledUp)
   const [isAllMatchesOpen, setIsAllMatchesOpen] = useState(false)
   const [allMatches, setAllMatches] = useState<MatchItem[]>([])
   const [isLoadingAllMatches, setIsLoadingAllMatches] = useState(false)
@@ -779,12 +814,24 @@ function PlayerPartidosView({
 
                       <div className="flex flex-wrap gap-3">
                         {payload.isCoach ? (
-                          <Link
-                            href={buildReviewHref(payload.equipoId, featuredMatch.id)}
-                            className="rounded-full bg-white px-6 py-3 text-sm font-black uppercase tracking-wide text-[#005db6] shadow-lg transition hover:bg-[#d9e2ff]"
-                          >
-                            Ver datos
-                          </Link>
+                          <>
+                            {canManageCallup ? (
+                              <button
+                                type="button"
+                                onClick={openCallupModal}
+                                className="inline-flex items-center gap-2 rounded-full bg-[#ffe170] px-6 py-3 text-sm font-black uppercase tracking-wide text-[#221b00] shadow-lg transition hover:bg-[#f5d34d]"
+                              >
+                                <UserPlus className="h-4 w-4" />
+                                {hasCallup ? 'Modificar convocatoria' : 'Anadir convocatoria'}
+                              </button>
+                            ) : null}
+                            <Link
+                              href={buildReviewHref(payload.equipoId, featuredMatch.id)}
+                              className="rounded-full bg-white px-6 py-3 text-sm font-black uppercase tracking-wide text-[#005db6] shadow-lg transition hover:bg-[#d9e2ff]"
+                            >
+                              Ver datos
+                            </Link>
+                          </>
                         ) : (
                           <button
                             type="button"
@@ -1028,6 +1075,115 @@ function PlayerPartidosView({
         </div>
       ) : null}
 
+      {isCallupOpen && featuredMatch ? (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-[#181c20]/45 p-4 backdrop-blur-sm"
+          onClick={closeCallupModal}
+        >
+          <div
+            className="flex max-h-[86vh] w-full max-w-3xl flex-col rounded-3xl bg-white p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="[font-family:var(--font-plus-jakarta)] text-2xl font-black text-[#181c20]">
+                  Convocatoria
+                </h2>
+                <p className="mt-1 text-sm font-medium text-[#5f6776]">
+                  {featuredMatch.rival || 'Rival'} · {formatMatchDate(featuredMatch.fechaHora)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeCallupModal}
+                disabled={isSubmitting}
+                className="rounded-full p-2 text-[#727785] transition hover:bg-[#f1f4f9] disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mb-4 flex items-center justify-between rounded-2xl bg-[#f8fbff] px-4 py-3">
+              <span className="text-sm font-bold text-[#414754]">
+                {callupPlayerIds.length} convocados
+              </span>
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-[#727785]">
+                {payload.featuredMeta.playerSubmissions.length} jugadores disponibles
+              </span>
+            </div>
+
+            {callupError ? (
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                {callupError}
+              </div>
+            ) : null}
+
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {payload.featuredMeta.playerSubmissions.map((player) => {
+                  const checked = callupPlayerIds.includes(player.playerId)
+
+                  return (
+                    <label
+                      key={player.playerId}
+                      className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-4 transition ${
+                        checked
+                          ? 'border-[#005db6] bg-[#eef5ff]'
+                          : 'border-[#dfe3e8] bg-white hover:border-[#005db6]/40'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleCallupPlayer(player.playerId)}
+                        className="h-4 w-4 accent-[#005db6]"
+                      />
+                      {player.avatarUrl ? (
+                        <img alt={player.name} className="h-10 w-10 rounded-full object-cover" src={player.avatarUrl} />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#d6e3ff] text-sm font-bold text-[#005db6]">
+                          {getInitials(player.name)}
+                        </div>
+                      )}
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-black text-[#181c20]">
+                          {player.dorsal ? `${player.dorsal}. ` : ''}
+                          {player.name}
+                        </span>
+                        <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-[#727785]">
+                          {player.position || 'Jugador'}
+                        </span>
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap justify-end gap-3 border-t border-[#ebeef3] pt-5">
+              <button
+                type="button"
+                onClick={closeCallupModal}
+                disabled={isSubmitting}
+                className="rounded-full bg-[#ebeef3] px-5 py-2.5 text-sm font-bold text-[#181c20] transition hover:bg-[#dfe3e8] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={saveCallup}
+                disabled={isSubmitting}
+                className="inline-flex items-center gap-2 rounded-full bg-[#005db6] px-6 py-2.5 text-sm font-black text-white shadow-[0_10px_20px_rgba(0,93,182,0.18)] transition hover:bg-[#004f9d] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <UserPlus className="h-4 w-4" />
+                {isSubmitting ? 'Guardando...' : 'Guardar convocatoria'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {isModalOpen && featuredMatch ? (
         <div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-[#181c20]/40 p-4 backdrop-blur-sm"
@@ -1099,6 +1255,8 @@ export default function PartidosPage() {
   const searchParams = useSearchParams()
   const requestedTeamId = searchParams.get('equipo')
   const requestedReviewMatchId = searchParams.get('review')
+  const requestedMatchId = searchParams.get('matchId')
+  const shouldOpenStatsFromLink = searchParams.get('submit') === '1'
   const requestedAllPlayed = searchParams.get('all') === '1'
 
   const [status, setStatus] = useState<Status>('loading')
@@ -1110,6 +1268,9 @@ export default function PartidosPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [coachDrafts, setCoachDrafts] = useState<CoachDraftRow[]>([])
   const [opponentGoals, setOpponentGoals] = useState<OpponentGoalDraft[]>([])
+  const [isCallupOpen, setIsCallupOpen] = useState(false)
+  const [callupPlayerIds, setCallupPlayerIds] = useState<string[]>([])
+  const [callupError, setCallupError] = useState('')
 
   const loadData = useCallback(async () => {
     setStatus('loading')
@@ -1118,7 +1279,8 @@ export default function PartidosPage() {
     try {
       const params = new URLSearchParams()
       if (requestedTeamId) params.set('equipo', requestedTeamId)
-      if (requestedReviewMatchId) params.set('matchId', requestedReviewMatchId)
+      const selectedMatchId = requestedReviewMatchId ?? requestedMatchId
+      if (selectedMatchId) params.set('matchId', selectedMatchId)
       if (requestedAllPlayed) params.set('all', '1')
       const query = params.size > 0 ? `?${params.toString()}` : ''
       const response = await fetch(`/api/partidos${query}`, { cache: 'no-store' })
@@ -1134,7 +1296,7 @@ export default function PartidosPage() {
       setStatus('error')
       setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar Partidos.')
     }
-  }, [requestedAllPlayed, requestedReviewMatchId, requestedTeamId])
+  }, [requestedAllPlayed, requestedMatchId, requestedReviewMatchId, requestedTeamId])
 
   useEffect(() => {
     void loadData()
@@ -1178,9 +1340,39 @@ export default function PartidosPage() {
     setIsModalOpen(true)
   }
 
+  useEffect(() => {
+    if (!shouldOpenStatsFromLink || payload?.isCoach || isModalOpen) return
+    if (!featuredMatch || !featuredMeta?.canSubmit || !featuredMeta.isOpenForStats) return
+    openStatsModal()
+  }, [featuredMatch, featuredMeta, isModalOpen, payload?.isCoach, shouldOpenStatsFromLink])
+
   const closeModal = () => {
     if (isSubmitting) return
     setIsModalOpen(false)
+  }
+
+  const openCallupModal = () => {
+    if (!payload?.isCoach || !featuredMatch || !isFutureMatch(featuredMatch)) return
+    setCallupPlayerIds(
+      payload.featuredMeta.playerSubmissions
+        .filter((player) => player.calledUp)
+        .map((player) => player.playerId)
+    )
+    setCallupError('')
+    setIsCallupOpen(true)
+  }
+
+  const closeCallupModal = () => {
+    if (isSubmitting) return
+    setIsCallupOpen(false)
+  }
+
+  const toggleCallupPlayer = (playerId: string) => {
+    setCallupPlayerIds((current) =>
+      current.includes(playerId)
+        ? current.filter((id) => id !== playerId)
+        : [...current, playerId]
+    )
   }
 
   const setFormValue = (key: NumericStatsField, value: number) => {
@@ -1333,6 +1525,37 @@ export default function PartidosPage() {
     }
   }
 
+  const saveCallup = async () => {
+    if (!payload?.isCoach || !featuredMatch) return
+
+    setCallupError('')
+    setIsSubmitting(true)
+
+    try {
+      const response = await fetch('/api/partidos', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          matchId: featuredMatch.id,
+          playerIds: callupPlayerIds,
+        }),
+      })
+
+      const data = (await response.json()) as MatchCallupResponse
+      if (!response.ok || !data.ok) {
+        throw new Error(data.ok ? 'No se pudo guardar la convocatoria.' : data.error)
+      }
+
+      setCallupPlayerIds(data.calledUpPlayerIds)
+      setIsCallupOpen(false)
+      await loadData()
+    } catch (saveErr) {
+      setCallupError(saveErr instanceof Error ? saveErr.message : 'No se pudo guardar la convocatoria.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   if (status === 'loading') {
     return (
       <div className="min-h-screen bg-[#f7f9fe] px-4 py-8">
@@ -1406,8 +1629,15 @@ export default function PartidosPage() {
         isSubmitting={isSubmitting}
         submitError={submitError}
         canSubmitStats={canSubmitStats}
+        isCallupOpen={isCallupOpen}
+        callupPlayerIds={callupPlayerIds}
+        callupError={callupError}
         openStatsModal={openStatsModal}
         closeModal={closeModal}
+        openCallupModal={openCallupModal}
+        closeCallupModal={closeCallupModal}
+        toggleCallupPlayer={toggleCallupPlayer}
+        saveCallup={() => void saveCallup()}
         setFormValue={setFormValue}
         submitStats={() => void submitStats()}
       />

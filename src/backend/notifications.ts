@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-type NotificationClient = Pick<SupabaseClient, 'from'>
+type NotificationClient = SupabaseClient
 
 type TeamMemberNotificationRow = {
   usuario_id: string | null
@@ -12,10 +12,15 @@ export type NotificationPayload = {
   titulo: string
   mensaje?: string | null
   enlace?: string | null
+  emailAdjuntoNombre?: string | null
+  emailAdjuntoBase64?: string | null
 }
 
 type NotificationInsert = NotificationPayload & {
   usuario_id: string
+  email_destino?: string | null
+  email_adjunto_nombre?: string | null
+  email_adjunto_base64?: string | null
 }
 
 type NotificationInsertWithoutLink = Omit<NotificationInsert, 'enlace'>
@@ -59,6 +64,22 @@ function toDbNotificationType(type: string) {
   return 'OTRA'
 }
 
+async function getUserEmailMap(client: SupabaseClient, userIds: string[]) {
+  const entries = await Promise.all(
+    userIds.map(async (userId) => {
+      try {
+        const { data, error } = await client.auth.admin.getUserById(userId)
+        if (error || !data.user?.email) return null
+        return [userId, data.user.email] as const
+      } catch {
+        return null
+      }
+    })
+  )
+
+  return new Map(entries.filter((entry): entry is readonly [string, string] => entry !== null))
+}
+
 export async function getActiveTeamMembers(client: NotificationClient, equipoId: string) {
   const { data, error } = await client
     .from('miembros_equipo')
@@ -78,23 +99,49 @@ export async function getActiveTeamMembers(client: NotificationClient, equipoId:
 }
 
 export async function notifyUsers(
-  client: NotificationClient,
+  client: SupabaseClient,
   userIds: string[],
   payload: NotificationPayload
 ) {
   const uniqueUserIds = Array.from(new Set(userIds.filter(Boolean)))
   if (uniqueUserIds.length === 0) return
 
+  const emailByUserId = await getUserEmailMap(client, uniqueUserIds)
   const rows: NotificationInsert[] = uniqueUserIds.map((usuarioId) => ({
     usuario_id: usuarioId,
     tipo: toDbNotificationType(payload.tipo),
     titulo: payload.titulo,
     mensaje: payload.mensaje ?? null,
     enlace: payload.enlace ?? null,
+    email_destino: emailByUserId.get(usuarioId) ?? null,
+    email_adjunto_nombre: payload.emailAdjuntoNombre ?? null,
+    email_adjunto_base64: payload.emailAdjuntoBase64 ?? null,
   }))
 
   const { error } = await client.from('notificaciones').insert(rows)
   if (error) {
+    if (
+      error.code === 'PGRST204' &&
+      (error.message?.includes("'email_adjunto_nombre'") ||
+        error.message?.includes("'email_adjunto_base64'"))
+    ) {
+      const rowsWithoutAttachment = rows.map(
+        ({ email_adjunto_nombre: _attachmentName, email_adjunto_base64: _attachmentBase64, ...row }) => row
+      )
+      const retryResult = await client.from('notificaciones').insert(rowsWithoutAttachment)
+      if (!retryResult.error) return
+      console.error('No se pudieron crear las notificaciones sin adjunto:', retryResult.error)
+      return
+    }
+
+    if (error.code === 'PGRST204' && error.message?.includes("'email_destino'")) {
+      const rowsWithoutEmail = rows.map(({ email_destino: _emailDestino, ...row }) => row)
+      const retryResult = await client.from('notificaciones').insert(rowsWithoutEmail)
+      if (!retryResult.error) return
+      console.error('No se pudieron crear las notificaciones sin email_destino:', retryResult.error)
+      return
+    }
+
     if (error.code === 'PGRST204' && error.message?.includes("'enlace'")) {
       const rowsWithoutLink: NotificationInsertWithoutLink[] = rows.map((row) => ({
         usuario_id: row.usuario_id,

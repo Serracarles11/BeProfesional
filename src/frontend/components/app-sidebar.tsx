@@ -64,7 +64,7 @@ export function AppSidebar({ clubName, clubHref }: ClubSidebarProps) {
           ? "entrenamientos"
           : pathname.endsWith("/jugadores")
             ? "jugadores"
-            : hash || "resumen"
+            : hash || "home"
       )
     }
 
@@ -106,12 +106,12 @@ export function AppSidebar({ clubName, clubHref }: ClubSidebarProps) {
   }, [])
 
   const items: NavItem[] = [
-    { id: "resumen", label: "Home", href: clubHref, icon: LayoutDashboard },
+    { id: "home", label: "Home", href: "#home", icon: LayoutDashboard },
     { id: "equipos", label: "Equipos", href: "#equipos", icon: Users },
-    { id: "categorias", label: "Estadisticas", href: "#categorias", icon: BarChart3 },
+    { id: "estadisticas", label: "Estadisticas", href: "#estadisticas", icon: BarChart3 },
     { id: "entrenamientos", label: "Entrenamientos", href: `${clubHref}/entrenamientos`, icon: CalendarDays },
     { id: "jugadores", label: "Jugadores", href: `${clubHref}/jugadores`, icon: UserRound },
-    { id: "settings", label: "Settings", href: "#equipos", icon: Settings },
+    { id: "settings", label: "Settings", href: "#settings", icon: Settings },
   ]
 
   const latestNotifications = notifications.slice(0, 2)
@@ -120,9 +120,11 @@ export function AppSidebar({ clubName, clubHref }: ClubSidebarProps) {
     setActiveId(item.id)
 
     if (item.href.startsWith("#")) {
-      const target = document.querySelector(item.href)
-      target?.scrollIntoView({ behavior: "smooth", block: "start" })
-      window.history.replaceState(null, "", item.href)
+      if (window.location.hash === item.href) {
+        window.dispatchEvent(new HashChangeEvent("hashchange"))
+      } else {
+        window.location.hash = item.href.slice(1)
+      }
       return
     }
 

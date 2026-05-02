@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   Activity,
@@ -185,7 +185,7 @@ function StatCard({
   )
 }
 
-export default function ClubDashboardPage() {
+function ClubDashboardContent() {
   const searchParams = useSearchParams()
   const requestedClubId = searchParams.get('club')
   const [payload, setPayload] = useState<DashboardPayload | null>(null)
@@ -625,5 +625,21 @@ export default function ClubDashboardPage() {
         </section>
       </div>
     </main>
+  )
+}
+
+export default function ClubDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#f3f6fb] px-6 py-10">
+          <div className="mx-auto max-w-7xl rounded-[28px] border border-[#dbe5f4] bg-white p-8 shadow-sm">
+            <p className="text-sm font-bold text-[#005db6]">Cargando panel de club...</p>
+          </div>
+        </main>
+      }
+    >
+      <ClubDashboardContent />
+    </Suspense>
   )
 }

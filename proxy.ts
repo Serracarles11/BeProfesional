@@ -9,6 +9,7 @@ const PROTECTED_PREFIXES = [
   '/crear-equipo',
   '/unirse',
   '/onboarding',
+  '/partidos',
 ]
 
 function isPublicRoute(pathname: string) {
@@ -66,7 +67,7 @@ export async function proxy(request: NextRequest) {
 
   if (!user && isProtectedRoute(pathname)) {
     const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('redirectTo', pathname)
+    loginUrl.searchParams.set('redirectTo', `${pathname}${request.nextUrl.search}`)
     return NextResponse.redirect(loginUrl)
   }
 
@@ -92,5 +93,7 @@ export const config = {
     '/unirse',
     '/unirse/:path*',
     '/onboarding/:path*',
+    '/partidos',
+    '/partidos/:path*',
   ],
 }

@@ -12,9 +12,10 @@ import { PlayerDetailsModal } from './PlayerDetailsModal'
 type PlayerGridProps = {
   players: SquadPlayer[]
   equipoId?: string
+  forceInitialsCard?: boolean
 }
 
-export function PlayerGrid({ players, equipoId }: PlayerGridProps) {
+export function PlayerGrid({ players, equipoId, forceInitialsCard = false }: PlayerGridProps) {
   const [selectedPlayer, setSelectedPlayer] = useState<SquadPlayer | null>(null)
 
   return (
@@ -25,6 +26,7 @@ export function PlayerGrid({ players, equipoId }: PlayerGridProps) {
             key={player.id}
             player={player}
             index={index}
+            forceInitialsCard={forceInitialsCard}
             onViewDetails={() => setSelectedPlayer(player)}
           />
         ))}
@@ -44,29 +46,37 @@ export function PlayerGrid({ players, equipoId }: PlayerGridProps) {
 type PlayerCardProps = {
   player: SquadPlayer
   index: number
+  forceInitialsCard: boolean
   onViewDetails: () => void
 }
 
-function PlayerCard({ player, index, onViewDetails }: PlayerCardProps) {
+function PlayerCard({ player, index, forceInitialsCard, onViewDetails }: PlayerCardProps) {
+  const [imageError, setImageError] = useState(false)
   const jersey = player.dorsal !== null ? String(player.dorsal).padStart(2, '0') : String(index + 1).padStart(2, '0')
+  const showAvatar = Boolean(player.avatarUrl) && !imageError
+  const initials = playerInitials(player.name)
+  const safeInitials = /[A-Z]/.test(initials) ? initials : 'JG'
 
   return (
     <article className="group relative overflow-hidden rounded-3xl bg-white shadow-[0_20px_40px_rgba(0,93,182,0.05)] transition-all duration-500 hover:shadow-xl">
       <div className="relative h-80 overflow-hidden bg-[#ebeef3]">
-        <span className="pointer-events-none absolute -bottom-8 -left-4 select-none [font-family:var(--font-plus-jakarta)] text-[120px] font-black italic leading-none text-[#005db6]/8 transition-transform duration-700 group-hover:-translate-y-4">
-          {jersey}
-        </span>
+        {showAvatar && !forceInitialsCard ? (
+          <span className="pointer-events-none absolute -bottom-8 -left-4 select-none [font-family:var(--font-plus-jakarta)] text-[120px] font-black italic leading-none text-[#005db6]/8 transition-transform duration-700 group-hover:-translate-y-4">
+            {jersey}
+          </span>
+        ) : null}
 
-        {player.avatarUrl ? (
+        {showAvatar ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={player.avatarUrl}
+            src={player.avatarUrl ?? ''}
             alt={player.name}
+            onError={() => setImageError(true)}
             className="h-full w-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#d6e3ff] via-[#759efd] to-[#3176d2] text-6xl font-black text-white">
-            {playerInitials(player.name)}
+            {safeInitials}
           </div>
         )}
 

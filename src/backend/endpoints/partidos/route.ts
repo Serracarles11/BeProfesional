@@ -66,6 +66,11 @@ type MatchScoreBody = {
   opponentGoalMinutes?: unknown
 }
 
+type MatchCallupBody = {
+  matchId?: unknown
+  playerIds?: unknown
+}
+
 type PlayerSubmission = {
   minutes: number
   goals: number
@@ -80,6 +85,7 @@ type ParticipantRow = {
   partidoId: string
   playerId: string
   minutes: number | null
+  calledUp: boolean
 }
 
 type EventRow = {
@@ -173,57 +179,14 @@ function canEditMatchStats(
   return isMatchOpenForStats(fechaHora, now)
 }
 
-function getWeekRange(now = new Date()) {
-  const start = new Date(now)
-  const weekdayOffset = (start.getDay() + 6) % 7
-  start.setDate(start.getDate() - weekdayOffset)
-  start.setHours(0, 0, 0, 0)
-
-  const end = new Date(start)
-  end.setDate(end.getDate() + 6)
-  end.setHours(23, 59, 59, 999)
-
-  return { start, end }
-}
-
-function pickWeekFeatured(matches: MatchRow[], now = new Date()) {
-  if (matches.length === 0) return null
-
-  const openMatches = matches.filter((match) => isMatchOpenForStats(match.fecha_hora, now))
-  if (openMatches.length > 0) {
-    return [...openMatches].sort((left, right) => {
-      const leftTime = parseMatchTime(left.fecha_hora)
-      const rightTime = parseMatchTime(right.fecha_hora)
-      if (leftTime === null && rightTime === null) return 0
-      if (leftTime === null) return 1
-      if (rightTime === null) return -1
-      return rightTime - leftTime
-    })[0]
-  }
-
-  const upcomingMatches = matches
-    .filter((match) => {
-      const matchTime = parseMatchTime(match.fecha_hora)
-      return matchTime !== null && matchTime > now.getTime()
-    })
-    .sort((left, right) => {
-      const leftTime = parseMatchTime(left.fecha_hora) ?? Number.POSITIVE_INFINITY
-      const rightTime = parseMatchTime(right.fecha_hora) ?? Number.POSITIVE_INFINITY
-      return leftTime - rightTime
-    })
-
-  if (upcomingMatches.length > 0) {
-    return upcomingMatches[0]
-  }
-
-  return [...matches].sort((left, right) => {
-    const leftTime = parseMatchTime(left.fecha_hora)
-    const rightTime = parseMatchTime(right.fecha_hora)
-    if (leftTime === null && rightTime === null) return 0
-    if (leftTime === null) return 1
-    if (rightTime === null) return -1
-    return rightTime - leftTime
-  })[0]
+function isFutureUnplayedMatch(
+  fechaHora: string | null | undefined,
+  estado: string | null | undefined,
+  now = new Date()
+) {
+  if (normalizeText(estado) === 'FINALIZADO') return false
+  const matchTime = parseMatchTime(fechaHora)
+  return matchTime !== null && matchTime > now.getTime()
 }
 
 function isGoalEvent(value: string | null | undefined) {
@@ -293,6 +256,76 @@ function isRlsViolation(error: { code?: string | null; message?: string | null }
   const code = error?.code ?? ''
   const message = error?.message?.toLowerCase() ?? ''
   return code === '42501' || message.includes('row-level security policy')
+}
+
+function setsAreEqual(left: Set<string>, right: Set<string>) {
+  if (left.size !== right.size) return false
+  for (const value of left) {
+    if (!right.has(value)) return false
+  }
+  return true
+}
+
+function toPdfSafeText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7E]/g, '')
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)')
+}
+
+function createSimplePdfBase64(lines: string[]) {
+  const contentLines = lines.flatMap((line, index) => {
+    const fontSize = index === 0 ? 18 : index === 1 ? 12 : 10
+    const y = 800 - index * 18
+    return [
+      'BT',
+      `/F1 ${fontSize} Tf`,
+      `50 ${y} Td`,
+      `(${toPdfSafeText(line)}) Tj`,
+      'ET',
+    ]
+  })
+  const stream = contentLines.join('\n')
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    `<< /Length ${Buffer.byteLength(stream, 'utf8')} >>\nstream\n${stream}\nendstream`,
+  ]
+
+  let pdf = '%PDF-1.4\n'
+  const offsets: number[] = [0]
+  objects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(pdf, 'utf8'))
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`
+  })
+
+  const xrefOffset = Buffer.byteLength(pdf, 'utf8')
+  pdf += `xref\n0 ${objects.length + 1}\n`
+  pdf += '0000000000 65535 f \n'
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`
+  })
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
+
+  return Buffer.from(pdf, 'utf8').toString('base64')
+}
+
+function formatDateTimeForPdf(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Fecha por confirmar'
+
+  return date.toLocaleString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 async function insertEventRowsWithFallback(
@@ -400,7 +433,7 @@ async function readParticipants(
 
   const byUsuarioId = await supabase
     .from('participantes_partido')
-    .select('id, partido_id, minutos_jugados, usuario_id')
+    .select('id, partido_id, minutos_jugados, convocado, usuario_id')
     .in('partido_id', matchIds)
 
   if (!byUsuarioId.error) {
@@ -413,6 +446,7 @@ async function readParticipants(
           typeof row.minutos_jugados === 'number' || typeof row.minutos_jugados === 'string'
             ? toNumber(row.minutos_jugados as number | string)
             : null,
+        calledUp: row.convocado === true,
       }))
       .filter((row) => Boolean(row.partidoId && row.playerId))
 
@@ -421,7 +455,7 @@ async function readParticipants(
 
   const byJugadorId = await supabase
     .from('participantes_partido')
-    .select('id, partido_id, minutos_jugados, jugador_id')
+    .select('id, partido_id, minutos_jugados, convocado, jugador_id')
     .in('partido_id', matchIds)
 
   if (!byJugadorId.error) {
@@ -434,6 +468,7 @@ async function readParticipants(
           typeof row.minutos_jugados === 'number' || typeof row.minutos_jugados === 'string'
             ? toNumber(row.minutos_jugados as number | string)
             : null,
+        calledUp: row.convocado === true,
       }))
       .filter((row) => Boolean(row.partidoId && row.playerId))
 
@@ -601,7 +636,7 @@ function getSubmissionFromRows(
   }
 
   const hasAnyData =
-    participant !== undefined ||
+    (participant?.minutes ?? 0) > 0 ||
     goals > 0 ||
     assists > 0 ||
     yellowCards > 0 ||
@@ -728,7 +763,7 @@ export async function GET(request: NextRequest) {
     const playerMembers = teamMembers.filter((member) => isPlayerRole(member.rol))
 
     const now = new Date()
-    const { start: weekStart, end: weekEnd } = getWeekRange(now)
+    const recentPlayedStart = new Date(now.getTime() - PLAYER_EDIT_WINDOW_MS)
 
     let matchesListQuery = db
       .from('partidos')
@@ -742,16 +777,18 @@ export async function GET(request: NextRequest) {
       matchesListQuery = matchesListQuery.limit(3)
     }
 
-    const [weekMatchesResult, nextMatchResult, matchesListResult, requestedMatchResult] = await Promise.all([
+    const [recentPlayedMatchResult, nextMatchResult, matchesListResult, requestedMatchResult] = await Promise.all([
       db
         .from('partidos')
         .select(
           'id, equipo_id, fecha_hora, rival_nombre, casa_fuera, lugar, competicion, estado, goles_favor, goles_contra'
         )
         .eq('equipo_id', equipoId)
-        .gte('fecha_hora', weekStart.toISOString())
-        .lte('fecha_hora', weekEnd.toISOString())
-        .order('fecha_hora', { ascending: true }),
+        .gte('fecha_hora', recentPlayedStart.toISOString())
+        .lte('fecha_hora', now.toISOString())
+        .order('fecha_hora', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
       db
         .from('partidos')
         .select(
@@ -775,11 +812,11 @@ export async function GET(request: NextRequest) {
         : Promise.resolve({ data: null, error: null }),
     ])
 
-    if (weekMatchesResult.error || matchesListResult.error || requestedMatchResult.error) {
+    if (recentPlayedMatchResult.error || matchesListResult.error || requestedMatchResult.error) {
       return createErrorResponse('No se pudieron cargar los partidos.', 500)
     }
 
-    const weekMatches = (weekMatchesResult.data ?? []) as MatchRow[]
+    const recentPlayedMatch = recentPlayedMatchResult.data ? (recentPlayedMatchResult.data as MatchRow) : null
     const listedMatches = (matchesListResult.data ?? []) as MatchRow[]
     const nextMatch = nextMatchResult.error || !nextMatchResult.data
       ? null
@@ -788,10 +825,10 @@ export async function GET(request: NextRequest) {
 
     const selectedMatch =
       requestedMatchId
-        ? requestedMatch ?? [...weekMatches, ...listedMatches].find((match) => match.id === requestedMatchId) ?? null
+        ? requestedMatch ?? listedMatches.find((match) => match.id === requestedMatchId) ?? null
         : null
 
-    const featuredMatch = selectedMatch ?? pickWeekFeatured(weekMatches, now) ?? nextMatch ?? listedMatches[0] ?? null
+    const featuredMatch = selectedMatch ?? recentPlayedMatch ?? nextMatch ?? listedMatches[0] ?? null
     const matchList =
       requestedAllPlayed
         ? listedMatches
@@ -818,6 +855,7 @@ export async function GET(request: NextRequest) {
     const submittedPlayerIds = new Set<string>()
     for (const row of participants) {
       if (row.partidoId !== featuredMatch?.id) continue
+      if ((row.minutes ?? 0) <= 0) continue
       submittedPlayerIds.add(row.playerId)
     }
     for (const event of events) {
@@ -847,6 +885,9 @@ export async function GET(request: NextRequest) {
               avatarUrl: profile.avatarUrl,
               position: profile.position,
               dorsal: typeof member.dorsal === 'number' ? member.dorsal : null,
+              calledUp: participants.some(
+                (row) => row.partidoId === featuredMatch.id && row.playerId === member.usuario_id && row.calledUp
+              ),
               submission: getSubmissionFromRows(member.usuario_id, participants, events, featuredMatch.id),
             }
           })
@@ -884,6 +925,256 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error en GET /api/partidos:', error)
     return createErrorResponse('No se pudo cargar la seccion de partidos.', 500)
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const supabase = await createSupabaseRouteHandler()
+    const adminSupabase = createSupabaseAdmin()
+    const db = adminSupabase ?? supabase
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return createErrorResponse('No autorizado', 401)
+    }
+
+    const body = (await request.json()) as MatchCallupBody
+    const matchId = typeof body.matchId === 'string' ? body.matchId.trim() : ''
+    const requestedPlayerIds = Array.isArray(body.playerIds)
+      ? Array.from(
+          new Set(
+            body.playerIds
+              .filter((value): value is string => typeof value === 'string')
+              .map((value) => value.trim())
+              .filter(Boolean)
+          )
+        )
+      : null
+
+    if (!matchId) return createErrorResponse('matchId invalido.', 400)
+    if (!requestedPlayerIds) return createErrorResponse('Lista de jugadores invalida.', 400)
+
+    const matchResult = await db
+      .from('partidos')
+      .select('id, equipo_id, fecha_hora, estado, rival_nombre, lugar, competicion')
+      .eq('id', matchId)
+      .maybeSingle()
+
+    if (matchResult.error || !matchResult.data) {
+      return createErrorResponse('Partido no encontrado.', 404)
+    }
+
+    const match = matchResult.data as {
+      id: string
+      equipo_id: string
+      fecha_hora: string
+      estado: string | null
+      rival_nombre: string | null
+      lugar?: string | null
+      competicion?: string | null
+    }
+
+    if (!isFutureUnplayedMatch(match.fecha_hora, match.estado)) {
+      return createErrorResponse('Solo puedes editar la convocatoria de un partido que todavia no se ha jugado.', 400)
+    }
+
+    const membershipResult = await supabase
+      .from('miembros_equipo')
+      .select('rol')
+      .eq('equipo_id', match.equipo_id)
+      .eq('usuario_id', user.id)
+      .eq('estado', 'ACTIVO')
+      .maybeSingle()
+
+    if (membershipResult.error) {
+      return createErrorResponse('No se pudo validar tu equipo.', 500)
+    }
+
+    if (!membershipResult.data || !isCoachRole(membershipResult.data.rol)) {
+      return createErrorResponse('Solo un entrenador puede editar la convocatoria.', 403)
+    }
+
+    const teamMembersResult = await supabase
+      .from('miembros_equipo')
+      .select('usuario_id, rol, dorsal, perfiles(nombre, posicion)')
+      .eq('equipo_id', match.equipo_id)
+      .eq('estado', 'ACTIVO')
+
+    if (teamMembersResult.error) {
+      return createErrorResponse('No se pudieron cargar los jugadores del equipo.', 500)
+    }
+
+    const validPlayerIds = new Set(
+      ((teamMembersResult.data ?? []) as TeamMemberRow[])
+        .filter((member) => isPlayerRole(member.rol))
+        .map((member) => member.usuario_id)
+    )
+
+    const invalidPlayer = requestedPlayerIds.find((playerId) => !validPlayerIds.has(playerId))
+    if (invalidPlayer) {
+      return createErrorResponse('Hay jugadores seleccionados que no pertenecen al equipo.', 400)
+    }
+
+    const participantColumn = await resolveParticipantPlayerColumn(db)
+    if (!participantColumn) {
+      return createErrorResponse('No se pudo resolver la estructura de participantes.', 500)
+    }
+
+    const previousCallupResult = await db
+      .from('participantes_partido')
+      .select(participantColumn)
+      .eq('partido_id', matchId)
+      .eq('convocado', true)
+
+    if (previousCallupResult.error) {
+      console.error('PUT /api/partidos - previous callup query failed:', previousCallupResult.error)
+      return createErrorResponse('No se pudo comprobar la convocatoria anterior.', 500)
+    }
+
+    const previousCalledUpPlayerIds = new Set(
+      (previousCallupResult.data ?? [])
+        .map((row) => row[participantColumn])
+        .filter((value): value is string => typeof value === 'string' && value.length > 0)
+    )
+    const nextCalledUpPlayerIds = new Set(requestedPlayerIds)
+    const callupChanged = !setsAreEqual(previousCalledUpPlayerIds, nextCalledUpPlayerIds)
+    const hadPreviousCallup = previousCalledUpPlayerIds.size > 0
+
+    const clearResult = await db
+      .from('participantes_partido')
+      .update({ convocado: false })
+      .eq('partido_id', matchId)
+
+    if (clearResult.error) {
+      console.error('PUT /api/partidos - clear callup failed:', clearResult.error)
+      return createErrorResponse(
+        `No se pudo limpiar la convocatoria anterior. ${getErrorMessage(clearResult.error, '')}`.trim(),
+        isRlsViolation(clearResult.error) ? 403 : 500
+      )
+    }
+
+    for (const playerId of requestedPlayerIds) {
+      const existingResult = await db
+        .from('participantes_partido')
+        .select('id')
+        .eq('partido_id', matchId)
+        .eq(participantColumn, playerId)
+        .order('id', { ascending: true })
+        .limit(1)
+
+      if (existingResult.error) {
+        console.error('PUT /api/partidos - existing callup query failed:', existingResult.error)
+        return createErrorResponse('No se pudo validar la convocatoria actual.', 500)
+      }
+
+      const existingId =
+        Array.isArray(existingResult.data) && typeof existingResult.data[0]?.id === 'string'
+          ? existingResult.data[0].id
+          : null
+
+      if (existingId) {
+        const updateResult = await db
+          .from('participantes_partido')
+          .update({ convocado: true })
+          .eq('id', existingId)
+
+        if (updateResult.error) {
+          console.error('PUT /api/partidos - update callup failed:', updateResult.error)
+          return createErrorResponse(
+            `No se pudo actualizar la convocatoria. ${getErrorMessage(updateResult.error, '')}`.trim(),
+            isRlsViolation(updateResult.error) ? 403 : 500
+          )
+        }
+      } else {
+        const insertResult = await db.from('participantes_partido').insert({
+          partido_id: matchId,
+          convocado: true,
+          titular: false,
+          minutos_jugados: 0,
+          [participantColumn]: playerId,
+        })
+
+        if (insertResult.error) {
+          console.error('PUT /api/partidos - insert callup failed:', insertResult.error)
+          return createErrorResponse(
+            `No se pudo anadir un jugador a la convocatoria. ${getErrorMessage(insertResult.error, '')}`.trim(),
+            isRlsViolation(insertResult.error) ? 403 : 500
+          )
+        }
+      }
+    }
+
+    if (callupChanged && (requestedPlayerIds.length > 0 || hadPreviousCallup)) {
+      const rivalLabel = match.rival_nombre?.trim() || 'el proximo partido'
+      const notificationTitle = hadPreviousCallup
+        ? 'Se ha modificado la convocatoria'
+        : 'La convocatoria del partido ya esta'
+      const notificationMessage = hadPreviousCallup
+        ? `El entrenador ha modificado la convocatoria contra ${rivalLabel}.`
+        : `El entrenador ya ha publicado la convocatoria contra ${rivalLabel}.`
+      const requestedPlayerIdSet = new Set(requestedPlayerIds)
+      const calledUpMembers = ((teamMembersResult.data ?? []) as TeamMemberRow[])
+        .filter((member) => requestedPlayerIdSet.has(member.usuario_id))
+        .map((member, index) => {
+          const profile = getMemberProfile(member.perfiles)
+          return {
+            order: index + 1,
+            name: profile.name ?? `Jugador ${index + 1}`,
+            position: profile.position ?? 'Jugador',
+            dorsal: typeof member.dorsal === 'number' ? member.dorsal : null,
+          }
+        })
+        .sort((left, right) => {
+          if (left.dorsal === null && right.dorsal === null) return left.name.localeCompare(right.name)
+          if (left.dorsal === null) return 1
+          if (right.dorsal === null) return -1
+          return left.dorsal - right.dorsal
+        })
+      const pdfLines = [
+        'Convocatoria de partido',
+        `${match.rival_nombre?.trim() ? `Rival: ${match.rival_nombre.trim()}` : 'Rival por confirmar'}`,
+        `Fecha: ${formatDateTimeForPdf(match.fecha_hora)}`,
+        `Lugar: ${match.lugar?.trim() || 'Por confirmar'}`,
+        `Competicion: ${match.competicion?.trim() || 'Sin competicion'}`,
+        `Jugadores convocados: ${calledUpMembers.length}`,
+        '',
+        ...(
+          calledUpMembers.length > 0
+            ? calledUpMembers.map((player, index) => {
+                const dorsal = player.dorsal === null ? '--' : String(player.dorsal)
+                return `${index + 1}. #${dorsal} ${player.name} - ${player.position}`
+              })
+            : ['Sin jugadores convocados.']
+        ),
+      ]
+      const callupPdfBase64 = createSimplePdfBase64(pdfLines)
+      const callupPdfName = `convocatoria-${matchId}.pdf`
+
+      await notifyTeamMembers(
+        db,
+        match.equipo_id,
+        {
+          tipo: hadPreviousCallup ? 'convocatoria_modificada_partido' : 'convocatoria_partido',
+          titulo: notificationTitle,
+          mensaje: notificationMessage,
+          enlace: `/partidos?equipo=${encodeURIComponent(match.equipo_id)}`,
+          emailAdjuntoNombre: callupPdfName,
+          emailAdjuntoBase64: callupPdfBase64,
+        }
+      )
+    }
+
+    return NextResponse.json({
+      ok: true,
+      calledUpPlayerIds: requestedPlayerIds,
+    })
+  } catch (error) {
+    console.error('Error en PUT /api/partidos:', error)
+    return createErrorResponse('No se pudo guardar la convocatoria.', 500)
   }
 }
 

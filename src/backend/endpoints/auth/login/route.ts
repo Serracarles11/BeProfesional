@@ -6,12 +6,20 @@ function safePath(value: string) {
   return value.startsWith('/') ? value : '/equipos'
 }
 
+function getSafeRedirectTo(value: unknown) {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//')) return null
+  return trimmed
+}
+
 const CLUB_STAFF_ROLES = ['ADMINISTRATIVO', 'DIRECTOR', 'COORDINADOR']
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { email, password } = body
+    const requestedRedirectTo = getSafeRedirectTo(body.redirectTo)
 
     // Validacion basica
     if (!email || !password) {
@@ -87,7 +95,7 @@ export async function POST(request: NextRequest) {
     // Decidir redireccion
     const hasTeam = memberships && memberships.length > 0
     const hasClubPanel = clubMemberships && clubMemberships.length > 0
-    const redirectTo = hasTeam ? '/equipos' : hasClubPanel ? '/club' : '/unirse'
+    const redirectTo = requestedRedirectTo ?? (hasTeam ? '/equipos' : hasClubPanel ? '/club' : '/unirse')
 
     if (!perfil?.foto_url) {
       const next = encodeURIComponent(safePath(redirectTo))
