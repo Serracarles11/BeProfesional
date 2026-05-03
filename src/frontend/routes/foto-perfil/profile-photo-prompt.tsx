@@ -219,7 +219,7 @@ export default function ProfilePhotoPrompt({
             </div>
 
             <div className="mt-6 rounded-[24px] border border-white/12 bg-white/10 p-4 text-sm leading-6 text-[#D8E4FF]">
-              Esta pantalla tambien te sirve mas adelante para reemplazar la imagen sin tocar la logica del perfil ni la
+              Esta pantalla también te sirve más adelante para reemplazar la imagen sin tocar la lógica del perfil ni la
               relacion actual con el usuario autenticado.
             </div>
 

@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     // Validacion basica
     if (!codigo) {
       return NextResponse.json(
-        { ok: false, error: 'El codigo es requerido' },
+        { ok: false, error: 'El código es requerido' },
         { status: 400 }
       )
     }
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     const codigoRegex = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/
     if (!codigoRegex.test(codigo)) {
       return NextResponse.json(
-        { ok: false, error: 'Formato de codigo invalido' },
+        { ok: false, error: 'Formato de código inválido' },
         { status: 400 }
       )
     }
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     const cookieStore = await cookies()
     const supabase = createSupabaseRouteHandler(cookieStore)
 
-    // Verificar sesion
+    // Verificar sesión
     const {
       data: { user },
       error: authError,
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Llamar al RPC para unirse con codigo
+    // Llamar al RPC para unirse con código
     const { data, error } = await supabase.rpc('unirse_con_codigo', {
       p_codigo: codigo,
     })
@@ -51,13 +51,13 @@ export async function POST(request: NextRequest) {
       // Mensajes de error personalizados segun el error de Supabase
       if (error.message.includes('expirado') || error.message.includes('expired')) {
         return NextResponse.json(
-          { ok: false, error: 'Este codigo ha expirado' },
+          { ok: false, error: 'Este código ha expirado' },
           { status: 400 }
         )
       }
       if (error.message.includes('no existe') || error.message.includes('not found') || error.message.includes('invalid')) {
         return NextResponse.json(
-          { ok: false, error: 'Codigo de invitacion invalido' },
+          { ok: false, error: 'Código de invitación inválido' },
           { status: 400 }
         )
       }
@@ -69,13 +69,13 @@ export async function POST(request: NextRequest) {
       }
       if (error.message.includes('limite') || error.message.includes('limit')) {
         return NextResponse.json(
-          { ok: false, error: 'Este codigo ha alcanzado su limite de usos' },
+          { ok: false, error: 'Este código ha alcanzado su límite de usos' },
           { status: 400 }
         )
       }
 
       return NextResponse.json(
-        { ok: false, error: 'No se pudo procesar el codigo de invitacion' },
+        { ok: false, error: 'No se pudo procesar el código de invitación' },
         { status: 400 }
       )
     }

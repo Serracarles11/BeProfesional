@@ -156,7 +156,7 @@ function PlayerCard({ player, onStats }: { player: ClubPhotoPlayer; onStats: (pl
       <footer>
         <button type="button" className="btn btn-primary btn-sm" onClick={() => onStats(player)}>
           <BarChart3 size={14} />
-          Ver estadisticas
+          Ver estadísticas
         </button>
       </footer>
     </article>
@@ -214,7 +214,7 @@ export function ClubPlayerPhotosManager({ clubName, teams, players }: Props) {
       <header className="page-header">
         <div>
           <h1>Jugadores</h1>
-          <p>Consulta la plantilla y las estadisticas individuales de {clubName}</p>
+          <p>Consulta la plantilla y las estadísticas individuales de {clubName}</p>
         </div>
       </header>
 
@@ -266,7 +266,7 @@ export function ClubPlayerPhotosManager({ clubName, teams, players }: Props) {
           <div className="state-box">
             <ShieldAlert size={34} />
             <strong>No hay resultados</strong>
-            <p>Prueba a cambiar los filtros para ver mas jugadores.</p>
+            <p>Prueba a cambiar los filtros para ver más jugadores.</p>
           </div>
         ) : (
           filtered.map((player) => (

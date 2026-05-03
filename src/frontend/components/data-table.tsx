@@ -90,7 +90,7 @@ function categoriaLabel(value: string) {
 
 function EquipoDetails({ item }: { item: ClubTeamTableRow }) {
   const details = [
-    ["Categoria", categoriaLabel(item.categoria)],
+    ["Categoría", categoriaLabel(item.categoria)],
     ["Anio", item.categoriaAnio],
     ["Temporada", item.temporada],
     ["Jugadores", `${item.jugadoresCount}`],
@@ -146,7 +146,7 @@ const columns: ColumnDef<ClubTeamTableRow>[] = [
   },
   {
     accessorKey: "categoria",
-    header: "Categoria",
+    header: "Categoría",
     cell: ({ row }) => (
       <Badge className="bg-[var(--bp-soft)] text-[var(--bp-ink)] hover:bg-[var(--bp-soft)]">
         {categoriaLabel(row.original.categoria)}

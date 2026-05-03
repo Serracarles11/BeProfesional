@@ -113,7 +113,7 @@ function buildTrainingDates(weekdays: number[], weeks: number) {
 
 function formatWeekdayList(weekdays: number[]) {
   const labels = weekdays.map((day) => WEEKDAY_LABELS.get(day)).filter(Boolean)
-  if (labels.length <= 1) return labels[0] ?? 'los dias seleccionados'
+  if (labels.length <= 1) return labels[0] ?? 'los días seleccionados'
   return `${labels.slice(0, -1).join(', ')} y ${labels[labels.length - 1]}`
 }
 
@@ -141,9 +141,9 @@ export async function POST(request: NextRequest) {
     const weeksValue = Number(body.weeks ?? 12)
     const weeks = Number.isFinite(weeksValue) ? Math.min(Math.max(Math.trunc(weeksValue), 1), 24) : 12
 
-    if (!equipoId) return createErrorResponse('equipoId invalido.', 400)
+    if (!equipoId) return createErrorResponse('equipoId inválido.', 400)
     if (!weekdays || weekdays.length === 0) {
-      return createErrorResponse('Selecciona al menos un dia de entrenamiento.', 400)
+      return createErrorResponse('Selecciona al menos un día de entrenamiento.', 400)
     }
     if (!time || !isValidTime(time)) return createErrorResponse('Hora invalida.', 400)
 

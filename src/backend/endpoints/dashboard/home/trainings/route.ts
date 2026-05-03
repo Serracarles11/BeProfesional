@@ -206,13 +206,13 @@ export async function POST(request: NextRequest) {
     const targetPlayerIds = parseTargetPlayerIds(body.targetPlayerIds)
     const routineId = parseRoutineId(body.routineId)
 
-    if (!equipoId) return createErrorResponse('equipoId invalido.', 400)
-    if (!date || !isValidDate(date)) return createErrorResponse('Fecha invalida.', 400)
-    if (!title) return createErrorResponse('Titulo invalido.', 400)
-    if (!type) return createErrorResponse('Tipo de entrenamiento invalido.', 400)
-    if (time && !isValidTime(time)) return createErrorResponse('Hora invalida.', 400)
+    if (!equipoId) return createErrorResponse('equipoId inválido.', 400)
+    if (!date || !isValidDate(date)) return createErrorResponse('Fecha inválida.', 400)
+    if (!title) return createErrorResponse('Título inválido.', 400)
+    if (!type) return createErrorResponse('Tipo de entrenamiento inválido.', 400)
+    if (time && !isValidTime(time)) return createErrorResponse('Hora inválida.', 400)
     if (targetPlayerIds === null) {
-      return createErrorResponse('Destinatarios invalidos.', 400)
+      return createErrorResponse('Destinatarios inválidos.', 400)
     }
 
     const [membershipResult, teamOwnerResult] = await Promise.all([
@@ -418,12 +418,12 @@ export async function PATCH(request: NextRequest) {
     const type = parseTrainingType(body.type)
     const place = typeof body.place === 'string' ? body.place.trim() : ''
 
-    if (!equipoId) return createErrorResponse('equipoId invalido.', 400)
-    if (!trainingId) return createErrorResponse('trainingId invalido.', 400)
-    if (!date || !isValidDate(date)) return createErrorResponse('Fecha invalida.', 400)
-    if (!title) return createErrorResponse('Titulo invalido.', 400)
-    if (!type) return createErrorResponse('Tipo de entrenamiento invalido.', 400)
-    if (time && !isValidTime(time)) return createErrorResponse('Hora invalida.', 400)
+    if (!equipoId) return createErrorResponse('equipoId inválido.', 400)
+    if (!trainingId) return createErrorResponse('trainingId inválido.', 400)
+    if (!date || !isValidDate(date)) return createErrorResponse('Fecha inválida.', 400)
+    if (!title) return createErrorResponse('Título inválido.', 400)
+    if (!type) return createErrorResponse('Tipo de entrenamiento inválido.', 400)
+    if (time && !isValidTime(time)) return createErrorResponse('Hora inválida.', 400)
 
     const [membershipResult, teamOwnerResult, trainingResult] = await Promise.all([
       supabase
@@ -518,8 +518,8 @@ export async function DELETE(request: NextRequest) {
     const equipoId = url.searchParams.get('equipoId')?.trim() ?? ''
     const trainingId = url.searchParams.get('trainingId')?.trim() ?? ''
 
-    if (!equipoId) return createErrorResponse('equipoId invalido.', 400)
-    if (!trainingId) return createErrorResponse('trainingId invalido.', 400)
+    if (!equipoId) return createErrorResponse('equipoId inválido.', 400)
+    if (!trainingId) return createErrorResponse('trainingId inválido.', 400)
 
     const [membershipResult, teamOwnerResult, trainingResult] = await Promise.all([
       supabase

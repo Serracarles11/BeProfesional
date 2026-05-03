@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
     const equipoId = normalizeUuid(request.nextUrl.searchParams.get('equipo'))
 
     if (request.nextUrl.searchParams.has('playId') && !playId) {
-      return createErrorResponse('playId invalido.', 400)
+      return createErrorResponse('playId inválido.', 400)
     }
 
     if (playId) {
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
     const draft = body.draft
 
     if (!isPlaymakerDraftPayload(draft)) {
-      return createErrorResponse('El tablero recibido no es valido.', 400)
+      return createErrorResponse('El tablero recibido no es válido.', 400)
     }
 
     const now = new Date().toISOString()

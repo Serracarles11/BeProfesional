@@ -87,7 +87,7 @@ export default function PesoPage() {
 
       router.push('/onboarding/altura')
     } catch {
-      setError('Error de conexion')
+      setError('Error de conexión')
     } finally {
       setLoading(false)
     }

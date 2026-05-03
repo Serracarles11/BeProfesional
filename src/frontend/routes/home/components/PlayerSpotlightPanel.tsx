@@ -41,7 +41,7 @@ export function PlayerSpotlightPanel({
         <button
           type="button"
           className="absolute right-6 top-6 rounded-md p-1 text-[#9aa0ae] transition hover:bg-[#f1f4f9] hover:text-[#005db6]"
-          aria-label="Mas opciones"
+          aria-label="Más opciones"
         >
           <MoreVertical className="h-5 w-5" />
         </button>

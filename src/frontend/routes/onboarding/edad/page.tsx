@@ -69,7 +69,7 @@ export default function EdadPage() {
 
       router.push('/onboarding/peso')
     } catch {
-      setError('Error de conexion')
+      setError('Error de conexión')
     } finally {
       setLoading(false)
     }

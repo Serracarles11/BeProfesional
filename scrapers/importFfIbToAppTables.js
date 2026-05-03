@@ -663,7 +663,7 @@ export async function importFfIbToAppTables({
 
   try {
     const { jsonPath, payload } = await loadLatestFfibPayload({
-      forceScrape: forceScrape || !runState.lastRunAt,
+      forceScrape,
     })
 
     const matches = Array.isArray(payload?.matches) ? payload.matches : []

@@ -267,7 +267,7 @@ export default function ClubDashboardByIdPage() {
             ) : (
               <div className="rounded-3xl border border-dashed border-gray-200 bg-white/60 p-8 text-center">
                 <p className="font-semibold text-gray-600">
-                  Este club todavia no tiene equipos vinculados.
+                  Este club todavía no tiene equipos vinculados.
                 </p>
               </div>
             )}

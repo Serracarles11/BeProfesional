@@ -1,12 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import {
   ArrowLeft,
   BarChart3,
   Bell,
+  BrainCircuit,
   Building2,
   CalendarDays,
   KeyRound,
@@ -46,8 +47,9 @@ const MENU_ITEMS = [
   { label: 'Players', href: '/jugadores', icon: Users },
   { label: 'Partidos', href: '/partidos', icon: CalendarDays },
   { label: 'Chats', href: '/chat', icon: MessageSquare },
-  { label: 'Estadisticas', href: '/estadisticas', icon: BarChart3 },
-  { label: 'Play Maker', href: '/play-maker', icon: Sparkles },
+  { label: 'Estadísticas', href: '/estadisticas', icon: BarChart3 },
+  { label: 'IA Coach', href: '/play-maker', icon: Sparkles },
+  { label: 'Play Maker', href: '/play-maker?mode=maker', icon: BrainCircuit, mode: 'maker' },
 ]
 
 function formatNotificationTime(value: string) {
@@ -71,6 +73,7 @@ export function LeftNavigation({
   onOpenSettings,
 }: LeftNavigationProps) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [notificationsLoading, setNotificationsLoading] = useState(true)
@@ -281,7 +284,9 @@ export function LeftNavigation({
         </Link>
 
         {visibleMenuItems.map((item) => {
-          const active = isActivePath(pathname, item.href)
+          const active = item.mode
+            ? isActivePath(pathname, '/play-maker') && searchParams.get('mode') === item.mode
+            : isActivePath(pathname, item.href) && !(item.href === '/play-maker' && searchParams.get('mode') === 'maker')
           const Icon = item.icon
 
           return (
@@ -312,7 +317,7 @@ export function LeftNavigation({
           ].join(' ')}
         >
           <KeyRound className="h-[18px] w-[18px]" strokeWidth={1.8} />
-          <span className="[font-family:var(--font-plus-jakarta)]">Codigos</span>
+          <span className="[font-family:var(--font-plus-jakarta)]">Códigos</span>
         </button>
 
         <button
@@ -326,7 +331,7 @@ export function LeftNavigation({
           ].join(' ')}
         >
           <Settings className="h-[18px] w-[18px]" strokeWidth={1.8} />
-          <span className="[font-family:var(--font-plus-jakarta)]">Settings</span>
+          <span className="[font-family:var(--font-plus-jakarta)]">Ajustes</span>
         </button>
       </nav>
 
@@ -344,7 +349,7 @@ export function LeftNavigation({
               Notificaciones
             </p>
             <p className="mt-1 [font-family:var(--font-plus-jakarta)] text-sm font-bold text-[#181c20]">
-              {unreadCount > 0 ? `${unreadCount} sin leer` : 'Al dia'}
+              {unreadCount > 0 ? `${unreadCount} sin leer` : 'Al día'}
             </p>
           </div>
           <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#eaf2ff] text-[#005db6]">
@@ -406,7 +411,7 @@ export function LeftNavigation({
             ) : (
               <div className="rounded-2xl border border-dashed border-[#d9e4f7] bg-[#f8fbff] px-4 py-5">
                 <p className="text-sm font-semibold text-[#5f6776]">
-                  No tienes notificaciones todavia.
+                  No tienes notificaciones todavía.
                 </p>
               </div>
             )}

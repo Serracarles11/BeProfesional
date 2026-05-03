@@ -237,11 +237,11 @@ export async function POST(request: NextRequest) {
     const trainingId = parseTrainingId(body.trainingId)
 
     if (!equipoId) {
-      return createErrorResponse('equipoId invalido.', 400)
+      return createErrorResponse('equipoId inválido.', 400)
     }
 
     if (mentalState === null || fatigue === null || attendingTraining === null || trainingId === null) {
-      return createErrorResponse('Valores invalidos. Mental y fatiga deben ser enteros del 1 al 10.', 400)
+      return createErrorResponse('Valores inválidos. Mental y fatiga deben ser enteros del 1 al 10.', 400)
     }
 
     if (

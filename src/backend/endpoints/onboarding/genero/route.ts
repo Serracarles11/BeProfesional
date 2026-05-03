@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
 
     if (!genero || !GENEROS_VALIDOS.includes(genero)) {
       return NextResponse.json(
-        { ok: false, error: 'Genero no valido' },
+        { ok: false, error: 'Género no válido' },
         { status: 400 }
       )
     }
@@ -37,16 +37,16 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
 
     if (updateError) {
-      console.error('Error actualizando genero:', updateError)
+      console.error('Error actualizando género:', updateError)
       return NextResponse.json(
-        { ok: false, error: 'Error al guardar el genero' },
+        { ok: false, error: 'Error al guardar el género' },
         { status: 500 }
       )
     }
 
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('Error en onboarding genero:', err)
+    console.error('Error en onboarding género:', err)
     return NextResponse.json(
       { ok: false, error: 'Error interno del servidor' },
       { status: 500 }

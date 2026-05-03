@@ -68,7 +68,7 @@ export default function UnirsePage() {
       const data = await res.json()
 
       if (!data.ok) {
-        setError(data.error || 'Codigo invalido')
+        setError(data.error || 'Código inválido')
         setShake(true)
         setTimeout(() => setShake(false), 500)
         return
@@ -80,7 +80,7 @@ export default function UnirsePage() {
         router.refresh()
       }, 900)
     } catch {
-      setError('Error de conexion')
+      setError('Error de conexión')
       setShake(true)
       setTimeout(() => setShake(false), 500)
     } finally {
@@ -106,19 +106,19 @@ export default function UnirsePage() {
         <div className="relative z-10 px-10 xl:px-14">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#1A73E8]/30 bg-[#1A73E8]/10 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-[#60a5fa]">
             <Users className="h-3 w-3" />
-            Acceso por invitacion
+            Acceso por invitación
           </div>
           <h1 className="text-[2.6rem] font-black leading-[1.06] tracking-tight text-white xl:text-5xl">
-            Unete a tu<br />
+            Únete a tu<br />
             <span className="text-[#60a5fa]">equipo.</span>
           </h1>
           <p className="mt-5 max-w-md text-[15px] font-medium leading-relaxed text-slate-400">
-            Tu entrenador ha generado un codigo de invitacion. Introdúcelo para acceder al panel completo de tu equipo.
+            Tu entrenador ha generado un código de invitación. Introdúcelo para acceder al panel completo de tu equipo.
           </p>
 
           <div className="mt-10 space-y-4">
             {[
-              { step: '01', text: 'Recibe el codigo de 8 caracteres de tu entrenador' },
+              { step: '01', text: 'Recibe el código de 8 caracteres de tu entrenador' },
               { step: '02', text: 'Introdúcelo en el formulario y haz clic en unirme' },
               { step: '03', text: 'Accede al panel con estadísticas, rutinas y más' },
             ].map(({ step, text }) => (
@@ -134,7 +134,7 @@ export default function UnirsePage() {
 
         <div className="relative z-10 px-10 pb-12 xl:px-14">
           <div className="rounded-2xl border border-white/[0.07] bg-white/[0.04] p-4">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Formato del codigo</p>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Formato del código</p>
             <p className="mt-2 font-mono text-2xl font-black tracking-[0.2em] text-white">XXXX-XXXX</p>
             <p className="mt-1 text-[11px] font-medium text-slate-500">Letras mayúsculas y números</p>
           </div>
@@ -153,15 +153,15 @@ export default function UnirsePage() {
           </div>
 
           <div className="mb-8">
-            <h2 className="text-[1.75rem] font-black tracking-tight text-[#181c20]">Unete al equipo</h2>
-            <p className="mt-1.5 text-sm font-medium text-slate-500">Introduce el codigo de invitacion</p>
+            <h2 className="text-[1.75rem] font-black tracking-tight text-[#181c20]">Únete al equipo</h2>
+            <p className="mt-1.5 text-sm font-medium text-slate-500">Introduce el código de invitación</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Code inputs */}
             <div>
               <label className="mb-4 block text-[11px] font-black uppercase tracking-wider text-[#44474E]">
-                Codigo de invitacion
+                Código de invitación
               </label>
               <div className="flex items-center justify-center gap-2">
                 {[0, 1, 2, 3].map((i) => (
@@ -238,7 +238,7 @@ export default function UnirsePage() {
           </form>
 
           <div className="mt-8 border-t border-[#e8edf5] pt-6">
-            <p className="mb-4 text-center text-sm font-medium text-slate-500">¿No tienes un codigo?</p>
+            <p className="mb-4 text-center text-sm font-medium text-slate-500">¿No tienes un código?</p>
             <div className="grid grid-cols-2 gap-3">
               <Link href="/crear-equipo">
                 <button className="btn-premium-outline w-full">Crear equipo</button>
@@ -251,7 +251,7 @@ export default function UnirsePage() {
 
           <div className="mt-6 text-center">
             <Link href="/login" className="text-sm font-semibold text-[#1A73E8] hover:text-[#1557B0] transition-colors">
-              ← Volver al inicio de sesion
+              ← Volver al inicio de sesión
             </Link>
           </div>
         </div>

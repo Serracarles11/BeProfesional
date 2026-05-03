@@ -73,7 +73,7 @@ function InsightContent({ insight }: { insight: TrainingInsightPayload }) {
 
       <BulletList title="Riesgos" items={insight.risks} />
       <BulletList title="Recomendaciones" items={insight.recommendations} />
-      <BulletList title="Foco proxima sesion" items={insight.next_session_focus} />
+      <BulletList title="Foco próxima sesión" items={insight.next_session_focus} />
     </div>
   )
 }

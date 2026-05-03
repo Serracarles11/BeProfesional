@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           ok: false,
-          error: 'No autorizado. Inicia sesion para continuar.',
+          error: 'No autorizado. Inicia sesión para continuar.',
           code: null,
           details: null,
           hint: null,

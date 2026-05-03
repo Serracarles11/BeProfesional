@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     const extension = getExtension(file)
     if (!extension) {
       return NextResponse.json(
-        { ok: false, error: 'Formato no valido. Usa JPG, PNG o WEBP.' },
+        { ok: false, error: 'Formato no válido. Usa JPG, PNG o WEBP.' },
         { status: 400 }
       )
     }

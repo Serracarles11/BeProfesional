@@ -504,7 +504,7 @@ function CoachMatchReview({
                 <span className="font-semibold text-[#005db6]">Revision del partido</span>
               </nav>
               <h1 className="[font-family:var(--font-plus-jakarta)] text-3xl font-extrabold tracking-tight text-[#181c20]">
-                Revisar estadisticas:{' '}
+                Revisar estadísticas:{' '}
                 <span className="text-[#005db6]">
                   {payload.teamName} vs {featuredMatch.rival || 'Rival'}
                 </span>
@@ -546,7 +546,7 @@ function CoachMatchReview({
                   Goles en contra
                 </h2>
                 <p className="mt-1 text-sm font-medium text-slate-400">
-                  Anade los goles del rival y, si lo sabes, el minuto de cada gol.
+                  Añade los goles del rival y, si lo sabes, el minuto de cada gol.
                 </p>
               </div>
               <div className="rounded-2xl bg-[#f7f9fe] px-5 py-3 text-right">
@@ -752,7 +752,7 @@ function PlayerPartidosView({
               Partidos
             </h1>
             <p className="mt-2 text-base font-medium text-[#414754]">
-              Gestiona encuentros y registra estadisticas individuales sin salir de Beprofessional.
+              Gestiona encuentros y registra estadísticas individuales sin salir de BeProfessional.
             </p>
           </header>
 
@@ -843,7 +843,7 @@ function PlayerPartidosView({
                             disabled={!canSubmitStats}
                             className="rounded-full bg-white px-6 py-3 text-sm font-black uppercase tracking-wide text-[#005db6] shadow-lg transition hover:bg-[#d9e2ff] disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            Registrar mis estadisticas
+                            Registrar mis estadísticas
                           </button>
                         )}
                       </div>
@@ -856,7 +856,7 @@ function PlayerPartidosView({
                     Sin partido destacado
                   </h2>
                   <p className="mt-2 text-sm text-[#5f6776]">
-                    No hay partidos cargados para esta semana todavia.
+                    No hay partidos cargados para esta semana todavía.
                   </p>
                 </section>
               )}
@@ -886,11 +886,11 @@ function PlayerPartidosView({
 
                 {!featuredMeta?.canSubmit ? (
                   <p className="text-xs font-semibold text-[#5f6776]">
-                    No tienes permisos para editar estadisticas en este flujo.
+                    No tienes permisos para editar estadísticas en este flujo.
                   </p>
                 ) : !featuredMeta.isOpenForStats ? (
                   <p className="text-xs font-semibold text-[#5f6776]">
-                    Los jugadores solo pueden editar sus estadisticas durante las 48 horas posteriores al partido.
+                    Los jugadores solo pueden editar sus estadísticas durante las 48 horas posteriores al partido.
                   </p>
                 ) : (
                   <p className="text-xs font-semibold text-[#5f6776]">
@@ -997,7 +997,7 @@ function PlayerPartidosView({
                   Todos los partidos
                 </h2>
                 <p className="mt-1 text-sm font-medium text-[#5f6776]">
-                  Revisa el resultado y abre las estadisticas de cualquier partido.
+                  Revisa el resultado y abre las estadísticas de cualquier partido.
                 </p>
               </div>
               <button
@@ -1065,7 +1065,7 @@ function PlayerPartidosView({
                             }
                             className="inline-flex items-center gap-1 text-sm font-black text-[#005db6] transition hover:gap-2"
                           >
-                            Ver estadisticas
+                            Ver estadísticas
                             <ChevronRight className="h-4 w-4" />
                           </Link>
                         </div>
@@ -1273,7 +1273,7 @@ function PlayerPartidosView({
                   className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#005db6] to-[#18794e] text-base font-black text-white shadow-[0_12px_26px_rgba(0,93,182,0.24)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Save className="h-5 w-5" />
-                  {isSubmitting ? 'Guardando...' : 'Guardar mis estadisticas'}
+                  {isSubmitting ? 'Guardando...' : 'Guardar mis estadísticas'}
                 </button>
                 <button
                   type="button"
@@ -1300,7 +1300,7 @@ function PlayerPartidosView({
                 onClick={() => void submitStats()}
                 className="rounded-full bg-gradient-to-r from-[#005db6] to-[#2b5bb5] px-6 py-2.5 text-sm font-black text-white shadow-[0_10px_20px_rgba(0,93,182,0.22)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSubmitting ? 'Guardando...' : 'Guardar estadisticas'}
+                {isSubmitting ? 'Guardando...' : 'Guardar estadísticas'}
               </button>
             </div>
             ) : null}
@@ -1470,7 +1470,7 @@ export default function PartidosPage() {
       await loadData()
     } catch (submitErr) {
       setSubmitError(
-        submitErr instanceof Error ? submitErr.message : 'No se pudieron guardar tus estadisticas.'
+        submitErr instanceof Error ? submitErr.message : 'No se pudieron guardar tus estadísticas.'
       )
     } finally {
       setIsSubmitting(false)
@@ -1578,7 +1578,7 @@ export default function PartidosPage() {
       await loadData()
     } catch (saveErr) {
       setSubmitError(
-        saveErr instanceof Error ? saveErr.message : 'No se pudieron guardar las estadisticas del partido.'
+        saveErr instanceof Error ? saveErr.message : 'No se pudieron guardar las estadísticas del partido.'
       )
     } finally {
       setIsSubmitting(false)
@@ -1811,7 +1811,7 @@ function MobileMatchesNav({ equipoId }: { equipoId?: string | null }) {
       <MobileNavLink href={withEquipo('/home', equipoId)} label="Home" icon={<LayoutDashboard className="h-4 w-4" />} />
       <MobileNavLink href={withEquipo('/jugadores', equipoId)} label="Players" icon={<Users className="h-4 w-4" />} />
       <MobileNavLink href={withEquipo('/partidos', equipoId)} label="Partidos" icon={<CalendarDays className="h-4 w-4" />} active />
-      <MobileNavLink href={withEquipo('/estadisticas', equipoId)} label="Estadisticas" icon={<ChartColumn className="h-4 w-4" />} />
+      <MobileNavLink href={withEquipo('/estadisticas', equipoId)} label="Estadísticas" icon={<ChartColumn className="h-4 w-4" />} />
       <MobileNavLink href={withEquipo('/chat', equipoId)} label="Chat" icon={<MessageSquare className="h-4 w-4" />} />
     </nav>
   )

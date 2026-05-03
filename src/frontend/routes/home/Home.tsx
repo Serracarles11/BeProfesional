@@ -249,10 +249,10 @@ export default function Home() {
       if (silent) {
         throw loadError instanceof Error
           ? loadError
-          : new Error('Error de conexion al refrescar Home')
+          : new Error('Error de conexión al refrescar Home')
       }
       setStatus('error')
-      setError('Error de conexion al cargar Home')
+      setError('Error de conexión al cargar Home')
     }
   }, [equipoId])
 
@@ -570,7 +570,7 @@ export default function Home() {
     setSettingsSuccess('')
 
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      setSettingsError('Formato no valido. Usa JPG, PNG o WEBP.')
+      setSettingsError('Formato no válido. Usa JPG, PNG o WEBP.')
       input.value = ''
       return
     }
@@ -615,7 +615,7 @@ export default function Home() {
       return
     }
     if (eventFormType === 'entrenamiento' && !trainingTitle.trim()) {
-      setSaveError('Debes indicar fecha y titulo del entrenamiento.')
+      setSaveError('Debes indicar fecha y título del entrenamiento.')
       return
     }
     if (eventFormType === 'partido' && !matchOpponent.trim()) {
@@ -713,7 +713,7 @@ export default function Home() {
   const createWeeklyTrainings = async () => {
     if (!payload.equipo?.id) return
     if (weeklyTrainingDays.length === 0) {
-      setSaveError('Selecciona al menos un dia de entrenamiento.')
+      setSaveError('Selecciona al menos un día de entrenamiento.')
       return
     }
 
@@ -933,7 +933,7 @@ export default function Home() {
                     <input value={settingsProfile.nombre} onChange={(e) => setSettingsField('nombre', e.target.value)} className="w-full rounded-lg border border-[#dbe5f4] px-3 py-2 text-sm" />
                   </label>
                   <label className="space-y-1">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6a7386]">Genero</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6a7386]">Género</span>
                     <input value={settingsProfile.genero} onChange={(e) => setSettingsField('genero', e.target.value)} className="w-full rounded-lg border border-[#dbe5f4] px-3 py-2 text-sm" />
                   </label>
                   <label className="space-y-1">
@@ -1013,7 +1013,7 @@ export default function Home() {
               {editingEvent ? 'Modificar evento del calendario' : 'Crear evento del calendario'}
             </h3>
             <p className="mt-1 text-xs font-semibold text-[#677084]">
-              Anade entrenamientos o partidos y se reflejaran al instante en el calendario del equipo.
+              Añade entrenamientos o partidos y se reflejarán al instante en el calendario del equipo.
             </p>
 
             <div className="mt-4 inline-flex rounded-xl bg-[#eef3fb] p-1">

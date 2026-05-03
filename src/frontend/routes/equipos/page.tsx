@@ -110,7 +110,7 @@ export default function EquiposPage() {
         setClubesLoadedFromServer(true)
       }
     } catch {
-      setError('Error de conexion')
+      setError('Error de conexión')
     } finally {
       setLoading(false)
     }
@@ -263,7 +263,7 @@ export default function EquiposPage() {
         router.refresh()
       }
     } catch {
-      setError('Error al cerrar sesion')
+      setError('Error al cerrar sesión')
     } finally {
       setLoggingOut(false)
     }
@@ -329,7 +329,7 @@ export default function EquiposPage() {
                 disabled={loggingOut}
                 className="px-5 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium transition-all duration-300 disabled:opacity-50"
               >
-                {loggingOut ? 'Saliendo...' : 'Cerrar sesion'}
+                {loggingOut ? 'Saliendo...' : 'Cerrar sesión'}
               </button>
             </div>
           </div>
@@ -424,16 +424,16 @@ export default function EquiposPage() {
               <span className="text-4xl">🏟️</span>
             </div>
             <h2 className="text-xl font-bold text-gray-800 mb-2">
-              Sin equipos todavia
+              Sin equipos todavía
             </h2>
             <p className="text-gray-500 mb-6 max-w-sm mx-auto">
-              Unete a un equipo con un codigo de invitacion o crea tu propio
+              Únete a un equipo con un código de invitación o crea tu propio
               equipo para empezar.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link href="/unirse">
                 <button className="btn-premium px-8" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}>
-                  Usar codigo
+                  Usar código
                 </button>
               </Link>
               <Link href="/crear-equipo">
@@ -521,7 +521,7 @@ export default function EquiposPage() {
             <div className="flex gap-3">
               <Link href="/unirse">
                 <button className="px-4 py-2 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-700 font-medium transition-all duration-300 text-sm">
-                  + Unirse con codigo
+                  + Unirse con código
                 </button>
               </Link>
               <Link href="/crear-equipo">

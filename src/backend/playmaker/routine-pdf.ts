@@ -43,7 +43,7 @@ function buildDetailSections(block: RoutineBlock) {
     { title: 'Montaje', items: splitRoutineDetailText(block.setup), tone: 'neutral' },
     { title: 'Consignas', items: splitRoutineDetailText(block.instructions), tone: 'primary' },
     { title: 'Puntos de coaching', items: block.coachingPoints, tone: 'neutral' },
-    { title: 'Progresion o variante', items: splitRoutineDetailText(block.progression), tone: 'muted' },
+    { title: 'Progresión o variante', items: splitRoutineDetailText(block.progression), tone: 'muted' },
     { title: 'Notas', items: splitRoutineDetailText(block.notes), tone: 'muted' },
   ].filter((section) => section.items.length > 0)
 }
@@ -656,9 +656,9 @@ export function buildRoutinePdfHtml({
 
       <section class="meta-grid">
         <div><span class="label">Equipo</span><strong class="value">${escapeHtml(equipo.nombre)}</strong></div>
-        <div><span class="label">Categoria</span><strong class="value">${escapeHtml(categoryLabel)}</strong></div>
+        <div><span class="label">Categoría</span><strong class="value">${escapeHtml(categoryLabel)}</strong></div>
         <div><span class="label">Fases</span><strong class="value">${escapeHtml(phasesLabel)}</strong></div>
-        <div><span class="label">Duracion</span><strong class="value">${escapeHtml(routine.duration)} minutos</strong></div>
+        <div><span class="label">Duración</span><strong class="value">${escapeHtml(routine.duration)} minutos</strong></div>
       </section>
 
       <section class="summary-grid">
@@ -923,9 +923,9 @@ function drawMeta(pdf: PdfBuilder, equipo: RoutinePdfTeam, routine: RoutineDetai
   const gap = 7
   const width = (CONTENT_WIDTH - gap * 3) / 4
   const items = [
-    ['Categoria', routine.category || equipo.categoria || 'Sin categoria'],
+    ['Categoría', routine.category || equipo.categoria || 'Sin categoría'],
     ['Fases', routine.phases.join(' / ') || routine.phase || 'Sin fase'],
-    ['Duracion', `${routine.duration} min`],
+    ['Duración', `${routine.duration} min`],
     ['Ejercicios', String(routine.blockCount)],
   ]
 

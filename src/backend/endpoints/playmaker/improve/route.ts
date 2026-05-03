@@ -152,7 +152,7 @@ Prioriza:
 2. apoyos al poseedor
 3. acceso al lado debil
 4. proteccion del espacio a la espalda
-5. progresion mas segura
+5. progresión más segura
 6. mejor spacing
 
 Reglas:
@@ -160,8 +160,8 @@ Reglas:
 - No muevas jugadores por moverlos: cada cambio debe tener sentido tactico.
 - Usa pocos cambios, pero que sean utiles y coherentes.
 - Si no hace falta borrar dibujos, no los borres.
-- Si añades un dibujo, debe aclarar una mejora tactica real.
-- Devuelve solo JSON valido.
+- Si añades un dibujo, debe aclarar una mejora táctica real.
+- Devuelve solo JSON válido.
   `.trim()
 }
 
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
     const apiKey = openAiConfig.apiKey
 
     const body = (await request.json()) as RequestBody
-    if (!isBoardDraftPayload(body.draft)) return errorResponse('El tablero recibido no es valido.', 400, 'INVALID_BODY')
+    if (!isBoardDraftPayload(body.draft)) return errorResponse('El tablero recibido no es válido.', 400, 'INVALID_BODY')
 
     const supabase = await createSupabaseRouteHandler()
     const {

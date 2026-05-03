@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 
 const steps = [
   { path: '/onboarding/nombre', label: 'Nombre' },
-  { path: '/onboarding/genero', label: 'Genero' },
+  { path: '/onboarding/genero', label: 'Género' },
   { path: '/onboarding/edad', label: 'Edad' },
   { path: '/onboarding/peso', label: 'Peso' },
   { path: '/onboarding/altura', label: 'Altura' },

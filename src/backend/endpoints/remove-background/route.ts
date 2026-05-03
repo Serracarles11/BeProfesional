@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     const contentType = request.headers.get('content-type') ?? ''
     if (!contentType.toLowerCase().includes('multipart/form-data')) {
-      return errorResponse('Content-Type invalido. Debe ser multipart/form-data.', 400)
+      return errorResponse('Content-Type inválido. Debe ser multipart/form-data.', 400)
     }
 
     const formData = await request.formData()
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!ALLOWED_TYPES.has(file.type)) {
-      return errorResponse('Formato no valido. Usa JPG, PNG o WEBP.', 400)
+      return errorResponse('Formato no válido. Usa JPG, PNG o WEBP.', 400)
     }
 
     if (file.size > MAX_FILE_SIZE) {

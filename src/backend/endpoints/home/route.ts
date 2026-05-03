@@ -130,7 +130,7 @@ const MOCK_PAYLOAD: Omit<HomeApiResponse, 'ok' | 'equipo'> = {
     {
       id: 'schedule-1',
       tipo: 'Entrenamiento',
-      titulo: 'Sesion tactica',
+      titulo: 'Sesión táctica',
       fecha: '2026-02-07',
       hora: '18:30',
       lugar: 'Campo Norte',
@@ -147,7 +147,7 @@ const MOCK_PAYLOAD: Omit<HomeApiResponse, 'ok' | 'equipo'> = {
     {
       id: 'schedule-3',
       tipo: 'Entrenamiento',
-      titulo: 'Trabajo fisico',
+      titulo: 'Trabajo físico',
       fecha: '2026-02-12',
       hora: '17:45',
       lugar: 'Gimnasio Club',

@@ -148,9 +148,9 @@ function buildStarterMessages(
     return [{ id: 'assistant-restored', role: 'assistant', content: `He recuperado el borrador IA de ${initialRoutine.title}. Puedes pedirme cambios concretos y actualizare esta misma rutina.` }]
   }
   if (initialExercise) {
-    return [{ id: 'assistant-exercisedb', role: 'assistant', content: `He cargado ${initialExercise.name} desde ExerciseDB en el primer bloque. Puedes pedirme que lo convierta en una sesion completa.` }]
+    return [{ id: 'assistant-exercisedb', role: 'assistant', content: `He cargado ${initialExercise.name} desde ExerciseDB en el primer bloque. Puedes pedirme que lo convierta en una sesión completa.` }]
   }
-  return [{ id: 'assistant-start', role: 'assistant', content: `Soy tu asistente de rutinas, ${playerName}. Pideme una sesion completa y la dejare lista para guardar en este mismo editor.` }]
+  return [{ id: 'assistant-start', role: 'assistant', content: `Soy tu asistente de rutinas, ${playerName}. Pídeme una sesión completa y la dejaré lista para guardar en este mismo editor.` }]
 }
 
 export default function CreateExerciseClient({ equipo, initialRoutine = null, initialExercise = null }: CreateExerciseClientProps) {
@@ -254,9 +254,9 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
   async function handleSave() {
     const validBlocks = normalizeBlocksForSave()
     if (!equipo?.id) return setError('No hay un equipo activo para guardar la rutina.')
-    if (!draft.title.trim()) return setError('Introduce un titulo para la rutina.')
-    if (draft.phases.length === 0 || draft.phases.every((phase) => !phase.trim())) return setError('Anade al menos una fase para la rutina.')
-    if (validBlocks.length === 0) return setError('Anade al menos un bloque con nombre antes de guardar.')
+    if (!draft.title.trim()) return setError('Introduce un título para la rutina.')
+    if (draft.phases.length === 0 || draft.phases.every((phase) => !phase.trim())) return setError('Añade al menos una fase para la rutina.')
+    if (validBlocks.length === 0) return setError('Añade al menos un bloque con nombre antes de guardar.')
 
     const confirmed = window.confirm(isEditing ? 'Quieres actualizar la rutina?' : 'Quieres guardar la rutina?')
     if (!confirmed) return
@@ -515,7 +515,7 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
                   {saveState === 'saved' ? 'Guardada' : draft.origin === 'ai' ? 'Borrador IA' : 'Borrador'}
                 </span>
               </div>
-              <p className="mt-1 text-xs font-medium uppercase tracking-[0.16em] text-[#64748B]">{equipo?.nombre ?? 'Sin equipo'} - {isEditing ? 'modo edicion' : 'sesion en preparacion'}</p>
+              <p className="mt-1 text-xs font-medium uppercase tracking-[0.16em] text-[#64748B]">{equipo?.nombre ?? 'Sin equipo'} - {isEditing ? 'modo edición' : 'sesión en preparación'}</p>
             </div>
           </div>
 
@@ -529,19 +529,19 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
           <div className="mx-auto flex max-w-7xl flex-col gap-10 lg:flex-row">
             <div className="flex-1 space-y-10">
               <section className="space-y-5">
-                <input value={draft.title} onChange={(event) => setTopField('title', event.target.value)} className="w-full border-none bg-transparent p-0 text-4xl font-extrabold tracking-tight text-[#0F172A] outline-none placeholder:text-slate-300 [font-family:var(--font-plus-jakarta)]" placeholder="Rutina sin titulo" />
+                <input value={draft.title} onChange={(event) => setTopField('title', event.target.value)} className="w-full border-none bg-transparent p-0 text-4xl font-extrabold tracking-tight text-[#0F172A] outline-none placeholder:text-slate-300 [font-family:var(--font-plus-jakarta)]" placeholder="Rutina sin título" />
 
                 <div className="grid gap-5 xl:grid-cols-2">
-                  <TextField label="Objetivo principal" value={draft.objective} onChange={(value) => setTopField('objective', value)} placeholder="Ej. mejorar pressing tras perdida y finalizacion rapida" />
-                  <TextField label="Grupo o categoria" value={draft.targetGroup} onChange={(value) => setTopField('targetGroup', value)} placeholder="Ej. Juvenil A, Sub-16, primer equipo" />
-                  <TextField label="Numero de jugadores" value={draft.playerCount} onChange={(value) => setTopField('playerCount', value)} placeholder="Ej. 16" />
+                  <TextField label="Objetivo principal" value={draft.objective} onChange={(value) => setTopField('objective', value)} placeholder="Ej. mejorar pressing tras pérdida y finalización rápida" />
+                  <TextField label="Grupo o categoría" value={draft.targetGroup} onChange={(value) => setTopField('targetGroup', value)} placeholder="Ej. Juvenil A, Sub-16, primer equipo" />
+                  <TextField label="Número de jugadores" value={draft.playerCount} onChange={(value) => setTopField('playerCount', value)} placeholder="Ej. 16" />
                   <div className="space-y-2">
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Categoria del entrenamiento</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Categoría del entrenamiento</label>
                     <select value={normalizeCategory(draft.trainingCategory)} onChange={(event) => setTopField('trainingCategory', event.target.value)} className="w-full rounded-lg border border-[#E2E8F0] bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none focus:border-[#1A73E8]">
                       <option value="FUERZA">Fuerza</option>
                       <option value="POTENCIA">Potencia</option>
                       <option value="RESISTENCIA">Resistencia</option>
-                      <option value="RECUPERACION">Recuperacion</option>
+                      <option value="RECUPERACION">Recuperación</option>
                     </select>
                   </div>
                 </div>
@@ -549,7 +549,7 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Fases de la rutina</label>
-                    <button type="button" onClick={addPhase} className="inline-flex items-center gap-1 text-xs font-bold text-[#1A73E8]"><Plus className="h-3.5 w-3.5" /><span>Anadir fase</span></button>
+                    <button type="button" onClick={addPhase} className="inline-flex items-center gap-1 text-xs font-bold text-[#1A73E8]"><Plus className="h-3.5 w-3.5" /><span>Añadir fase</span></button>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     {draft.phases.map((phase, index) => (
@@ -596,7 +596,7 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
                         ) : null}
                         <button type="button" onClick={() => openImagePicker(block.id)} disabled={uploadingBlockId === block.id} className="group flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 transition hover:border-[#1A73E8] hover:bg-[#E8F0FE] disabled:cursor-not-allowed disabled:opacity-60">
                           <ImagePlus className="h-6 w-6 text-slate-400 transition group-hover:text-[#1A73E8]" />
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 group-hover:text-[#1A73E8]">{uploadingBlockId === block.id ? 'Subiendo...' : block.imageUrls.length > 0 ? 'Anadir imagen' : 'Multimedia'}</span>
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 group-hover:text-[#1A73E8]">{uploadingBlockId === block.id ? 'Subiendo...' : block.imageUrls.length > 0 ? 'Añadir imagen' : 'Multimedia'}</span>
                         </button>
                         </div>
                       ) : null}
@@ -614,7 +614,7 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
                                   setCatalogQuery(block.name)
                                 }}
                                 className="w-full border-b border-[#E2E8F0] bg-transparent pb-2 text-xl font-bold text-[#0F172A] outline-none transition hover:border-slate-300 focus:border-[#1A73E8] [font-family:var(--font-plus-jakarta)]"
-                                placeholder="Ej. juego de posicion 6x4 con finalizacion"
+                                placeholder="Ej. juego de posición 6x4 con finalización"
                               />
                               {activeCatalogBlockId === block.id && catalogQuery.trim().length >= 2 ? (
                                 <div className="mt-3 rounded-xl border border-[#DDE7F5] bg-white shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
@@ -675,7 +675,7 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
                                   ) : isCatalogLoading ? (
                                     <p className="px-4 py-3 text-xs text-[#64748B]">Buscando ejercicios...</p>
                                   ) : (
-                                    <p className="px-4 py-3 text-xs text-[#64748B]">Sin resultados para esa busqueda.</p>
+                                    <p className="px-4 py-3 text-xs text-[#64748B]">Sin resultados para esa búsqueda.</p>
                                   )}
                                 </div>
                               ) : null}
@@ -694,13 +694,13 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
 
                           <div className="flex items-center gap-2">
                             <button type="button" draggable onDragStart={() => setDraggedBlockId(block.id)} onDragEnd={() => { setDraggedBlockId(null); setDragOverBlockId(null) }} className="flex h-9 w-9 cursor-grab items-center justify-center rounded-lg bg-slate-100 text-slate-400 active:cursor-grabbing" aria-label={`Mover bloque ${index + 1}`}><Grip className="h-4 w-4" /></button>
-                            <button type="button" onClick={() => openImagePicker(block.id)} disabled={uploadingBlockId === block.id} className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-400 transition hover:bg-[#E8F0FE] hover:text-[#1A73E8] disabled:cursor-not-allowed disabled:opacity-50" aria-label={`Anadir multimedia a ${block.name || `bloque ${index + 1}`}`}><ImagePlus className="h-4 w-4" /></button>
+                            <button type="button" onClick={() => openImagePicker(block.id)} disabled={uploadingBlockId === block.id} className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-400 transition hover:bg-[#E8F0FE] hover:text-[#1A73E8] disabled:cursor-not-allowed disabled:opacity-50" aria-label={`Añadir multimedia a ${block.name || `bloque ${index + 1}`}`}><ImagePlus className="h-4 w-4" /></button>
                             <button type="button" onClick={() => removeBlock(block.id)} className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 transition hover:bg-red-50 hover:text-red-500" aria-label={`Eliminar bloque ${index + 1}`}><Trash2 className="h-4 w-4" /></button>
                           </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-6 xl:grid-cols-5">
-                          <Field label="Duracion (min)" value={block.duration} onChange={(value) => updateBlock(block.id, 'duration', value)} />
+                          <Field label="Duración (min)" value={block.duration} onChange={(value) => updateBlock(block.id, 'duration', value)} />
                           <Field label="Series" value={block.sets} onChange={(value) => updateBlock(block.id, 'sets', value)} />
                           <Field label="Repeticiones" value={block.reps} onChange={(value) => updateBlock(block.id, 'reps', value)} />
                           <Field label="Descanso (s)" value={block.rest} onChange={(value) => updateBlock(block.id, 'rest', value)} />
@@ -708,10 +708,10 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
                         </div>
 
                         <div className="mt-6 grid gap-6 xl:grid-cols-2">
-                          <AreaField label="Montaje" value={block.setup} onChange={(value) => updateBlock(block.id, 'setup', value)} placeholder="Espacio, material, numero de jugadores por tarea, distribucion inicial..." />
+                          <AreaField label="Montaje" value={block.setup} onChange={(value) => updateBlock(block.id, 'setup', value)} placeholder="Espacio, material, número de jugadores por tarea, distribución inicial..." />
                           <AreaField label="Consignas" value={block.instructions} onChange={(value) => updateBlock(block.id, 'instructions', value)} placeholder="Desarrollo, reglas, secuencia y criterios de la tarea." />
-                          <AreaField label="Puntos de coaching" value={coachingPointsToText(block.coachingPoints)} onChange={(value) => updateBlock(block.id, 'coachingPoints', textToCoachingPoints(value))} placeholder="Una indicacion por linea." />
-                          <AreaField label="Progresion o variante" value={block.progression} onChange={(value) => updateBlock(block.id, 'progression', value)} placeholder="Como escalar o simplificar el ejercicio." />
+                          <AreaField label="Puntos de coaching" value={coachingPointsToText(block.coachingPoints)} onChange={(value) => updateBlock(block.id, 'coachingPoints', textToCoachingPoints(value))} placeholder="Una indicación por línea." />
+                          <AreaField label="Progresión o variante" value={block.progression} onChange={(value) => updateBlock(block.id, 'progression', value)} placeholder="Cómo escalar o simplificar el ejercicio." />
                         </div>
 
                         <div className="mt-6">
@@ -725,8 +725,8 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
                 <button type="button" onClick={addBlock} className="group flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-200 py-10 transition hover:border-[#1A73E8] hover:bg-white">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 text-slate-400 shadow-sm transition group-hover:border-[#1A73E8] group-hover:bg-[#1A73E8] group-hover:text-white"><Plus className="h-6 w-6" /></div>
                   <div className="text-center">
-                    <span className="block text-sm font-bold text-[#0F172A] group-hover:text-[#1A73E8]">Anadir bloque de ejercicio</span>
-                    <span className="text-xs text-[#64748B]">Inserta un nuevo ejercicio o movimiento tecnico</span>
+                    <span className="block text-sm font-bold text-[#0F172A] group-hover:text-[#1A73E8]">Añadir bloque de ejercicio</span>
+                    <span className="text-xs text-[#64748B]">Inserta un nuevo ejercicio o movimiento técnico</span>
                   </div>
                 </button>
               </section>
@@ -771,18 +771,18 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
                         <div className="flex items-center gap-2 font-semibold"><CheckCircle2 className="h-4 w-4" /><span>Borrador IA listo para editar y guardar</span></div>
                         <p className="mt-1 text-xs text-emerald-700">Cada nuevo mensaje modifica esta misma rutina. No se genera una distinta salvo que lo pidas.</p>
                       </div>
-                    ) : <div className="rounded-xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] px-4 py-4 text-sm text-[#475569]">Pidele una sesion completa, por ejemplo: &quot;Necesito una rutina de 75 minutos para 16 jugadores centrada en pressing y finalizacion&quot;.</div>}
+                    ) : <div className="rounded-xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] px-4 py-4 text-sm text-[#475569]">Pídele una sesión completa, por ejemplo: &quot;Necesito una rutina de 75 minutos para 16 jugadores centrada en pressing y finalización&quot;.</div>}
 
                     {aiError ? <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><p>{aiError}</p>{lastAiPrompt ? <button type="button" onClick={() => submitAiPrompt(lastAiPrompt)} className="mt-2 inline-flex items-center gap-2 font-bold text-red-700 underline"><RotateCcw className="h-3.5 w-3.5" /><span>Reintentar</span></button> : null}</div> : null}
 
                     <div className="mb-2 flex flex-wrap gap-2">
-                      {['Genera una sesion de 75 minutos centrada en pressing alto', 'Hazla mas intensa', 'Adapta la rutina a 12 jugadores', 'Cambia solo el calentamiento'].map((chip) => (
+                      {['Genera una sesión de 75 minutos centrada en pressing alto', 'Hazla más intensa', 'Adapta la rutina a 12 jugadores', 'Cambia solo el calentamiento'].map((chip) => (
                         <button key={chip} type="button" onClick={() => submitAiPrompt(chip)} disabled={isAiLoading} className="rounded-full border border-[#1A73E8]/20 bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-[#1A73E8] transition hover:bg-[#1A73E8] hover:text-white disabled:opacity-50">{chip}</button>
                       ))}
                     </div>
 
                     <div className="relative">
-                      <textarea value={aiPrompt} onChange={(event) => setAiPrompt(event.target.value)} rows={4} className="w-full rounded-2xl border border-[#E2E8F0] bg-white px-4 py-4 pr-14 text-sm text-[#0F172A] outline-none transition focus:border-[#1A73E8]" placeholder="Pidele una rutina completa o refina la actual: mas intensidad, menos jugadores, 60 minutos, mas finalizacion, pressing, simplifica el primer ejercicio..." />
+                      <textarea value={aiPrompt} onChange={(event) => setAiPrompt(event.target.value)} rows={4} className="w-full rounded-2xl border border-[#E2E8F0] bg-white px-4 py-4 pr-14 text-sm text-[#0F172A] outline-none transition focus:border-[#1A73E8]" placeholder="Pídele una rutina completa o refina la actual: más intensidad, menos jugadores, 60 minutos, más finalización, pressing, simplifica el primer ejercicio..." />
                       <button type="button" onClick={() => submitAiPrompt(aiPrompt)} disabled={isAiLoading || !aiPrompt.trim()} className="absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#1A73E8] text-white transition hover:bg-[#1557B0] disabled:cursor-not-allowed disabled:opacity-50"><SendHorizontal className="h-4 w-4" /></button>
                     </div>
                   </div>

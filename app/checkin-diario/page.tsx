@@ -1,1 +1,3 @@
-export { default, dynamic } from '@/frontend/routes/checkin-diario/page'
+export const dynamic = 'force-dynamic'
+
+export { default } from '@/frontend/routes/checkin-diario/page'

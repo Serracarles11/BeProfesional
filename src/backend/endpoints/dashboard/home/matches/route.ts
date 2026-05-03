@@ -74,11 +74,11 @@ export async function POST(request: NextRequest) {
     const competition = typeof body.competition === 'string' ? body.competition.trim() : ''
     const place = typeof body.place === 'string' ? body.place.trim() : ''
 
-    if (!equipoId) return createErrorResponse('equipoId invalido.', 400)
-    if (!date || !isValidDate(date)) return createErrorResponse('Fecha invalida.', 400)
-    if (!time || !isValidTime(time)) return createErrorResponse('Hora invalida.', 400)
-    if (!opponent) return createErrorResponse('Rival invalido.', 400)
-    if (!homeAway) return createErrorResponse('Condicion del partido invalida.', 400)
+    if (!equipoId) return createErrorResponse('equipoId inválido.', 400)
+    if (!date || !isValidDate(date)) return createErrorResponse('Fecha inválida.', 400)
+    if (!time || !isValidTime(time)) return createErrorResponse('Hora inválida.', 400)
+    if (!opponent) return createErrorResponse('Rival inválido.', 400)
+    if (!homeAway) return createErrorResponse('Condición del partido inválida.', 400)
 
     const [membershipResult, teamOwnerResult] = await Promise.all([
       supabase
@@ -205,12 +205,12 @@ export async function PATCH(request: NextRequest) {
     const competition = typeof body.competition === 'string' ? body.competition.trim() : ''
     const place = typeof body.place === 'string' ? body.place.trim() : ''
 
-    if (!equipoId) return createErrorResponse('equipoId invalido.', 400)
-    if (!matchId) return createErrorResponse('matchId invalido.', 400)
-    if (!date || !isValidDate(date)) return createErrorResponse('Fecha invalida.', 400)
-    if (!time || !isValidTime(time)) return createErrorResponse('Hora invalida.', 400)
-    if (!opponent) return createErrorResponse('Rival invalido.', 400)
-    if (!homeAway) return createErrorResponse('Condicion del partido invalida.', 400)
+    if (!equipoId) return createErrorResponse('equipoId inválido.', 400)
+    if (!matchId) return createErrorResponse('matchId inválido.', 400)
+    if (!date || !isValidDate(date)) return createErrorResponse('Fecha inválida.', 400)
+    if (!time || !isValidTime(time)) return createErrorResponse('Hora inválida.', 400)
+    if (!opponent) return createErrorResponse('Rival inválido.', 400)
+    if (!homeAway) return createErrorResponse('Condición del partido inválida.', 400)
 
     const [membershipResult, teamOwnerResult, matchResult] = await Promise.all([
       supabase
@@ -309,8 +309,8 @@ export async function DELETE(request: NextRequest) {
     const equipoId = request.nextUrl.searchParams.get('equipoId')?.trim() ?? ''
     const matchId = request.nextUrl.searchParams.get('matchId')?.trim() ?? ''
 
-    if (!equipoId) return createErrorResponse('equipoId invalido.', 400)
-    if (!matchId) return createErrorResponse('matchId invalido.', 400)
+    if (!equipoId) return createErrorResponse('equipoId inválido.', 400)
+    if (!matchId) return createErrorResponse('matchId inválido.', 400)
 
     const [membershipResult, teamOwnerResult, matchResult] = await Promise.all([
       supabase

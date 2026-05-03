@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
 
     if (!peso_kg || typeof peso_kg !== 'number' || peso_kg < 20 || peso_kg > 300) {
       return NextResponse.json(
-        { ok: false, error: 'Peso no valido' },
+        { ok: false, error: 'Peso no válido' },
         { status: 400 }
       )
     }

@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
         }
       | null
 
-    if (!body) return errorResponse('Body invalido.', 400)
+    if (!body) return errorResponse('Body inválido.', 400)
 
     const fatiga = parseWellnessScore(body.fatiga)
     const estadoMental = parseWellnessScore(body.estadoMental ?? body.estado_mental)

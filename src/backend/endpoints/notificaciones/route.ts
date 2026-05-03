@@ -93,7 +93,7 @@ export async function PATCH(request: NextRequest) {
       typeof body?.notificationId === 'string' ? body.notificationId.trim() : ''
 
     if (!notificationId) {
-      return createErrorResponse('notificationId invalido.', 400)
+      return createErrorResponse('notificationId inválido.', 400)
     }
 
     const db = createSupabaseAdmin() ?? supabase

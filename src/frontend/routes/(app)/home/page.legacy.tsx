@@ -199,7 +199,7 @@ export default function HomePage() {
         }
       } catch {
         if (!cancelled) {
-          setError('Error de conexion.')
+          setError('Error de conexión.')
         }
       } finally {
         if (!cancelled) {
@@ -279,7 +279,7 @@ export default function HomePage() {
           <div className="dashboard-card rounded-3xl p-8 text-center md:p-10">
             <h1 className="text-2xl font-bold text-gray-800">Aun no tienes equipos</h1>
             <p className="mt-2 text-gray-500">
-              Crea tu primer equipo o unete con un codigo de invitacion.
+              Crea tu primer equipo o únete con un código de invitación.
             </p>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <button
@@ -294,7 +294,7 @@ export default function HomePage() {
                 onClick={() => router.push('/unirse')}
                 className="rounded-2xl border border-gray-300 bg-white px-4 py-3 font-semibold text-gray-700"
               >
-                Unirme con codigo
+                Unirme con código
               </button>
             </div>
           </div>

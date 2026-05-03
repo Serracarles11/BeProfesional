@@ -40,8 +40,8 @@ export async function GET(
     const routineId = params.routineId?.trim()
     const equipoId = request.nextUrl.searchParams.get('equipo')?.trim() || ''
 
-    if (!routineId) return errorResponse('routineId invalido.', 400)
-    if (!equipoId) return errorResponse('equipo invalido.', 400)
+    if (!routineId) return errorResponse('routineId inválido.', 400)
+    if (!equipoId) return errorResponse('equipo inválido.', 400)
 
     const supabase = await createSupabaseRouteHandler()
     const {

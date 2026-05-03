@@ -14,7 +14,7 @@ const LINKS = [
   { label: 'Dashboard', href: '/home' },
   { label: 'Plantilla', href: '/jugadores' },
   { label: 'Calendario', href: '/partidos' },
-  { label: 'Analisis', href: '/estadisticas' },
+  { label: 'Análisis', href: '/estadisticas' },
 ]
 
 export function TopNavigation({ equipoId, avatarUrl }: TopNavigationProps) {

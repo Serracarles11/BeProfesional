@@ -569,10 +569,10 @@ export default function TrainingAssistantClient({
                     Ejercicios <span className="italic text-[#1A73E8]">para compartir</span>
                   </h2>
                   <p className="max-w-2xl text-lg font-medium leading-relaxed text-[#44474E]">
-                    Publica ejercicios del equipo, explora ideas de otros entrenadores y clona rutinas para adaptarlas a tu sesion.
+                    Publica ejercicios del equipo, explora ideas de otros entrenadores y clona rutinas para adaptarlas a tu sesión.
                   </p>
                   <p className="mt-3 text-sm font-semibold uppercase tracking-[0.18em] text-[#727785]">
-                    {equipo?.nombre ?? 'Equipo'} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· {role ?? 'Jugador'}
+                    {equipo?.nombre ?? 'Equipo'} · {role ?? 'Jugador'}
                   </p>
                 </div>
               </section>
@@ -608,7 +608,7 @@ export default function TrainingAssistantClient({
                       }
                       className="flex items-center gap-2 text-xs font-bold text-[#181c20]"
                     >
-                      {sortBy === 'popular' ? 'Mas Populares' : sortBy === 'recent' ? 'Recientes' : 'Dificultad'}
+                      {sortBy === 'popular' ? 'Más populares' : sortBy === 'recent' ? 'Recientes' : 'Dificultad'}
                       <ChevronDown className="h-4 w-4" />
                     </button>
                   </div>
@@ -643,13 +643,13 @@ export default function TrainingAssistantClient({
                         Crear ejercicio
                       </h3>
                       <p className="max-w-sm text-sm font-medium leading-relaxed text-[#44474E]">
-                        Anade una nueva rutina para el equipo, organiza el objetivo de trabajo y deja preparada la sesion desde tu area de entrenamientos.
+                        Añade una nueva rutina para el equipo, organiza el objetivo de trabajo y deja preparada la sesión desde tu área de entrenamientos.
                       </p>
                     </div>
 
                     <div className="space-y-5">
                       <div className="grid grid-cols-2 gap-4">
-                        <InfoMini label="Accion" value="Alta manual" />
+                        <InfoMini label="Acción" value="Alta manual" />
                         <InfoMini label="Destino" value="Creador visual" />
                       </div>
                       <div className="flex items-center justify-between border-t border-[#d6e3ff] pt-5">
@@ -744,7 +744,7 @@ export default function TrainingAssistantClient({
 
             <div className="mt-20 flex flex-col items-center">
               <button className="group flex flex-col items-center gap-3 text-[#44474E]/60 transition-all hover:text-[#1A73E8]">
-                <span className="text-[11px] font-extrabold uppercase tracking-[0.2em]">Cargar mas rutinas</span>
+                <span className="text-[11px] font-extrabold uppercase tracking-[0.2em]">Cargar más rutinas</span>
                 <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[#e5e8ed] transition-colors group-hover:border-[#1A73E8]">
                   <ChevronDown className="h-5 w-5" />
                 </div>
@@ -1002,7 +1002,7 @@ function RoutineDarkCard({
 
       <div className="mt-auto space-y-6">
         <div className="grid grid-cols-2 gap-4">
-          <DarkMetric label="Duracion" value={`${routine.duration || 20} min`} />
+          <DarkMetric label="Duración" value={`${routine.duration || 20} min`} />
           <DarkMetric label="Intensidad" value={difficultyLabel(routine.difficulty)} />
         </div>
 
@@ -1180,7 +1180,7 @@ function ExercisesCommunityView({
             <div className="mt-9 grid max-w-lg grid-cols-3 gap-3">
               <HeroStat label="Ejercicios" value={String(allRoutines.length)} />
               <HeroStat label="Minutos" value={String(totalMinutes)} />
-              <HeroStat label="Categorias" value={`${categoryCount}/3`} />
+              <HeroStat label="Categorías" value={`${categoryCount}/3`} />
             </div>
           </div>
 

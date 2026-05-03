@@ -42,7 +42,7 @@ export async function GET() {
     const cookieStore = await cookies()
     const supabase = createSupabaseRouteHandler(cookieStore)
 
-    // Verificar sesion
+    // Verificar sesión
     const {
       data: { user },
       error: authError,
@@ -254,7 +254,7 @@ export async function POST(request: NextRequest) {
       if (error) {
         console.error('Error en logout:', error)
         return NextResponse.json(
-          { ok: false, error: 'Error al cerrar sesion' },
+          { ok: false, error: 'Error al cerrar sesión' },
           { status: 500 }
         )
       }

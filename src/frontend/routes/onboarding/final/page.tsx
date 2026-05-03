@@ -34,7 +34,7 @@ export default function FinalPage() {
       router.push(data.redirectTo || '/equipos')
       router.refresh()
     } catch {
-      setError('Error de conexion')
+      setError('Error de conexión')
     } finally {
       setLoading(false)
     }

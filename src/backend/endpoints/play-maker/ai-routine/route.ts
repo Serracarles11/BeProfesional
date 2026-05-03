@@ -344,7 +344,7 @@ function buildContextPrompt(args: {
       reglas: [
         'La respuesta debe ser una rutina completa, coherente y guardable.',
         'Si ya existe un borrador, manten la mayor parte estable y modifica solo lo necesario para cumplir la nueva peticion.',
-        'La sesion debe incluir calentamiento, bloque principal y cierre si aplica.',
+        'La sesión debe incluir calentamiento, bloque principal y cierre si aplica.',
         'Cada ejercicio debe ser practico, claro y utilizable por un entrenador.',
         'No metas varias actividades dentro de un mismo campo instructions/Consignas. Si hay Jumping jacks, sentadillas, burpees u otras tareas, cada una debe ser un block independiente.',
         'Usa instructions para explicar solo el block actual, no para listar otros ejercicios.',
@@ -426,7 +426,7 @@ export async function POST(request: NextRequest) {
     const systemPrompt = [
       'Eres el disenador de entrenamientos de BeProfesional.',
       'Responde SIEMPRE en espanol.',
-      'Devuelve SOLO JSON valido, sin markdown.',
+      'Devuelve SOLO JSON válido, sin markdown.',
       'Tu trabajo es generar o refinar la misma rutina, no crear una rutina distinta sin motivo.',
       'Si el usuario pide cambios parciales, conserva el resto del borrador.',
       'La rutina debe ser practicamente utilizable por un entrenador real.',
@@ -435,7 +435,7 @@ export async function POST(request: NextRequest) {
       'Cada bloque debe incluir name, purpose, duration, setup, instructions y coachingPoints claros. progression es opcional pero recomendable.',
       'No pongas listas de actividades dentro de instructions. Cada actividad debe ser su propio objeto dentro de blocks con name, duration, reps/rest y instructions propios.',
       'Ejemplo correcto: un block con name "Jumping jacks", otro block con name "Sentadillas con salto", otro block con name "Mountain climbers".',
-      'Divide la sesion en partes reales: calentamiento, bloque principal y cierre/vuelta a la calma cuando aplique. Cada parte debe tener sus propios blocks.',
+      'Divide la sesión en partes reales: calentamiento, bloque principal y cierre/vuelta a la calma cuando aplique. Cada parte debe tener sus propios blocks.',
       'Mantén coherencia global entre calentamiento, parte principal y cierre.',
       'No dejes la rutina vacia ni incompleta.',
     ].join(' ')
@@ -488,7 +488,7 @@ export async function POST(request: NextRequest) {
     try {
       parsed = JSON.parse(rawText)
     } catch {
-      return errorResponse('La IA devolvio JSON invalido.', 502)
+      return errorResponse('La IA devolvió JSON inválido.', 502)
     }
 
     if (!parsed || typeof parsed !== 'object') {

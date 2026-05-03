@@ -806,7 +806,7 @@ function EmptyState({ equipoId }: { equipoId: string | null }) {
             Selecciona un equipo
           </h1>
           <p className="mt-2 text-sm font-medium text-[#5f6776]">
-            Necesitamos un equipo en la URL para mostrar estadisticas.
+            Necesitamos un equipo en la URL para mostrar estadísticas.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href="/equipos" className="rounded-full bg-[#005db6] px-5 py-3 text-sm font-black text-white">
@@ -829,7 +829,7 @@ function ErrorState({ equipoId, message }: { equipoId: string; message: string }
       <main className="flex min-h-screen flex-1 items-center justify-center p-6">
         <section className="w-full max-w-xl rounded-xl border border-[#dfe3e8] bg-white p-8 shadow-[0_20px_40px_rgba(0,93,182,0.06)]">
           <h1 className="[font-family:var(--font-plus-jakarta)] text-2xl font-black text-[#181c20]">
-            No se pudieron cargar las estadisticas
+            No se pudieron cargar las estadísticas
           </h1>
           <p className="mt-2 text-sm font-bold text-[#ba1a1a]">{message}</p>
           <div className="mt-6 flex flex-wrap gap-3">

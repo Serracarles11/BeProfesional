@@ -109,7 +109,7 @@ export function AppSidebar({ clubName, clubHref }: ClubSidebarProps) {
   const items: NavItem[] = [
     { id: "home", label: "Home", href: `${clubHref}#home`, icon: LayoutDashboard },
     { id: "equipos", label: "Equipos", href: `${clubHref}#equipos`, icon: Users },
-    { id: "estadisticas", label: "Estadisticas", href: `${clubHref}#estadisticas`, icon: BarChart3 },
+    { id: "estadisticas", label: "Estadísticas", href: `${clubHref}#estadisticas`, icon: BarChart3 },
     { id: "partidos", label: "Partidos", href: `${clubHref}#partidos`, icon: CalendarDays },
     { id: "entrenamientos", label: "Entrenamientos", href: `${clubHref}/entrenamientos`, icon: CalendarDays },
     { id: "jugadores", label: "Jugadores", href: `${clubHref}/jugadores`, icon: UserRound },
@@ -267,7 +267,7 @@ export function AppSidebar({ clubName, clubHref }: ClubSidebarProps) {
                 Notificaciones
               </p>
               <p className="mt-1 [font-family:var(--font-plus-jakarta)] text-sm font-bold text-[#181c20]">
-                {unreadCount > 0 ? `${unreadCount} sin leer` : "Al dia"}
+                {unreadCount > 0 ? `${unreadCount} sin leer` : "Al día"}
               </p>
             </div>
             <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#eaf2ff] text-[#005db6]">
@@ -360,7 +360,7 @@ export function AppSidebar({ clubName, clubHref }: ClubSidebarProps) {
               ) : (
                 <div className="rounded-2xl border border-dashed border-[#d9e4f7] bg-[#f8fbff] px-4 py-5">
                   <p className="text-sm font-semibold text-[#5f6776]">
-                    No tienes notificaciones todavia.
+                    No tienes notificaciones todavía.
                   </p>
                 </div>
               )}

@@ -955,7 +955,7 @@ export async function PUT(request: NextRequest) {
         )
       : null
 
-    if (!matchId) return createErrorResponse('matchId invalido.', 400)
+    if (!matchId) return createErrorResponse('matchId inválido.', 400)
     if (!requestedPlayerIds) return createErrorResponse('Lista de jugadores invalida.', 400)
 
     const matchResult = await db
@@ -979,7 +979,7 @@ export async function PUT(request: NextRequest) {
     }
 
     if (!isFutureUnplayedMatch(match.fecha_hora, match.estado)) {
-      return createErrorResponse('Solo puedes editar la convocatoria de un partido que todavia no se ha jugado.', 400)
+      return createErrorResponse('Solo puedes editar la convocatoria de un partido que todavía no se ha jugado.', 400)
     }
 
     const membershipResult = await supabase
@@ -1197,12 +1197,12 @@ export async function PATCH(request: NextRequest) {
     const opponentGoals = parseCounter(body.opponentGoals)
     const opponentGoalMinutes = parseOptionalMinuteList(body.opponentGoalMinutes)
 
-    if (!matchId) return createErrorResponse('matchId invalido.', 400)
+    if (!matchId) return createErrorResponse('matchId inválido.', 400)
     if (opponentGoals === null || opponentGoalMinutes === null) {
-      return createErrorResponse('Resultado invalido.', 400)
+      return createErrorResponse('Resultado inválido.', 400)
     }
     if (opponentGoalMinutes.length > opponentGoals) {
-      return createErrorResponse('Hay mas minutos de gol que goles en contra.', 400)
+      return createErrorResponse('Hay más minutos de gol que goles en contra.', 400)
     }
 
     const matchResult = await db
@@ -1307,7 +1307,7 @@ export async function POST(request: NextRequest) {
     const yellowCards = parseCounter(body.yellowCards)
     const redCards = parseCounter(body.redCards)
 
-    if (!matchId) return createErrorResponse('matchId invalido.', 400)
+    if (!matchId) return createErrorResponse('matchId inválido.', 400)
     if (minutes === null || goals === null || assists === null || yellowCards === null || redCards === null) {
       return createErrorResponse('Estadisticas invalidas.', 400)
     }
@@ -1350,7 +1350,7 @@ export async function POST(request: NextRequest) {
     const viewerIsCoach = isCoachRole(membershipResult.data.rol)
 
     if (!viewerIsPlayer && !viewerIsCoach) {
-      return createErrorResponse('No tienes permiso para editar estadisticas.', 403)
+      return createErrorResponse('No tienes permiso para editar estadísticas.', 403)
     }
 
     const targetPlayerId = viewerIsCoach ? requestedPlayerId : user.id
@@ -1383,8 +1383,8 @@ export async function POST(request: NextRequest) {
     if (!isOpenForStats) {
       return createErrorResponse(
         viewerIsCoach
-          ? 'No se pudieron habilitar las estadisticas de este partido.'
-          : 'Solo puedes modificar tus estadisticas durante las 48 horas posteriores al partido.',
+          ? 'No se pudieron habilitar las estadísticas de este partido.'
+          : 'Solo puedes modificar tus estadísticas durante las 48 horas posteriores al partido.',
         400
       )
     }
@@ -1535,7 +1535,7 @@ export async function POST(request: NextRequest) {
       if (insertEventsResult.error) {
         console.error('POST /api/partidos - insert events failed:', insertEventsResult.error)
         return createErrorResponse(
-          `No se pudieron registrar tus estadisticas de partido. ${getErrorMessage(insertEventsResult.error, '')}`.trim(),
+          `No se pudieron registrar tus estadísticas de partido. ${getErrorMessage(insertEventsResult.error, '')}`.trim(),
           isRlsViolation(insertEventsResult.error) ? 403 : 500
         )
       }
@@ -1549,8 +1549,8 @@ export async function POST(request: NextRequest) {
       if (viewerIsCoach && targetPlayerId !== user.id) {
         await notifyTeamMembers(db, match.equipo_id, {
           tipo: 'estadisticas_actualizadas',
-          titulo: 'Estadisticas actualizadas',
-          mensaje: `El entrenador ha actualizado tus estadisticas contra ${rivalLabel}.`,
+          titulo: 'Estadísticas actualizadas',
+          mensaje: `El entrenador ha actualizado tus estadísticas contra ${rivalLabel}.`,
           enlace: `/partidos?equipo=${encodeURIComponent(match.equipo_id)}&matchId=${encodeURIComponent(matchId)}`,
         })
       } else if (!viewerIsCoach) {
@@ -1563,8 +1563,8 @@ export async function POST(request: NextRequest) {
 
         await notifyTeamMembers(db, match.equipo_id, {
           tipo: 'partido_actualizado',
-          titulo: 'Estadisticas de partido actualizadas',
-          mensaje: `${playerName} ha actualizado sus estadisticas contra ${rivalLabel}.`,
+          titulo: 'Estadísticas de partido actualizadas',
+          mensaje: `${playerName} ha actualizado sus estadísticas contra ${rivalLabel}.`,
           enlace: `/partidos?equipo=${encodeURIComponent(match.equipo_id)}&matchId=${encodeURIComponent(matchId)}`,
         })
       }
@@ -1583,6 +1583,6 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error en POST /api/partidos:', error)
-    return createErrorResponse('No se pudieron guardar tus estadisticas.', 500)
+    return createErrorResponse('No se pudieron guardar tus estadísticas.', 500)
   }
 }

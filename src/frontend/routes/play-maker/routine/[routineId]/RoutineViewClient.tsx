@@ -89,7 +89,7 @@ function buildDetailSections(block: RoutineBlock) {
       tone: 'neutral' as const,
     },
     {
-      title: 'Progresion o variante',
+      title: 'Progresión o variante',
       items: splitRoutineDetailText(block.progression),
       tone: 'muted' as const,
     },
@@ -290,9 +290,9 @@ export default function RoutineViewClient({ equipo, routine, canEdit = true }: R
 
           <section className="mb-8 grid grid-cols-4 gap-4 rounded-xl border border-[#d8dee8] bg-white p-5">
             <MetaItem label="Equipo" value={equipo.nombre} />
-            <MetaItem label="Categoria" value={routine.category || equipo.categoria || 'Sin categoria'} />
+            <MetaItem label="Categoría" value={routine.category || equipo.categoria || 'Sin categoría'} />
             <MetaItem label="Fases" value={routine.phases.join(' / ') || routine.phase || 'Sin fase'} />
-            <MetaItem label="Duracion" value={`${routine.duration} minutos`} />
+            <MetaItem label="Duración" value={`${routine.duration} minutos`} />
           </section>
 
           <section className="mb-10 grid grid-cols-4 gap-4">

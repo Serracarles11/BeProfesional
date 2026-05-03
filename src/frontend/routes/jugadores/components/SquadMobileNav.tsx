@@ -15,7 +15,7 @@ export function SquadMobileNav({ equipoId }: SquadMobileNavProps) {
       <NavLink href={withEquipo('/home', equipoId)} label="Dash" icon={<LayoutDashboard className="h-4 w-4" />} />
       <NavLink href={withEquipo('/jugadores', equipoId)} label="Squad" active icon={<Users className="h-4 w-4" />} />
       <NavLink href={withEquipo('/partidos', equipoId)} label="Cal" icon={<CalendarDays className="h-4 w-4" />} />
-      <NavLink href={withEquipo('/estadisticas', equipoId)} label="Stats" icon={<BarChart3 className="h-4 w-4" />} />
+      <NavLink href={withEquipo('/estadisticas', equipoId)} label="Estadísticas" icon={<BarChart3 className="h-4 w-4" />} />
     </nav>
   )
 }

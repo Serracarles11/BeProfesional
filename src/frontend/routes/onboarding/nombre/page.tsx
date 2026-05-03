@@ -54,7 +54,7 @@ export default function NombrePage() {
 
       router.push('/onboarding/genero')
     } catch {
-      setError('Error de conexion')
+      setError('Error de conexión')
     } finally {
       setLoading(false)
     }

@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const resolution = ['180', '360', '720'].includes(requestedResolution) ? requestedResolution : '180'
 
     if (!/^[a-zA-Z0-9_-]{1,40}$/.test(exerciseId)) {
-      return errorResponse('exerciseId invalido.', 400)
+      return errorResponse('exerciseId inválido.', 400)
     }
 
     const url = new URL('/image', EXERCISEDB_BASE_URL)

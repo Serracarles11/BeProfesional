@@ -53,8 +53,8 @@ export async function GET(request: NextRequest) {
     const equipoId = url.searchParams.get('equipoId')?.trim() ?? ''
     const trainingId = url.searchParams.get('trainingId')?.trim() ?? ''
 
-    if (!equipoId) return createErrorResponse('equipoId invalido.', 400)
-    if (!trainingId) return createErrorResponse('trainingId invalido.', 400)
+    if (!equipoId) return createErrorResponse('equipoId inválido.', 400)
+    if (!trainingId) return createErrorResponse('trainingId inválido.', 400)
 
     const [membershipResult, teamOwnerResult, trainingResult] = await Promise.all([
       supabase

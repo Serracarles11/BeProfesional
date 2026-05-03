@@ -42,7 +42,7 @@ export default function GeneroPage() {
 
       router.push('/onboarding/edad')
     } catch {
-      setError('Error de conexion')
+      setError('Error de conexión')
     } finally {
       setLoading(false)
     }
@@ -57,7 +57,7 @@ export default function GeneroPage() {
             <span className="text-3xl">⚧️</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-800 mb-1">
-            ¿Cual es tu genero?
+            ¿Cuál es tu género?
           </h1>
           <p className="text-gray-500 text-sm">
             Selecciona la opcion con la que te identifies

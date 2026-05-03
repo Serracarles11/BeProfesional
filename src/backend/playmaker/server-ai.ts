@@ -145,8 +145,8 @@ export function validateAnalysisPayload(value: unknown, draft: BoardDraft): Anal
   const verdict = typeof payload.verdict === 'string' ? payload.verdict.trim() : ''
   const mainProblem = typeof payload.main_problem === 'string' ? payload.main_problem.trim() : ''
 
-  if (!verdict) errors.push('Falta `verdict` o no es texto valido.')
-  if (!mainProblem) errors.push('Falta `main_problem` o no es texto valido.')
+  if (!verdict) errors.push('Falta `verdict` o no es texto válido.')
+  if (!mainProblem) errors.push('Falta `main_problem` o no es texto válido.')
 
   const confidence =
     payload.confidence === 'low' || payload.confidence === 'medium' || payload.confidence === 'high'
@@ -159,7 +159,7 @@ export function validateAnalysisPayload(value: unknown, draft: BoardDraft): Anal
   const recommendations = rawRecommendations
     .map((item, index) => {
       if (!item || typeof item !== 'object') {
-        errors.push(`recommendations[${index}] no es un objeto valido.`)
+        errors.push(`recommendations[${index}] no es un objeto válido.`)
         return null
       }
 
@@ -168,8 +168,8 @@ export function validateAnalysisPayload(value: unknown, draft: BoardDraft): Anal
       const reason = typeof recommendation.reason === 'string' ? recommendation.reason.trim() : ''
       const changes = sanitizeRecommendationChanges(recommendation.changes, activePhase)
 
-      if (!title) errors.push(`recommendations[${index}] no tiene title valido.`)
-      if (!reason) errors.push(`recommendations[${index}] no tiene reason valido.`)
+      if (!title) errors.push(`recommendations[${index}] no tiene title válido.`)
+      if (!reason) errors.push(`recommendations[${index}] no tiene reason válido.`)
 
       if (Array.isArray(recommendation.changes) && recommendation.changes.length > 0 && changes.length === 0) {
         errors.push(`recommendations[${index}] incluye changes, pero ninguno es aplicable de forma segura.`)
@@ -313,8 +313,8 @@ export function validateImprovementPayload(value: unknown, draft: BoardDraft): I
     .filter((change): change is PlaymakerImprovementChange => Boolean(change))
     .slice(0, 8)
 
-  if (!improvedVerdict) errors.push('Falta `improved_verdict` o no es texto valido.')
-  if (!improvementGoal) errors.push('Falta `improvement_goal` o no es texto valido.')
+  if (!improvedVerdict) errors.push('Falta `improved_verdict` o no es texto válido.')
+  if (!improvementGoal) errors.push('Falta `improvement_goal` o no es texto válido.')
   if (rawChanges.length === 0) errors.push('La mejora no incluye cambios.')
   if (rawChanges.length > 0 && changes.length === 0) errors.push('Ningun cambio sugerido era seguro para aplicar.')
 
@@ -393,8 +393,8 @@ export function buildFallbackImprovement(draft: BoardDraft, analysis?: Playmaker
   const fallbackElement = activePhase.elements.find((element) => element.type === 'marker' && element.color === 'blue')
 
   return {
-    improved_verdict: 'La mejora propone una version algo mas estable de la misma idea.',
-    improvement_goal: 'dar mas apoyo al poseedor y proteger mejor la perdida',
+    improved_verdict: 'La mejora propone una versión algo más estable de la misma idea.',
+    improvement_goal: 'dar más apoyo al poseedor y proteger mejor la pérdida',
     changes: fallbackElement
       ? [
           {
@@ -407,6 +407,6 @@ export function buildFallbackImprovement(draft: BoardDraft, analysis?: Playmaker
           },
         ]
       : [],
-    expected_benefits: ['mejor rest defence', 'progresion algo mas segura'],
+    expected_benefits: ['mejor rest defence', 'progresión algo más segura'],
   }
 }

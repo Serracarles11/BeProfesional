@@ -52,7 +52,7 @@ export function SquadHighlights({ summary, equipoId }: SquadHighlightsProps) {
 
         <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#727785]">Next Match Ready</p>
         <h4 className="mb-3 [font-family:var(--font-plus-jakarta)] text-2xl font-extrabold text-[#181c20]">MATCH PREP</h4>
-        <p className="mb-2 text-sm text-[#727785]">Indice de preparacion fisica actual: {summary.readinessIndex}%.</p>
+        <p className="mb-2 text-sm text-[#727785]">Índice de preparación física actual: {summary.readinessIndex}%.</p>
         <p className="mb-6 text-xs font-semibold uppercase tracking-[0.1em] text-[#3176d2]">{formatNextMatch(summary)}</p>
 
         <Link

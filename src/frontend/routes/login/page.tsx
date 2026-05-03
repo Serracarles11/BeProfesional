@@ -46,7 +46,7 @@ function LoginContent() {
       const data = await res.json()
 
       if (!data.ok) {
-        setError(data.error || 'Error al iniciar sesion')
+        setError(data.error || 'Error al iniciar sesión')
         setShake(true)
         setTimeout(() => setShake(false), 500)
         return
@@ -55,7 +55,7 @@ function LoginContent() {
       router.push(data.redirectTo || '/equipos')
       router.refresh()
     } catch {
-      setError('Error de conexion')
+      setError('Error de conexión')
       setShake(true)
       setTimeout(() => setShake(false), 500)
     } finally {
@@ -126,7 +126,7 @@ function LoginContent() {
 
           <div className="mb-8">
             <h2 className="text-[1.75rem] font-black tracking-tight text-[#181c20]">Bienvenido</h2>
-            <p className="mt-1.5 text-sm font-medium text-slate-500">Inicia sesion en tu cuenta</p>
+            <p className="mt-1.5 text-sm font-medium text-slate-500">Inicia sesión en tu cuenta</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -197,7 +197,7 @@ function LoginContent() {
 
           <div className="mt-10 border-t border-[#e8edf5] pt-6">
             <p className="text-center text-[11px] font-medium text-slate-400">
-              ¿Tienes un codigo de equipo?{' '}
+              ¿Tienes un código de equipo?{' '}
               <Link href="/unirse" className="font-bold text-[#1A73E8] hover:text-[#1557B0] transition-colors">
                 Unirte directamente
               </Link>

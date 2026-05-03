@@ -278,7 +278,7 @@ export function InsightCard({
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#738197]">
-                  Eventos del dia
+                  Eventos del día
                 </p>
                 <h4 className="[font-family:var(--font-plus-jakarta)] text-lg font-bold text-[#111827]">
                   {selectedDateLabel}
@@ -344,7 +344,7 @@ export function InsightCard({
                 ))
               ) : (
                 <div className="rounded-2xl border border-dashed border-[#d7e1f1] bg-white px-4 py-10 text-center text-sm text-[#6b7280]">
-                  No hay eventos para este dia.
+                  No hay eventos para este día.
                 </div>
               )}
             </div>

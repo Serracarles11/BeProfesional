@@ -190,11 +190,11 @@ function buildDescription(args: {
 
   return [
     phase ? `Fase: ${phase}` : null,
-    trainingCategory ? `Categoria: ${categoryLabel(trainingCategory)}` : null,
+    trainingCategory ? `Categoría: ${categoryLabel(trainingCategory)}` : null,
     objective ? `Objetivo general: ${objective}` : null,
     targetGroup ? `Grupo: ${targetGroup}` : null,
     playerCount ? `Jugadores: ${playerCount}` : null,
-    duration ? `Duracion: ${duration}` : null,
+    duration ? `Duración: ${duration}` : null,
     sets ? `Series: ${sets}` : null,
     reps ? `Repeticiones: ${reps}` : null,
     rest ? `Descanso: ${rest}s` : null,
@@ -202,7 +202,7 @@ function buildDescription(args: {
     setup ? `Montaje: ${setup}` : null,
     instructions ? `Consignas: ${instructions}` : null,
     coachingPoints.length > 0 ? `Puntos clave: ${coachingPoints.join('; ')}` : null,
-    progression ? `Progresion: ${progression}` : null,
+    progression ? `Progresión: ${progression}` : null,
     notes ? `Notas: ${notes}` : null,
   ]
     .filter(Boolean)
@@ -331,7 +331,7 @@ async function saveRoutine(request: NextRequest, mode: 'create' | 'update') {
   const blocks = Array.isArray(body.blocks) ? (body.blocks as ExerciseBlock[]) : []
 
   if (!equipoId) return errorResponse('equipoId es obligatorio.')
-  if (!title) return errorResponse('El titulo de la rutina es obligatorio.')
+  if (!title) return errorResponse('El título de la rutina es obligatorio.')
   if (mode === 'update' && !parseString(body.routineId)) {
     return errorResponse('routineId es obligatorio.')
   }
@@ -380,7 +380,7 @@ async function saveRoutine(request: NextRequest, mode: 'create' | 'update') {
   })
 
   if (rows.length === 0) {
-    return errorResponse('Anade al menos un bloque valido antes de guardar.')
+    return errorResponse('Añade al menos un bloque válido antes de guardar.')
   }
 
   const insertResult = await admin.from('ejercicios').insert(rows).select('id')

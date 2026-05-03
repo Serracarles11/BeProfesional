@@ -138,7 +138,7 @@ export function buildInsight(payload: DashboardHomeSuccess) {
     return {
       title: 'AI Insight: Ajuste Defensivo',
       description:
-        'El equipo esta recibiendo mas goles de los que anota en la muestra reciente. Se recomienda reforzar bloque medio y transiciones tras perdida durante esta semana.',
+        'El equipo está recibiendo más goles de los que anota en la muestra reciente. Se recomienda reforzar bloque medio y transiciones tras pérdida durante esta semana.',
     }
   }
 
@@ -154,7 +154,7 @@ export function buildInsight(payload: DashboardHomeSuccess) {
     const rival = schedule.nextMatch.rival_nombre ?? 'rival pendiente'
     return {
       title: 'AI Insight: Preparacion de Partido',
-      description: `Proximo encuentro frente a ${rival}. Recomendacion: sesion tactica corta y trabajo especifico por lineas para llegar con mejor frescura.`,
+      description: `Próximo encuentro frente a ${rival}. Recomendación: sesión táctica corta y trabajo específico por líneas para llegar con mejor frescura.`,
     }
   }
 

@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     const systemPrompt = [
       'Eres un analista de rendimiento para un equipo deportivo.',
       'Responde SIEMPRE en espanol.',
-      'Devuelve SOLO JSON valido (sin markdown, sin comentarios).',
+      'Devuelve SOLO JSON válido (sin markdown, sin comentarios).',
       'Usa este esquema exacto:',
       '{"summary":"", "key_metrics":[{"label":"","value":""}], "risks":[""], "recommendations":[""], "next_session_focus":[""]}',
       'Las recomendaciones deben ser practicas y accionables para el cuerpo tecnico.',
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
 
     const userPrompt = JSON.stringify(
       {
-        objetivo: `Generar recomendaciones de entreno enfocadas en los ultimos ${days} dias`,
+        objetivo: `Generar recomendaciones de entreno enfocadas en los últimos ${days} días`,
         contexto: modelInput,
       },
       null,
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
     try {
       parsed = JSON.parse(jsonText)
     } catch {
-      return errorResponse('La IA devolvio JSON invalido.', 502, 'INVALID_AI_JSON')
+      return errorResponse('La IA devolvió JSON inválido.', 502, 'INVALID_AI_JSON')
     }
 
     const insight = normalizeTrainingInsightPayload(parsed)
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
 
     if (insertRes.error) {
       console.error('Error guardando ia_recomendaciones:', insertRes.error)
-      return errorResponse('Se genero la recomendacion pero no se pudo guardar.', 500, 'SAVE_FAILED')
+      return errorResponse('Se generó la recomendación pero no se pudo guardar.', 500, 'SAVE_FAILED')
     }
 
     return NextResponse.json({

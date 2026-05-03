@@ -182,7 +182,7 @@ export default function CrearEquipoPage() {
         redirectTo: data.redirectTo,
       })
     } catch (submitError) {
-      const message = submitError instanceof Error ? submitError.message : 'Error de conexion. Vuelve a intentarlo.'
+      const message = submitError instanceof Error ? submitError.message : 'Error de conexión. Vuelve a intentarlo.'
       setError(message)
       setErrorDebug(null)
     } finally {
@@ -197,7 +197,7 @@ export default function CrearEquipoPage() {
       setCopied(type)
       setTimeout(() => setCopied(null), 1800)
     } catch {
-      setError('No se pudo copiar el codigo.')
+      setError('No se pudo copiar el código.')
     }
   }
 
@@ -321,7 +321,7 @@ export default function CrearEquipoPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label htmlFor="categoria" className="mb-2 block text-sm font-medium text-gray-700">
-                  Categoria *
+                  Categoría *
                 </label>
                 <select
                   id="categoria"

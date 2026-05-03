@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
     const mensajeId = getMessageId(body)
 
     if (!mensajeId) {
-      return createErrorResponse('mensajeId invalido.', 400)
+      return createErrorResponse('mensajeId inválido.', 400)
     }
 
     const supabase = await createSupabaseRouteHandler()
@@ -174,7 +174,7 @@ export async function DELETE(request: NextRequest) {
     const mensajeId = request.nextUrl.searchParams.get('mensajeId')?.trim() ?? null
 
     if (!mensajeId) {
-      return createErrorResponse('mensajeId invalido.', 400)
+      return createErrorResponse('mensajeId inválido.', 400)
     }
 
     const supabase = await createSupabaseRouteHandler()

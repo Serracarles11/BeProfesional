@@ -102,9 +102,9 @@ export function ChartAreaInteractive({
             variant="outline"
             className="hidden *:data-[slot=toggle-group-item]:px-4! @[767px]/card:flex"
           >
-            <ToggleGroupItem value="90d">Ultimos 3 meses</ToggleGroupItem>
-            <ToggleGroupItem value="30d">Ultimos 30 dias</ToggleGroupItem>
-            <ToggleGroupItem value="7d">Ultimos 7 dias</ToggleGroupItem>
+            <ToggleGroupItem value="90d">Últimos 3 meses</ToggleGroupItem>
+            <ToggleGroupItem value="30d">Últimos 30 días</ToggleGroupItem>
+            <ToggleGroupItem value="7d">Últimos 7 días</ToggleGroupItem>
           </ToggleGroup>
           <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger
@@ -112,17 +112,17 @@ export function ChartAreaInteractive({
               size="sm"
               aria-label="Select a value"
             >
-              <SelectValue placeholder="Ultimos 3 meses" />
+              <SelectValue placeholder="Últimos 3 meses" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
               <SelectItem value="90d" className="rounded-lg">
-                Ultimos 3 meses
+                Últimos 3 meses
               </SelectItem>
               <SelectItem value="30d" className="rounded-lg">
-                Ultimos 30 dias
+                Últimos 30 días
               </SelectItem>
               <SelectItem value="7d" className="rounded-lg">
-                Ultimos 7 dias
+                Últimos 7 días
               </SelectItem>
             </SelectContent>
           </Select>

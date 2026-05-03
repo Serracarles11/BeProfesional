@@ -425,7 +425,7 @@ function fallbackDuration(block: RoutineBlock, rowDuration: number | null) {
 
 export function createEmptyRoutineDraft(): RoutineEditorDraft {
   return {
-    title: 'Rutina sin titulo',
+    title: 'Rutina sin título',
     objective: '',
     trainingCategory: 'POTENCIA',
     targetGroup: '',

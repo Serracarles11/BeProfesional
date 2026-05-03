@@ -91,7 +91,7 @@ export default function AlturaPage() {
 
       router.push('/onboarding/final')
     } catch {
-      setError('Error de conexion')
+      setError('Error de conexión')
     } finally {
       setLoading(false)
     }

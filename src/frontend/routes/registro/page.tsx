@@ -44,7 +44,7 @@ export default function RegistroPage() {
       router.push(data.redirectTo || '/unirse')
       router.refresh()
     } catch {
-      setError('Error de conexion')
+      setError('Error de conexión')
       setShake(true)
       setTimeout(() => setShake(false), 500)
     } finally {
@@ -192,7 +192,7 @@ export default function RegistroPage() {
             <p className="text-sm text-slate-500">
               ¿Ya tienes cuenta?{' '}
               <Link href="/login" className="font-bold text-[#1A73E8] hover:text-[#1557B0] transition-colors">
-                Inicia sesion
+                Inicia sesión
               </Link>
             </p>
           </div>

@@ -35,5 +35,5 @@ export function getServerOpenAiKeyError() {
     return `Falta configurar una clave OpenAI valida. Variables aceptadas: ${OPENAI_KEY_SOURCES.join(', ')}.`
   }
 
-  return `La clave OpenAI configurada no tiene un formato valido. Variables revisadas: ${foundSources.join(', ')}.`
+  return `La clave OpenAI configurada no tiene un formato válido. Variables revisadas: ${foundSources.join(', ')}.`
 }

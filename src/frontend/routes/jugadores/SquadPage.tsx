@@ -56,7 +56,7 @@ export default function SquadPage() {
       setStatus('ready')
     } catch {
       setStatus('error')
-      setError('Error de conexion al cargar jugadores')
+      setError('Error de conexión al cargar jugadores')
     }
   }, [equipoId])
 

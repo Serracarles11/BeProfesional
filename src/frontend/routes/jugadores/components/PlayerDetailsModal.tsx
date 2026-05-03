@@ -174,7 +174,7 @@ export function PlayerDetailsModal({ player, equipoId, onClose }: PlayerDetailsM
               label="Peso"
               value={player.weightKg ? `${player.weightKg} kg` : '--'}
             />
-            <BadgeItem icon={<UserRound className="h-4 w-4 text-[#005db6]" />} label="Genero" value={valueOrDash(player.gender)} />
+            <BadgeItem icon={<UserRound className="h-4 w-4 text-[#005db6]" />} label="Género" value={valueOrDash(player.gender)} />
             <BadgeItem icon={<Phone className="h-4 w-4 text-[#005db6]" />} label="Telefono" value={valueOrDash(player.phone)} />
             <BadgeItem icon={<CalendarDays className="h-4 w-4 text-[#005db6]" />} label="Alta" value={joinedAtLabel(player.joinedAt)} />
           </div>
@@ -225,7 +225,7 @@ export function PlayerDetailsModal({ player, equipoId, onClose }: PlayerDetailsM
                 href={withEquipo('/estadisticas', equipoId)}
                 className="rounded-full bg-[#ebeef3] px-6 py-3 text-sm font-bold text-[#181c20] transition hover:bg-[#dfe3e8]"
               >
-                Ir a estadisticas
+                Ir a estadísticas
               </Link>
               <button
                 type="button"

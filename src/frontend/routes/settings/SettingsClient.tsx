@@ -509,7 +509,7 @@ export default function SettingsPage() {
     setSuccess('')
 
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      setError('Formato no valido. Usa JPG, PNG o WEBP.')
+      setError('Formato no válido. Usa JPG, PNG o WEBP.')
       setUploadingPhoto(false)
       return
     }
@@ -534,7 +534,7 @@ export default function SettingsPage() {
       } = await supabase.auth.getUser()
 
       if (userError || !user) {
-        setError('No se pudo validar la sesion para subir la foto.')
+        setError('No se pudo validar la sesión para subir la foto.')
         return
       }
 
@@ -672,7 +672,7 @@ export default function SettingsPage() {
 
                     <div className="grid gap-3 md:grid-cols-2">
 
-                    <SelectField label="Categoria" value={team.categoria} onChange={handleTeamCategoriaChange} disabled={saving}>
+                    <SelectField label="Categoría" value={team.categoria} onChange={handleTeamCategoriaChange} disabled={saving}>
                       <option value="">Selecciona categoria</option>
                       {CATEGORIAS_EQUIPO.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -710,7 +710,7 @@ export default function SettingsPage() {
                 <InputField label="Nombre" value={profile.nombre} onChange={(value) => setField('nombre', value)} />
                 <InputField label="Email (solo lectura)" value={email} onChange={() => {}} readOnly />
 
-                <InputField label="Genero" value={profile.genero} onChange={(value) => setField('genero', value)} />
+                <InputField label="Género" value={profile.genero} onChange={(value) => setField('genero', value)} />
                 <InputField label="Posicion" value={profile.posicion} onChange={(value) => setField('posicion', value)} />
 
                 <InputField
@@ -735,7 +735,7 @@ export default function SettingsPage() {
                   label="Objetivo deportivo"
                   value={profile.objetivo}
                   onChange={(value) => setField('objetivo', value)}
-                  placeholder="Objetivos de temporada, metas fisicas o tacticas..."
+                  placeholder="Objetivos de temporada, metas físicas o tácticas..."
                   rows={3}
                 />
                 <TextareaField

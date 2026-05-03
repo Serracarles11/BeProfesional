@@ -12,7 +12,7 @@ const AI_CHAT_TITLE_PREFIX = 'AI_CHAT::'
 const MAX_AI_CONTEXT_MESSAGES = 20
 const AI_SYSTEM_PROMPT = `Eres BePro IA, un asistente de futbol para entrenadores y jugadores.
 Responde siempre en espanol, de forma clara, breve y practica.
-Ayuda con tactica, planificacion de entrenamientos, analisis de rendimiento y recuperacion fisica.`
+Ayuda con táctica, planificación de entrenamientos, análisis de rendimiento y recuperación física.`
 
 type ChatRow = {
   id: string
@@ -126,7 +126,7 @@ async function getChatAccess(
         access: {
           allowed: false,
           canSend: false,
-          message: 'Canal privado invalido.',
+          message: 'Canal privado inválido.',
         } satisfies ChatAccess,
         chat,
       }
@@ -358,11 +358,11 @@ export async function POST(request: NextRequest) {
     const text = typeof body?.text === 'string' ? body.text.trim() : ''
 
     if (!chatId) {
-      return createErrorResponse('chatId invalido.', 400)
+      return createErrorResponse('chatId inválido.', 400)
     }
 
     if (!text) {
-      return createErrorResponse('text invalido.', 400)
+      return createErrorResponse('Texto inválido.', 400)
     }
 
     const supabase = await createSupabaseRouteHandler()

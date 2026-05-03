@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!ALLOWED_TYPES.has(file.type)) {
-      return NextResponse.json({ ok: false, error: 'Formato no valido. Usa JPG, PNG o WEBP.' }, { status: 400 })
+      return NextResponse.json({ ok: false, error: 'Formato no válido. Usa JPG, PNG o WEBP.' }, { status: 400 })
     }
 
     if (file.size > MAX_FILE_SIZE) {

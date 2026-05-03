@@ -380,7 +380,7 @@ function summarizeLastChange(previousPhase: PhaseDraft | null, activePhase: Phas
       movementDirection === 'forward'
         ? 'La fase actual adelanta alturas respecto a la fase anterior.'
         : movementDirection === 'backward'
-          ? 'La fase actual protege mas la estructura que la fase anterior.'
+          ? 'La fase actual protege más la estructura que la fase anterior.'
           : 'La fase actual reorganiza alturas sin una direccion unica clara.',
     movement_direction: movementDirection,
     element_shift_count: movedCount,
@@ -419,7 +419,7 @@ function buildFallbackRecommendations(features: DerivedFeatures, phase: PhaseDra
     if (restDefender) {
       safeRecommendations.push({
         title: 'Mejora la rest defence',
-        reason: 'La jugada necesita una cobertura mas estable si se pierde el balon.',
+        reason: 'La jugada necesita una cobertura más estable si se pierde el balón.',
         changes: [
           {
             operation: 'move_element',

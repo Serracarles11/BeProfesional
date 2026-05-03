@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeft,
+  BrainCircuit,
   Dumbbell,
   Home,
   MessageSquare,
@@ -23,15 +24,20 @@ type NavItem = {
   icon: LucideIcon
   href?: string
   path?: string
+  mode?: string
   disabled?: boolean
 }
 
 function withEquipoQuery(basePath: string, equipoId: string | null) {
   if (!equipoId) return basePath
-  return `${basePath}?equipo=${encodeURIComponent(equipoId)}`
+  const separator = basePath.includes('?') ? '&' : '?'
+  return `${basePath}${separator}equipo=${encodeURIComponent(equipoId)}`
 }
 
-function isItemActive(pathname: string, path?: string) {
+function isItemActive(pathname: string, mode: string | null, item: NavItem) {
+  if (item.mode) return pathname === item.path && mode === item.mode
+  if (item.path === '/play-maker' && mode === 'maker') return false
+  const path = item.path
   if (!path) return false
   if (pathname === path) return true
   return pathname.startsWith(`${path}/`)
@@ -79,6 +85,7 @@ export default function DashboardSidebar({ equipoId }: DashboardSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const activeMode = searchParams.get('mode')
   const activeTeamId = equipoId ?? searchParams.get('equipo')
   const backItem: NavItem = {
     id: 'volver',
@@ -126,10 +133,18 @@ export default function DashboardSidebar({ equipoId }: DashboardSidebarProps) {
     },
     {
       id: 'play-maker',
-      label: 'Play Maker',
+      label: 'IA Coach',
       icon: Sparkles,
       path: '/play-maker',
       href: withEquipoQuery('/play-maker', activeTeamId),
+    },
+    {
+      id: 'play-maker-ai',
+      label: 'Play Maker',
+      icon: BrainCircuit,
+      path: '/play-maker',
+      mode: 'maker',
+      href: withEquipoQuery('/play-maker?mode=maker', activeTeamId),
     },
     {
       id: 'settings',
@@ -150,14 +165,14 @@ export default function DashboardSidebar({ equipoId }: DashboardSidebarProps) {
             </div>
             <SidebarButton
               item={backItem}
-              active={isItemActive(pathname, backItem.path)}
+              active={isItemActive(pathname, activeMode, backItem)}
               onClick={() => router.push('/equipos')}
             />
             {items.map((item) => (
               <SidebarButton
                 key={item.id}
                 item={item}
-                active={isItemActive(pathname, item.path)}
+                active={isItemActive(pathname, activeMode, item)}
                 onClick={item.href && !item.disabled ? () => router.push(item.href as string) : undefined}
               />
             ))}
@@ -173,7 +188,7 @@ export default function DashboardSidebar({ equipoId }: DashboardSidebarProps) {
         <div className="flex items-center justify-between rounded-[28px] border border-white/14 bg-[rgba(1,17,64,0.88)] px-3 py-3 shadow-[0_24px_60px_rgba(1,17,64,0.32)] backdrop-blur-xl">
           {[backItem, ...items].map((item) => {
             const Icon = item.icon
-            const active = isItemActive(pathname, item.path)
+            const active = isItemActive(pathname, activeMode, item)
 
             return (
               <button

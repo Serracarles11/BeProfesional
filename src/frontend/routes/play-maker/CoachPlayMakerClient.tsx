@@ -2123,7 +2123,7 @@ export default function PlayMakerClient() {
                   />
                   <p className="mt-2 flex items-start gap-1.5 text-[11px] font-medium text-[#727785]">
                     <span className="mt-0.5 inline-flex h-1 w-1 shrink-0 rounded-full bg-[#bfd0ef]" />
-                    Cuanto mejor expliques tu idea, mas exigente y especifica sera la lectura tactica.
+                    Cuanto mejor expliques tu idea, más exigente y específica será la lectura táctica.
                   </p>
                 </div>
 

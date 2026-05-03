@@ -38,7 +38,7 @@ const cards = [
   {
     key: "temporada",
     label: "Temporada",
-    helper: "Temporada mas repetida",
+    helper: "Temporada más repetida",
     icon: IconCalendarStats,
   },
   {

@@ -621,7 +621,7 @@ function ClubDashboardContent() {
                 <thead className="text-xs uppercase tracking-[0.14em] text-[#7a8699]">
                   <tr>
                     <th className="py-3 pr-4">Equipo</th>
-                    <th className="py-3 pr-4">Categoria</th>
+                    <th className="py-3 pr-4">Categoría</th>
                     <th className="py-3 pr-4">Año</th>
                     <th className="py-3 pr-4">Temporada</th>
                     <th className="py-3 pr-4">Ciudad</th>
@@ -655,7 +655,7 @@ function ClubDashboardContent() {
               </table>
             </div>
           ) : (
-            <EmptyState text="Este club todavia no tiene equipos vinculados." />
+            <EmptyState text="Este club todavía no tiene equipos vinculados." />
           )}
         </section>
 
@@ -720,7 +720,7 @@ function ClubDashboardContent() {
                   <tr>
                     <th className="py-3 pr-4">Nombre</th>
                     <th className="py-3 pr-4">Equipo</th>
-                    <th className="py-3 pr-4">Categoria</th>
+                    <th className="py-3 pr-4">Categoría</th>
                     <th className="py-3 pr-4">Dorsal</th>
                     <th className="py-3 pr-4">Posicion</th>
                     <th className="py-3 pr-4">Edad</th>
@@ -765,7 +765,7 @@ function ClubDashboardContent() {
                 <p className="font-semibold text-[#657086]">Check-ins diarios: {bienestar.checkins.length}</p>
                 <p className="font-semibold text-[#657086]">Registros de actividad: {bienestar.actividad.length}</p>
                 <div className="rounded-2xl bg-[#f6f8fc] p-4 text-xs font-semibold text-[#657086]">
-                  Ultimos registros cargados para el club. Las tablas completas quedan disponibles para ampliar el detalle.
+                  Últimos registros cargados para el club. Las tablas completas quedan disponibles para ampliar el detalle.
                 </div>
               </div>
             ) : (
@@ -850,7 +850,7 @@ function ClubDashboardContent() {
                   <tr>
                     <th className="py-3 pr-4">Fecha</th>
                     <th className="py-3 pr-4">Equipo</th>
-                    <th className="py-3 pr-4">Categoria</th>
+                    <th className="py-3 pr-4">Categoría</th>
                     <th className="py-3 pr-4">Competicion</th>
                     <th className="py-3 pr-4">Rival</th>
                     <th className="py-3 pr-4">Lugar</th>

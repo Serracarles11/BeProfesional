@@ -335,7 +335,7 @@ export function ClubTrainingCalendar({
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  No hay entrenamientos para este dia.
+                  No hay entrenamientos para este día.
                 </p>
               )}
             </div>
