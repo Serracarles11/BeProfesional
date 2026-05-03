@@ -74,6 +74,7 @@ type HomeSuccessResponse = {
       mentalState: number | null
       fatigue: number | null
       attendingTraining: boolean | null
+      comment: string | null
     }>
   }
   kpis: {
@@ -199,6 +200,7 @@ type TeamWellbeingRow = {
   estado_mental: number | null
   fatiga: number | null
   asiste_entrenamiento: boolean | null
+  comentario: string | null
 }
 
 type TeamAttendanceRow = {
@@ -724,7 +726,7 @@ export async function GET(request: NextRequest) {
         .maybeSingle(),
       supabase
         .from('home_bienestar_diario')
-        .select('usuario_id, estado_mental, fatiga, asiste_entrenamiento')
+        .select('usuario_id, estado_mental, fatiga, asiste_entrenamiento, comentario')
         .eq('equipo_id', activeTeam!.id)
         .eq('fecha', todayDateKey),
       supabase
@@ -978,6 +980,7 @@ export async function GET(request: NextRequest) {
           mentalState: row?.estado_mental ?? null,
           fatigue: row?.fatiga ?? null,
           attendingTraining: attendanceRow?.asiste ?? null,
+          comment: typeof row?.comentario === 'string' && row.comentario.trim() ? row.comentario.trim() : null,
         }
       })
 

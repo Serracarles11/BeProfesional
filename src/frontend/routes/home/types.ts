@@ -73,6 +73,7 @@ export type DashboardHomeSuccess = {
       mentalState: number | null
       fatigue: number | null
       attendingTraining: boolean | null
+      comment: string | null
     }>
   }
   kpis: {

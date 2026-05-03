@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Brain, Timer, Users, X } from 'lucide-react'
+import { Brain, MessageSquare, Timer, Users, X } from 'lucide-react'
 import type { DashboardHomeSuccess } from '../types'
 
 type CoachMetricId = 'mental' | 'fatigue' | 'availability'
@@ -29,6 +29,7 @@ function MetricIcon({ id }: { id: CoachMetricId }) {
 
 export function CoachMetricsGrid({ coachWellbeing }: CoachMetricsGridProps) {
   const [activeMetric, setActiveMetric] = useState<CoachMetricId | null>(null)
+  const [activeComment, setActiveComment] = useState<{ playerName: string; comment: string } | null>(null)
 
   const cards = useMemo(
     () => [
@@ -102,23 +103,62 @@ export function CoachMetricsGrid({ coachWellbeing }: CoachMetricsGridProps) {
                 coachWellbeing.players.map((player) => (
                   <div
                     key={player.id}
-                    className="flex items-center justify-between rounded-xl border border-[#e4e8f0] bg-[#f8faff] px-3 py-2"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-[#e4e8f0] bg-[#f8faff] px-3 py-2"
                   >
-                    <span className="text-sm font-semibold text-[#1f2530]">{player.name}</span>
-                    <span className="text-sm font-bold text-[#005db6]">
-                      {activeMetric === 'mental' && `${player.mentalState ?? '--'}/10`}
-                      {activeMetric === 'fatigue' && `${player.fatigue ?? '--'}/10`}
-                      {activeMetric === 'availability' &&
-                        (player.attendingTraining === null
-                          ? '--'
-                          : player.attendingTraining
-                          ? 'SI'
-                          : 'NO')}
-                    </span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[#1f2530]">{player.name}</span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {player.comment ? (
+                        <button
+                          type="button"
+                          onClick={() => setActiveComment({ playerName: player.name, comment: player.comment! })}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9e4f2] bg-white text-[#005db6] transition hover:bg-[#edf5ff]"
+                          aria-label={`Ver comentario de ${player.name}`}
+                          title="Ver comentario"
+                        >
+                          <MessageSquare className="h-4 w-4" strokeWidth={2} />
+                        </button>
+                      ) : null}
+                      <span className="min-w-[44px] text-right text-sm font-bold text-[#005db6]">
+                        {activeMetric === 'mental' && `${player.mentalState ?? '--'}/10`}
+                        {activeMetric === 'fatigue' && `${player.fatigue ?? '--'}/10`}
+                        {activeMetric === 'availability' &&
+                          (player.attendingTraining === null
+                            ? '--'
+                            : player.attendingTraining
+                            ? 'SI'
+                            : 'NO')}
+                      </span>
+                    </div>
                   </div>
                 ))
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {activeComment && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8a94a8]">Comentario</p>
+                <h3 className="truncate [font-family:var(--font-plus-jakarta)] text-lg font-bold text-[#181c20]">
+                  {activeComment.playerName}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveComment(null)}
+                className="rounded-md p-1 text-[#6d7381] transition hover:bg-[#f1f4f9]"
+                aria-label="Cerrar comentario"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="whitespace-pre-wrap rounded-xl border border-[#e4e8f0] bg-[#f8faff] p-4 text-sm leading-6 text-[#313946]">
+              {activeComment.comment}
+            </p>
           </div>
         </div>
       )}
