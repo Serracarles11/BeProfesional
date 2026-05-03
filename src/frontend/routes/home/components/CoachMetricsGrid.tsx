@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Brain, MessageSquare, Timer, Users, X } from 'lucide-react'
+import { Brain, Timer, Users, X } from 'lucide-react'
 import type { DashboardHomeSuccess } from '../types'
 
 type CoachMetricId = 'mental' | 'fatigue' | 'availability'
@@ -100,25 +100,21 @@ export function CoachMetricsGrid({ coachWellbeing }: CoachMetricsGridProps) {
                   No hay jugadores activos para mostrar.
                 </p>
               ) : (
-                coachWellbeing.players.map((player) => (
-                  <div
-                    key={player.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-[#e4e8f0] bg-[#f8faff] px-3 py-2"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[#1f2530]">{player.name}</span>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {player.comment ? (
-                        <button
-                          type="button"
-                          onClick={() => setActiveComment({ playerName: player.name, comment: player.comment! })}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9e4f2] bg-white text-[#005db6] transition hover:bg-[#edf5ff]"
-                          aria-label={`Ver comentario de ${player.name}`}
-                          title="Ver comentario"
-                        >
-                          <MessageSquare className="h-4 w-4" strokeWidth={2} />
-                        </button>
-                      ) : null}
-                      <span className="min-w-[44px] text-right text-sm font-bold text-[#005db6]">
+                coachWellbeing.players.map((player) => {
+                  const hasComment = Boolean(player.comment)
+                  const content = (
+                    <>
+                      <span className="flex min-w-0 flex-1 items-center gap-2">
+                        <span className="truncate text-sm font-semibold text-[#1f2530]">{player.name}</span>
+                        {hasComment ? (
+                          <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#0b78ff] shadow-[0_0_0_4px_rgba(11,120,255,0.12)]"
+                            aria-label="Tiene comentario"
+                            title="Tiene comentario"
+                          />
+                        ) : null}
+                      </span>
+                      <span className="min-w-[44px] shrink-0 text-right text-sm font-bold text-[#005db6]">
                         {activeMetric === 'mental' && `${player.mentalState ?? '--'}/10`}
                         {activeMetric === 'fatigue' && `${player.fatigue ?? '--'}/10`}
                         {activeMetric === 'availability' &&
@@ -128,9 +124,32 @@ export function CoachMetricsGrid({ coachWellbeing }: CoachMetricsGridProps) {
                             ? 'SI'
                             : 'NO')}
                       </span>
+                    </>
+                  )
+
+                  if (hasComment) {
+                    return (
+                      <button
+                        key={player.id}
+                        type="button"
+                        onClick={() => setActiveComment({ playerName: player.name, comment: player.comment! })}
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-[#d8e8ff] bg-[#f8faff] px-3 py-3 text-left transition hover:border-[#0b78ff] hover:bg-[#edf5ff]"
+                        aria-label={`Ver comentario de ${player.name}`}
+                      >
+                        {content}
+                      </button>
+                    )
+                  }
+
+                  return (
+                    <div
+                      key={player.id}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-[#e4e8f0] bg-[#f8faff] px-3 py-3"
+                    >
+                      {content}
                     </div>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
           </div>
