@@ -97,18 +97,38 @@ const SPANISH_EXERCISE_SEARCH_REPLACEMENTS: Array<[RegExp, string]> = [
   [/\belevaciones?\s+laterales?\b/gi, 'lateral raise'],
   [/\belevacion\s+lateral\b/gi, 'lateral raise'],
   [/\bpress\s+militar\b/gi, 'shoulder press'],
+  [/\bpress\s+de\s+hombros?\b/gi, 'shoulder press'],
   [/\bsentadillas?\s+con\s+salto\b/gi, 'jump squat'],
   [/\bsentadillas?\b/gi, 'squat'],
   [/\bflexiones?\b/gi, 'push up'],
   [/\bdominadas?\b/gi, 'pull up'],
   [/\bzancadas?\b/gi, 'lunge'],
+  [/\bzancadas?\s+con\s+salto\b/gi, 'jumping lunge'],
   [/\bplanchas?\b/gi, 'plank'],
   [/\bescaladores?\b/gi, 'mountain climber'],
   [/\babdominales?\b/gi, 'sit up'],
+  [/\bcrunch(?:es)?\b/gi, 'crunch'],
+  [/\bcrunch\s+bicicleta\b/gi, 'bicycle crunch'],
+  [/\bbicicleta\s+abdominal\b/gi, 'bicycle crunch'],
+  [/\belevaciones?\s+de\s+piernas?\b/gi, 'leg raise'],
   [/\bcurl\s+de\s+biceps\b/gi, 'biceps curl'],
   [/\bpeso\s+muerto\b/gi, 'deadlift'],
   [/\bremo\b/gi, 'row'],
   [/\bgemelos?\b/gi, 'calf raise'],
+  [/\bpuente\s+de\s+gluteos?\b/gi, 'glute bridge'],
+  [/\bhip\s+thrust\b/gi, 'hip thrust'],
+  [/\bsalto(?:s)?\s+de\s+tijera\b/gi, 'jumping jack'],
+  [/\bjumping\s+jacks?\b/gi, 'jumping jack'],
+  [/\bburpees?\b/gi, 'burpee'],
+  [/\bskaters?\b/gi, 'skater'],
+  [/\bsaltos?\s+laterales?\b/gi, 'side hop'],
+  [/\bdesplazamientos?\s+laterales?\b/gi, 'side shuffle'],
+  [/\brodillas?\s+arriba\b/gi, 'high knee'],
+  [/\bhigh\s+knees?\b/gi, 'high knee'],
+  [/\bstep\s*ups?\b/gi, 'step up'],
+  [/\bsubidas?\s+al\s+banco\b/gi, 'step up'],
+  [/\bwall\s+sit\b/gi, 'wall sit'],
+  [/\bsentadilla\s+isometrica\b/gi, 'wall sit'],
   [/\bsprint\s+en\s+el\s+sitio\b/gi, 'run in place'],
   [/\bcarrera\s+en\s+el\s+sitio\b/gi, 'run in place'],
 ]
@@ -160,6 +180,147 @@ function parseNullableString(value: unknown) {
   return parsed || null
 }
 
+const IMAGE_EXTENSION_REGEX = /\.(gif|png|jpe?g|webp|svg|bmp|avif)(\?.*)?$/i
+const GIF_EXTENSION_REGEX = /\.gif(\?.*)?$/i
+const URL_PATH_HINTS = ['/image', '/images', '/img', '/uploads', '/static', '/assets', '/media', '/photo', '/cdn-cgi/image']
+
+function isImageExtension(value: string) {
+  return IMAGE_EXTENSION_REGEX.test(value)
+}
+
+function isUrlLike(value: string) {
+  if (!value) return false
+  if (/^https?:\/\//i.test(value)) return true
+  if (/^data:image\//i.test(value)) return true
+  if (value.startsWith('//')) return true
+  if (value.startsWith('/api/')) return true
+  const lower = value.toLowerCase()
+  if (URL_PATH_HINTS.some((hint) => lower.includes(hint)) && !lower.startsWith(' ')) return true
+  if (isImageExtension(value)) return true
+  return false
+}
+
+const MEDIA_KEY_HINTS = [
+  'image', 'images', 'img',
+  'thumbnail', 'thumb', 'thumbnailurl', 'thumburl',
+  'imageurl', 'imagepath', 'imagesrc',
+  'gif', 'gifurl', 'animation', 'animationurl',
+  'media', 'mediaurl',
+  'video', 'videourl',
+  'exerciseimage', 'photo', 'photos', 'picture', 'pictures',
+  'icon', 'asset', 'assets', 'preview', 'cover', 'coverimage',
+  'urls', 'files', 'url', 'src', 'href',
+]
+
+function keyHintScore(normalizedKey: string) {
+  if (!normalizedKey) return 0
+  let score = 0
+  if (normalizedKey.includes('gif') || normalizedKey.includes('animation')) score += 60
+  if (normalizedKey.includes('hires') || normalizedKey.includes('large') || normalizedKey.includes('original')) score += 12
+  if (normalizedKey.includes('image') || normalizedKey.includes('img')) score += 30
+  if (normalizedKey.includes('photo') || normalizedKey.includes('picture')) score += 28
+  if (normalizedKey.includes('cover')) score += 22
+  if (normalizedKey.includes('media') || normalizedKey.includes('asset') || normalizedKey.includes('preview')) score += 18
+  if (normalizedKey.includes('exerciseimage')) score += 35
+  if (normalizedKey.includes('thumb')) score += 8
+  if (normalizedKey.includes('icon')) score -= 10
+  if (normalizedKey === 'url' || normalizedKey === 'urls' || normalizedKey === 'src' || normalizedKey === 'href' || normalizedKey === 'file' || normalizedKey === 'files') score += 4
+  if (normalizedKey.includes('video') && !normalizedKey.includes('image')) score -= 5
+  return score
+}
+
+function valueScore(value: string) {
+  let score = 0
+  if (GIF_EXTENSION_REGEX.test(value)) score += 60
+  else if (isImageExtension(value)) score += 25
+  if (/(?:^|[/?&])(?:resolution|size|width|height)=([0-9]{3,4})/i.test(value)) score += 6
+  if (/\b(360|480|512|720|1080)\b/.test(value)) score += 4
+  if (/\b(48|64|72|96)\b/.test(value)) score -= 4
+  return score
+}
+
+function isMediaCandidate(normalizedKey: string, value: string) {
+  if (!normalizedKey) return isImageExtension(value)
+  for (const hint of MEDIA_KEY_HINTS) {
+    if (normalizedKey.includes(hint)) return true
+  }
+  return isImageExtension(value)
+}
+
+type MediaCandidate = { key: string; normalizedKey: string; value: string; score: number; isGif: boolean }
+
+function collectMediaCandidates(value: unknown, parentKey = '', visited = new WeakSet<object>()): MediaCandidate[] {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return []
+    if (!isUrlLike(trimmed) && !isImageExtension(trimmed)) return []
+    const fullNormalizedKey = normalizeKey(parentKey)
+    if (!isMediaCandidate(fullNormalizedKey, trimmed)) return []
+    const score = keyHintScore(fullNormalizedKey) + valueScore(trimmed)
+    const isGif = fullNormalizedKey.includes('gif') || fullNormalizedKey.includes('animation') || GIF_EXTENSION_REGEX.test(trimmed)
+    return [{ key: parentKey, normalizedKey: fullNormalizedKey, value: trimmed, score, isGif }]
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => collectMediaCandidates(item, parentKey, visited))
+  }
+
+  if (!value || typeof value !== 'object') return []
+  if (visited.has(value as object)) return []
+  visited.add(value as object)
+
+  return Object.entries(value as Record<string, unknown>).flatMap(([key, item]) => {
+    const combinedKey = parentKey ? `${parentKey}.${key}` : key
+    return collectMediaCandidates(item, combinedKey, visited)
+  })
+}
+
+function dedupeCandidates(candidates: MediaCandidate[]) {
+  const seen = new Map<string, MediaCandidate>()
+  for (const candidate of candidates) {
+    const existing = seen.get(candidate.value)
+    if (!existing || existing.score < candidate.score) seen.set(candidate.value, candidate)
+  }
+  return [...seen.values()].sort((left, right) => right.score - left.score)
+}
+
+const EXERCISEDB_DEBUG = process.env.EXERCISEDB_DEBUG_IMAGES === '1'
+
+function logImageDiagnostics(payload: Record<string, unknown>, candidates: MediaCandidate[], picked: { gif: string | null; image: string | null }) {
+  if (!EXERCISEDB_DEBUG) return
+  const exerciseId = pickString(payload, ['exerciseId', 'id']) || '(sin id)'
+  const name = pickString(payload, ['name']) || '(sin nombre)'
+  if (candidates.length === 0) {
+    console.warn('[exercise-image] sin candidatos', { exerciseId, name, keys: Object.keys(payload) })
+    return
+  }
+  console.info('[exercise-image] candidatos', {
+    exerciseId,
+    name,
+    total: candidates.length,
+    top: candidates.slice(0, 5).map((candidate) => ({ key: candidate.key, score: candidate.score, value: candidate.value })),
+    picked,
+  })
+}
+
+function pickBestMediaUrl(payload: Record<string, unknown>, preferred: 'gif' | 'image') {
+  const candidates = dedupeCandidates(collectMediaCandidates(payload))
+  if (candidates.length === 0) {
+    logImageDiagnostics(payload, candidates, { gif: null, image: null })
+    return null
+  }
+
+  const gifCandidate = candidates.find((candidate) => candidate.isGif) ?? null
+  const imageCandidate = candidates.find((candidate) => !candidate.isGif) ?? null
+
+  const result = preferred === 'gif'
+    ? gifCandidate?.value ?? imageCandidate?.value ?? candidates[0]?.value ?? null
+    : imageCandidate?.value ?? gifCandidate?.value ?? candidates[0]?.value ?? null
+
+  logImageDiagnostics(payload, candidates, { gif: gifCandidate?.value ?? null, image: imageCandidate?.value ?? null })
+  return result
+}
+
 function uniqueStrings(values: string[]) {
   const seen = new Set<string>()
   return values.filter((item) => {
@@ -197,7 +358,7 @@ function translateArray(values: string[], dictionary: Record<string, string>) {
   return uniqueStrings(values.map((item) => translateMappedValue(item, dictionary)).filter(Boolean))
 }
 
-function buildExerciseImageUrl(exerciseId: string, resolution = 180) {
+function buildExerciseImageUrl(exerciseId: string, resolution = 360) {
   return `/api/play-maker/exercise-image?exerciseId=${encodeURIComponent(exerciseId)}&resolution=${resolution}`
 }
 
@@ -273,11 +434,18 @@ async function buildSearchCandidates(query: string) {
   const originalNormalized = normalizeSearchCandidate(original)
 
   const baseCandidates = uniqueStrings([
+    translated,
+    replaced,
+    original,
     normalized,
     replacedNormalized,
     originalNormalized,
     normalized.replace(/\blateral raise\b/i, 'dumbbell lateral raise'),
     normalized.replace(/\blateral raise\b/i, 'cable lateral raise'),
+    normalized.replace(/\bpush up\b/i, 'push-up'),
+    normalized.replace(/\bpull up\b/i, 'pull-up'),
+    normalized.replace(/\bjumping jack\b/i, 'jumping jacks'),
+    normalized.replace(/\bmountain climber\b/i, 'mountain climbers'),
   ].filter(Boolean))
 
   return baseCandidates
@@ -450,6 +618,8 @@ async function translateDetail(payload: Record<string, unknown>): Promise<Exerci
   const rawSecondaryMuscles = pickArray(payload, ['secondaryMuscles'])
   const rawEquipments = pickArray(payload, ['equipments', 'equipment'])
   const rawExerciseType = pickNullableString(payload, ['exerciseType', 'type', 'category'])
+  const imageUrl = pickBestMediaUrl(payload, 'image')
+  const gifUrl = pickBestMediaUrl(payload, 'gif') ?? buildExerciseImageUrl(exerciseId)
 
   const [name, overview, instructions, exerciseTips, variations, keywords] = await Promise.all([
     translateText(rawName),
@@ -473,8 +643,8 @@ async function translateDetail(payload: Record<string, unknown>): Promise<Exerci
     name,
     overview: overview || DEFAULT_OVERVIEW,
     instructions: instructions.length > 0 ? instructions : [DEFAULT_INSTRUCTIONS],
-    imageUrl: parseNullableString(payload.imageUrl ?? payload.image),
-    gifUrl: parseNullableString(payload.gifUrl ?? payload.gif) ?? buildExerciseImageUrl(exerciseId),
+    imageUrl,
+    gifUrl,
     videoUrl: parseNullableString(payload.videoUrl),
     bodyParts,
     targetMuscles,
@@ -500,6 +670,37 @@ function buildSearchSubtitle(input: {
   const pieces = [input.targetMuscles.join(', '), input.equipments.join(', '), input.exerciseType].filter(Boolean)
   if (pieces.length > 0) return pieces.join(' · ')
   return input.overview || DEFAULT_OVERVIEW
+}
+
+function scoreExerciseMatch(query: string, detail: ExerciseDbEnrichment) {
+  const queryKey = normalizeKey(query)
+  const nameKey = normalizeKey(detail.name)
+  if (!queryKey || !nameKey) return 0
+  if (queryKey === nameKey) return 100
+  if (nameKey.includes(queryKey) || queryKey.includes(nameKey)) return 80
+
+  const queryWords = new Set(
+    cleanText(query)
+      .toLowerCase()
+      .split(/\s+/)
+      .map((word) => normalizeKey(word))
+      .filter(Boolean)
+  )
+  const detailWords = new Set(
+    [detail.name, ...detail.keywords, ...detail.targetMuscles, ...detail.equipments, detail.exerciseType ?? '']
+      .join(' ')
+      .toLowerCase()
+      .split(/\s+/)
+      .map((word) => normalizeKey(word))
+      .filter(Boolean)
+  )
+
+  let overlap = 0
+  queryWords.forEach((word) => {
+    if (detailWords.has(word)) overlap += 1
+  })
+
+  return overlap * 10 + (detail.gifUrl ? 4 : 0) + (detail.imageUrl ? 2 : 0)
 }
 
 export function getExerciseDbConfigError() {
@@ -570,43 +771,88 @@ export async function getExerciseCatalogDetailById(exerciseId: string): Promise<
   return detail
 }
 
+const MIN_MATCH_SCORE = 25
+
 export async function findExerciseCatalogDetailByName(name: string): Promise<ExerciseDbEnrichment | null> {
   const normalizedName = cleanText(name)
   if (!normalizedName) return null
 
   const matches = await searchExerciseCatalog(normalizedName)
-  const exact = matches.find((item) => normalizeKey(item.name) === normalizeKey(normalizedName)) ?? matches[0]
-  if (exact?.exerciseId) {
-    const detail = await getExerciseCatalogDetailById(exact.exerciseId)
+  const exactMatch = matches.find((item) => normalizeKey(item.name) === normalizeKey(normalizedName))
+  if (exactMatch?.exerciseId) {
+    const detail = await getExerciseCatalogDetailById(exactMatch.exerciseId)
     if (detail) return detail
   }
 
   const candidates = await buildSearchCandidates(normalizedName)
-  let rows: unknown[] = []
+  const details: ExerciseDbEnrichment[] = []
+  const seen = new Set<string>()
   for (const candidate of candidates) {
     const payload = await fetchExerciseDbJson(`/exercises/name/${encodeURIComponent(candidate)}`, {
-      limit: '5',
+      limit: '8',
     })
-    rows = extractDataArray(payload)
-    if (rows.length > 0) break
+    const rows = extractDataArray(payload)
+    for (const row of rows) {
+      if (!row || typeof row !== 'object') continue
+      const detail = await translateDetail(row as Record<string, unknown>)
+      if (!detail || seen.has(detail.exerciseId)) continue
+      seen.add(detail.exerciseId)
+      if (normalizeKey(detail.name) === normalizeKey(normalizedName)) {
+        detailCache.set(detail.exerciseId, detail)
+        return detail
+      }
+      details.push(detail)
+    }
   }
 
-  for (const row of rows) {
-    if (!row || typeof row !== 'object') continue
-    const detail = await translateDetail(row as Record<string, unknown>)
+  for (const match of matches) {
+    if (!match.exerciseId || seen.has(match.exerciseId)) continue
+    const detail = await getExerciseCatalogDetailById(match.exerciseId).catch(() => null)
     if (!detail) continue
-    if (normalizeKey(detail.name) === normalizeKey(normalizedName)) {
-      detailCache.set(detail.exerciseId, detail)
-      return detail
-    }
+    seen.add(detail.exerciseId)
+    details.push(detail)
   }
 
-  if (rows[0] && typeof rows[0] === 'object') {
-    const fallback = await translateDetail(rows[0] as Record<string, unknown>)
-    if (fallback) {
-      detailCache.set(fallback.exerciseId, fallback)
-      return fallback
+  if (details.length === 0) return null
+
+  const ranked = [...details]
+    .map((detail) => ({ detail, score: scoreExerciseMatch(normalizedName, detail) }))
+    .sort((left, right) => right.score - left.score)
+  const best = ranked[0]
+
+  if (!best || best.score < MIN_MATCH_SCORE) {
+    if (process.env.EXERCISEDB_DEBUG_IMAGES === '1') {
+      console.warn('[exercise-image] match descartado por baja relevancia', {
+        query: normalizedName,
+        bestScore: best?.score ?? null,
+        bestName: best?.detail.name ?? null,
+        threshold: MIN_MATCH_SCORE,
+      })
     }
+    return null
+  }
+
+  const hydrated = await getExerciseCatalogDetailById(best.detail.exerciseId).catch(() => null)
+  const detail = hydrated ?? best.detail
+  detailCache.set(detail.exerciseId, detail)
+  return detail
+}
+
+async function findExerciseCatalogDetailForBlock(block: RoutineEditorDraft['blocks'][number]) {
+  const instructionHints = splitIntoSentences(block.instructions)
+    .map((line) => line.replace(/^(realizar|hacer|ejecutar|completar)\s+/i, '').replace(/\s+durante\s+.+$/i, '').trim())
+    .filter((line) => line.length >= 3 && line.length <= 60)
+
+  const queries = uniqueStrings([
+    block.name,
+    ...instructionHints,
+    block.purpose,
+    block.progression,
+  ].map((item) => cleanText(item)).filter(Boolean)).slice(0, 4)
+
+  for (const query of queries) {
+    const detail = await findExerciseCatalogDetailByName(query)
+    if (detail) return detail
   }
 
   return null
@@ -621,7 +867,7 @@ export async function enrichDraftWithExerciseDb(draftInput: RoutineEditorDraft):
       if (!block.name.trim()) return block
 
       try {
-        const detail = await findExerciseCatalogDetailByName(block.name)
+        const detail = await findExerciseCatalogDetailForBlock(block)
         return detail ? mergeRoutineBlockWithExerciseData(block, detail) : block
       } catch {
         return block

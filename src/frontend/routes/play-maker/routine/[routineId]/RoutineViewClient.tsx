@@ -114,11 +114,43 @@ function totalVolume(blocks: RoutineBlock[]) {
   }, 0)
 }
 
-function imageForBlock(routine: RoutineDetail, block: RoutineBlock, index: number) {
+function imageForBlock(routine: RoutineDetail, block: RoutineBlock, _index: number) {
   const exerciseMedia = block.exerciseData?.gifUrl ?? block.exerciseData?.imageUrl
   if (exerciseMedia) return exerciseMedia
-  if (routine.imageUrls.length === 0) return null
-  return routine.imageUrls[index % routine.imageUrls.length] ?? null
+  const ownBlockImage = block.imageUrls?.find((url) => typeof url === 'string' && url.trim().length > 0)
+  if (ownBlockImage) return ownBlockImage
+  const aggregatedExerciseUrls = new Set(
+    routine.blocks
+      .map((candidate) => candidate.exerciseData?.gifUrl ?? candidate.exerciseData?.imageUrl ?? null)
+      .filter((url): url is string => Boolean(url))
+  )
+  const standaloneRoutineImage = routine.imageUrls.find((url) => !aggregatedExerciseUrls.has(url))
+  return standaloneRoutineImage ?? null
+}
+
+function ExerciseBlockImage({ url, alt, className, fallbackClassName }: { url: string | null; alt: string; className: string; fallbackClassName: string }) {
+  const [broken, setBroken] = useState(false)
+  if (!url || broken) {
+    return (
+      <div className={fallbackClassName}>
+        <Dumbbell className="h-10 w-10" />
+      </div>
+    )
+  }
+  return (
+    <img
+      src={url}
+      alt={alt}
+      className={className}
+      loading="lazy"
+      onError={() => {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[exercise-image] no se pudo cargar', { alt, url })
+        }
+        setBroken(true)
+      }}
+    />
+  )
 }
 
 function buildPhaseSections(blocks: RoutineBlock[]) {
@@ -288,13 +320,12 @@ export default function RoutineViewClient({ equipo, routine, canEdit = true }: R
                     <article key={block.rowId} className={`overflow-hidden rounded-xl border border-[#d8dee8] border-l-[7px] ${borderColor} bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)] print:break-inside-avoid`}>
                       <div className="flex flex-col md:flex-row">
                         <div className="relative w-full md:w-64">
-                          {imageUrl ? (
-                            <img src={imageUrl} alt={block.name} className="h-48 w-full object-cover md:h-full" />
-                          ) : (
-                            <div className="flex h-48 w-full items-center justify-center bg-[#eef2f7] text-[#005db6] md:h-full">
-                              <Dumbbell className="h-10 w-10" />
-                            </div>
-                          )}
+                          <ExerciseBlockImage
+                            url={imageUrl}
+                            alt={block.name}
+                            className="h-48 w-full object-cover md:h-full"
+                            fallbackClassName="flex h-48 w-full items-center justify-center bg-[#eef2f7] text-[#005db6] md:h-full"
+                          />
                           <div className="absolute left-2 top-2 rounded bg-[#005db6] px-2 py-1 text-xs font-black text-white">
                             {String(globalIndex + 1).padStart(2, '0')}
                           </div>

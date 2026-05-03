@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Dumbbell, Home, MessageSquare, Settings, Sparkles, Trophy, Users } from 'lucide-react'
+import { ArrowLeft, Dumbbell, Home, MessageSquare, Settings, Sparkles, Trophy, Users } from 'lucide-react'
 
 function withTeam(path, teamId) {
   if (!teamId) return path
@@ -21,6 +21,7 @@ export default function Sidebar({ equipoId }) {
   const activeTeamId = equipoId ?? searchParams.get('equipo')
 
   const items = [
+    { id: 'volver', label: 'Volver', icon: ArrowLeft, path: '/equipos', href: '/equipos' },
     { id: 'home', label: 'Home', icon: Home, path: '/home', href: withTeam('/home', activeTeamId) },
     { id: 'team', label: 'Estadisticas', icon: Users, path: '/estadisticas', href: withTeam('/estadisticas', activeTeamId) },
     { id: 'train', label: 'Entrenamiento', icon: Dumbbell, path: '/entrenamientos', href: withTeam('/entrenamientos', activeTeamId) },

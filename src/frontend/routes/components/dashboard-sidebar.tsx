@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
+  ArrowLeft,
   Dumbbell,
   Home,
   MessageSquare,
@@ -79,6 +80,13 @@ export default function DashboardSidebar({ equipoId }: DashboardSidebarProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const activeTeamId = equipoId ?? searchParams.get('equipo')
+  const backItem: NavItem = {
+    id: 'volver',
+    label: 'Volver',
+    icon: ArrowLeft,
+    path: '/equipos',
+    href: '/equipos',
+  }
 
   const items: NavItem[] = [
     {
@@ -140,6 +148,11 @@ export default function DashboardSidebar({ equipoId }: DashboardSidebarProps) {
             <div className="mb-2 flex h-14 w-14 items-center justify-center rounded-[20px] border border-white/16 bg-white/10 text-sm font-semibold uppercase tracking-[0.24em] text-white">
               BP
             </div>
+            <SidebarButton
+              item={backItem}
+              active={isItemActive(pathname, backItem.path)}
+              onClick={() => router.push('/equipos')}
+            />
             {items.map((item) => (
               <SidebarButton
                 key={item.id}
@@ -158,7 +171,7 @@ export default function DashboardSidebar({ equipoId }: DashboardSidebarProps) {
 
       <nav className="fixed inset-x-4 bottom-4 z-40 lg:hidden">
         <div className="flex items-center justify-between rounded-[28px] border border-white/14 bg-[rgba(1,17,64,0.88)] px-3 py-3 shadow-[0_24px_60px_rgba(1,17,64,0.32)] backdrop-blur-xl">
-          {items.map((item) => {
+          {[backItem, ...items].map((item) => {
             const Icon = item.icon
             const active = isItemActive(pathname, item.path)
 

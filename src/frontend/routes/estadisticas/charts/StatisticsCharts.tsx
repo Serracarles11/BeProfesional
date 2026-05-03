@@ -50,6 +50,30 @@ function valueToNumber(value: unknown) {
   return null
 }
 
+function rowHasVisibleFatigueData(
+  row: StatisticsChartsPayload['fatigueTrend'][number],
+  selectedPlayer: PlayerStatisticsDatum | null
+) {
+  if (row.teamAverage !== null) return true
+  if (!selectedPlayer) return false
+  return row.playerValues[selectedPlayer.id] !== null && row.playerValues[selectedPlayer.id] !== undefined
+}
+
+function trimFatigueTrendToData(
+  data: StatisticsChartsPayload['fatigueTrend'],
+  selectedPlayer: PlayerStatisticsDatum | null
+) {
+  const firstIndex = data.findIndex((row) => rowHasVisibleFatigueData(row, selectedPlayer))
+  if (firstIndex === -1) return []
+
+  let lastIndex = data.length - 1
+  while (lastIndex > firstIndex && !rowHasVisibleFatigueData(data[lastIndex], selectedPlayer)) {
+    lastIndex -= 1
+  }
+
+  return data.slice(firstIndex, lastIndex + 1)
+}
+
 function EmptyChart({ title }: { title: string }) {
   return (
     <div className="flex min-h-[260px] items-center justify-center rounded-2xl border border-dashed border-[#dce8f8] bg-[#f8fbff] px-6 text-center">
@@ -124,6 +148,14 @@ function buildFatigueOption(
   const selectedPlayerValues = selectedPlayer
     ? data.map((row) => [row.from, row.playerValues[selectedPlayer.id] ?? null])
     : []
+  const firstDate = data[0]?.from ? new Date(data[0].from).getTime() : null
+  const lastDate = data.at(-1)?.from ? new Date(data.at(-1)!.from).getTime() : null
+  const hasDateRange =
+    firstDate !== null &&
+    lastDate !== null &&
+    Number.isFinite(firstDate) &&
+    Number.isFinite(lastDate) &&
+    firstDate !== lastDate
 
   return {
     animationDuration: 700,
@@ -167,6 +199,7 @@ function buildFatigueOption(
     xAxis: {
       type: 'time',
       boundaryGap: false,
+      ...(hasDateRange ? { min: firstDate, max: lastDate } : {}),
       axisTick: { show: false },
       axisLine: { lineStyle: { color: '#e2e8f0' } },
       axisLabel: {
@@ -716,9 +749,13 @@ export function StatisticsCharts({ data }: StatisticsChartsProps) {
     () => data.players.find((p) => p.id === selectedMinutesPlayerId) ?? null,
     [data.players, selectedMinutesPlayerId]
   )
-  const fatigueOption = useMemo(
-    () => buildFatigueOption(data.fatigueTrend, selectedPlayer),
+  const visibleFatigueTrend = useMemo(
+    () => trimFatigueTrendToData(data.fatigueTrend, selectedPlayer),
     [data.fatigueTrend, selectedPlayer]
+  )
+  const fatigueOption = useMemo(
+    () => buildFatigueOption(visibleFatigueTrend, selectedPlayer),
+    [visibleFatigueTrend, selectedPlayer]
   )
   const attendanceOption = useMemo(
     () => buildRankingOption({ rows: data.attendanceRanking, color: CHART_COLORS.primary, unit: '%' }),
@@ -733,7 +770,7 @@ export function StatisticsCharts({ data }: StatisticsChartsProps) {
     [data.attendanceTrend]
   )
 
-  const hasFatigueData = data.fatigueTrend.some((r) => r.teamAverage !== null)
+  const hasFatigueData = visibleFatigueTrend.some((row) => rowHasVisibleFatigueData(row, selectedPlayer))
 
   return (
     <section className="grid grid-cols-1 gap-6 lg:grid-cols-12">
@@ -771,7 +808,7 @@ export function StatisticsCharts({ data }: StatisticsChartsProps) {
           {hasFatigueData ? (
             <>
               <FatigueKpiBar
-                fatigueTrend={data.fatigueTrend}
+                fatigueTrend={visibleFatigueTrend}
                 players={data.players}
                 selectedPlayerId={selectedPlayerId}
               />

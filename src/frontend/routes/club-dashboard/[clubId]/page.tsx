@@ -1,8 +1,12 @@
 'use client'
 
+import type * as React from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Building2, Info, Users } from 'lucide-react'
+import { AppSidebar } from '@/components/app-sidebar'
+import { SiteHeader } from '@/components/site-header'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { createSupabaseBrowser } from '@/lib/supabase/client'
 
 type Club = {
@@ -129,8 +133,26 @@ export default function ClubDashboardByIdPage() {
     }
   }, [clubId, supabase])
 
+  const clubName = club?.nombre || 'Club'
+  const clubInfoHref = `/club-dashboard/${encodeURIComponent(clubId)}/informacion-club`
+
   return (
-    <main className="auth-bg min-h-screen p-4 md:p-8">
+    <SidebarProvider
+      className="bg-[linear-gradient(145deg,#f8fbff_0%,#edf3ff_46%,#dfeaff_100%)]"
+      style={
+        {
+          "--header-height": "calc(var(--spacing) * 12)",
+          "--primary": "var(--bp-primary)",
+          "--ring": "var(--bp-mid)",
+          "--accent": "var(--bp-soft)",
+          "--accent-foreground": "var(--bp-ink)",
+        } as React.CSSProperties
+      }
+    >
+      <AppSidebar clubName={clubName} clubHref={clubInfoHref} />
+      <SidebarInset className="bg-transparent">
+        <SiteHeader clubName={clubName} backHref="/equipos" />
+        <main className="min-h-[calc(100vh-var(--header-height))] p-4 md:p-8">
       <div className="relative z-10 mx-auto max-w-5xl">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button
@@ -145,7 +167,7 @@ export default function ClubDashboardByIdPage() {
           <button
             type="button"
             onClick={() =>
-              router.push(`/club-dashboard/${encodeURIComponent(clubId)}/informacion-club`)
+              router.push(clubInfoHref)
             }
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-sky-600/20 transition hover:bg-sky-700"
           >
@@ -175,7 +197,7 @@ export default function ClubDashboardByIdPage() {
                     Panel de club
                   </p>
                   <h1 className="mt-1 text-2xl font-bold text-gray-800 md:text-3xl">
-                    {club?.nombre || 'Club'}
+                    {clubName}
                   </h1>
                 </div>
               </div>
@@ -200,7 +222,7 @@ export default function ClubDashboardByIdPage() {
             <div className="mb-5">
               <h2 className="text-xl font-bold text-gray-800">Equipos del club</h2>
               <p className="mt-1 text-gray-500">
-                Equipos vinculados a {club?.nombre || 'este club'}.
+                Equipos vinculados a {clubName || 'este club'}.
               </p>
             </div>
 
@@ -252,6 +274,8 @@ export default function ClubDashboardByIdPage() {
           </section>
         )}
       </div>
-    </main>
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

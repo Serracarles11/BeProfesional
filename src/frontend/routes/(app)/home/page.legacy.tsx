@@ -1,8 +1,10 @@
 ﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
+  ArrowLeft,
   Calendar,
   ChevronRight,
   Dumbbell,
@@ -117,6 +119,13 @@ function Sidebar() {
 
   return (
     <aside className="sidebar-glass hidden w-20 flex-col items-center gap-4 rounded-3xl p-4 md:flex">
+      <Link
+        href="/equipos"
+        className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/80 text-gray-500 transition hover:bg-white"
+        title="Volver"
+      >
+        <ArrowLeft className="h-5 w-5" />
+      </Link>
       {items.map((item, index) => {
         const Icon = item.icon
         const active = index === 0

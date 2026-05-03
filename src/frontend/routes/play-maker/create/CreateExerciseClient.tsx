@@ -567,12 +567,26 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
                 {draft.blocks.map((block, index) => (
                   <article key={block.id} onDragOver={(event) => { event.preventDefault(); setDragOverBlockId(block.id) }} onDragLeave={() => setDragOverBlockId((current) => (current === block.id ? null : current))} onDrop={(event) => { event.preventDefault(); if (draggedBlockId) moveBlock(draggedBlockId, block.id); setDraggedBlockId(null); setDragOverBlockId(null) }} className={`overflow-hidden rounded-xl border bg-white shadow-[0_4px_10px_rgba(15,23,42,0.04)] transition ${dragOverBlockId === block.id ? 'border-[#1A73E8] ring-2 ring-[#1A73E8]/15' : 'border-[#E2E8F0]'}`}>
                     <div className="flex flex-col md:flex-row">
-                      <div className="w-full space-y-3 border-b border-[#E2E8F0] bg-slate-50 p-6 md:w-64 md:border-b-0 md:border-r">
+                      {block.imageUrls.length > 0 || uploadingBlockId === block.id ? (
+                        <div className="w-full space-y-3 border-b border-[#E2E8F0] bg-slate-50 p-6 md:w-64 md:border-b-0 md:border-r">
                         {block.imageUrls.length > 0 ? (
                           <div className="grid grid-cols-2 gap-2">
                             {block.imageUrls.map((url, imageIndex) => (
                               <div key={`${block.id}-${url}-${imageIndex}`} className="group relative overflow-hidden rounded-lg border border-[#E2E8F0] bg-white">
-                                <img src={url} alt={`${block.name || 'Ejercicio'} ${imageIndex + 1}`} className="h-24 w-full object-cover" />
+                                <img
+                                  src={url}
+                                  alt={`${block.name || 'Ejercicio'} ${imageIndex + 1}`}
+                                  className="h-24 w-full object-cover"
+                                  loading="lazy"
+                                  onError={(event) => {
+                                    if (process.env.NODE_ENV !== 'production') {
+                                      console.warn('[exercise-image] miniatura rota', { url })
+                                    }
+                                    const img = event.currentTarget
+                                    img.style.visibility = 'hidden'
+                                    img.parentElement?.classList.add('bg-slate-100')
+                                  }}
+                                />
                                 <button type="button" onClick={() => removeBlockImage(block.id, url)} className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100" aria-label="Eliminar imagen">
                                   <X className="h-3 w-3" />
                                 </button>
@@ -584,7 +598,8 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
                           <ImagePlus className="h-6 w-6 text-slate-400 transition group-hover:text-[#1A73E8]" />
                           <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 group-hover:text-[#1A73E8]">{uploadingBlockId === block.id ? 'Subiendo...' : block.imageUrls.length > 0 ? 'Anadir imagen' : 'Multimedia'}</span>
                         </button>
-                      </div>
+                        </div>
+                      ) : null}
 
                       <div className="flex-1 p-8">
                         <div className="mb-6 flex items-start justify-between gap-4">
@@ -621,7 +636,26 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
                                             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-[#F1F7FF]"
                                           >
                                             {result.imageUrl ? (
-                                              <img src={result.imageUrl} alt={result.name} className="h-11 w-11 rounded-lg object-cover" />
+                                              <img
+                                                src={result.imageUrl}
+                                                alt={result.name}
+                                                className="h-11 w-11 rounded-lg object-cover"
+                                                loading="lazy"
+                                                onError={(event) => {
+                                                  if (process.env.NODE_ENV !== 'production') {
+                                                    console.warn('[exercise-image] resultado catálogo sin imagen', { name: result.name, url: result.imageUrl })
+                                                  }
+                                                  const img = event.currentTarget
+                                                  const parent = img.parentElement
+                                                  img.remove()
+                                                  if (parent) {
+                                                    const fallback = document.createElement('div')
+                                                    fallback.className = 'flex h-11 w-11 items-center justify-center rounded-lg bg-[#E8F0FE] text-[#1A73E8]'
+                                                    fallback.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>'
+                                                    parent.prepend(fallback)
+                                                  }
+                                                }}
+                                              />
                                             ) : (
                                               <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#E8F0FE] text-[#1A73E8]">
                                                 <Sparkles className="h-4 w-4" />
@@ -660,6 +694,7 @@ export default function CreateExerciseClient({ equipo, initialRoutine = null, in
 
                           <div className="flex items-center gap-2">
                             <button type="button" draggable onDragStart={() => setDraggedBlockId(block.id)} onDragEnd={() => { setDraggedBlockId(null); setDragOverBlockId(null) }} className="flex h-9 w-9 cursor-grab items-center justify-center rounded-lg bg-slate-100 text-slate-400 active:cursor-grabbing" aria-label={`Mover bloque ${index + 1}`}><Grip className="h-4 w-4" /></button>
+                            <button type="button" onClick={() => openImagePicker(block.id)} disabled={uploadingBlockId === block.id} className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-400 transition hover:bg-[#E8F0FE] hover:text-[#1A73E8] disabled:cursor-not-allowed disabled:opacity-50" aria-label={`Anadir multimedia a ${block.name || `bloque ${index + 1}`}`}><ImagePlus className="h-4 w-4" /></button>
                             <button type="button" onClick={() => removeBlock(block.id)} className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 transition hover:bg-red-50 hover:text-red-500" aria-label={`Eliminar bloque ${index + 1}`}><Trash2 className="h-4 w-4" /></button>
                           </div>
                         </div>

@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import {
+  ArrowLeft,
   BarChart3,
   Bell,
   Building2,
@@ -46,7 +47,7 @@ const MENU_ITEMS = [
   { label: 'Partidos', href: '/partidos', icon: CalendarDays },
   { label: 'Chats', href: '/chat', icon: MessageSquare },
   { label: 'Estadisticas', href: '/estadisticas', icon: BarChart3 },
-  { label: 'AI Coach', href: '/play-maker', icon: Sparkles },
+  { label: 'Play Maker', href: '/play-maker', icon: Sparkles },
 ]
 
 function formatNotificationTime(value: string) {
@@ -64,26 +65,18 @@ function formatNotificationTime(value: string) {
 export function LeftNavigation({
   equipoId,
   teamName,
-  isCoach = false,
   isCodesActive = false,
   onOpenCodes,
   isSettingsActive = false,
   onOpenSettings,
 }: LeftNavigationProps) {
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [notificationsLoading, setNotificationsLoading] = useState(true)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const clubMembership = useClubPanelAccess()
-  const playMakerMode = searchParams.get('mode')
-  const menuItems = isCoach
-    ? [
-        ...MENU_ITEMS,
-        { label: 'IA Maker', href: '/play-maker?mode=maker', icon: Sparkles },
-      ]
-    : MENU_ITEMS
+  const menuItems = MENU_ITEMS
   const visibleMenuItems = clubMembership
     ? [...menuItems, { label: 'Panel de club', href: '/club', icon: Building2 }]
     : menuItems
@@ -279,13 +272,16 @@ export function LeftNavigation({
       </div>
 
       <nav className="space-y-1">
+        <Link
+          href="/equipos"
+          className="mb-3 flex items-center gap-3 rounded-xl border border-[#d9e4f7] bg-white p-3 text-sm font-semibold text-[#00468c] transition-transform duration-200 hover:-translate-x-0.5 hover:border-[#b9cff3] hover:bg-[#f8fbff]"
+        >
+          <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={1.8} />
+          <span className="[font-family:var(--font-plus-jakarta)]">Volver</span>
+        </Link>
+
         {visibleMenuItems.map((item) => {
-          const isMakerItem = item.href.includes('mode=maker')
-          const active = isMakerItem
-            ? pathname === '/play-maker' && playMakerMode === 'maker'
-            : item.href === '/play-maker'
-              ? isActivePath(pathname, item.href) && playMakerMode !== 'maker'
-              : isActivePath(pathname, item.href)
+          const active = isActivePath(pathname, item.href)
           const Icon = item.icon
 
           return (

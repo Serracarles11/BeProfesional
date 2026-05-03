@@ -68,7 +68,7 @@ type TrainingAssistantClientProps = {
   upcomingTrainings: TrainingItem[]
 }
 
-type AssistantTab = 'LIBRARY' | 'AI_COACH' | 'EXERCISES'
+type AssistantTab = 'LIBRARY' | 'EXERCISES'
 type FilterCategory = 'Todos' | 'Estiramientos' | 'Rendimiento Fisico' | 'Rehabilitacion'
 type AudienceMode = 'all' | 'selected'
 type TeamPlayerOption = {
@@ -139,7 +139,6 @@ export default function TrainingAssistantClient({
   playerName,
   routines,
   publicRoutines,
-  upcomingTrainings,
 }: TrainingAssistantClientProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<AssistantTab>('LIBRARY')
@@ -186,10 +185,6 @@ export default function TrainingAssistantClient({
     })
   }, [activeFilter, localRoutines, query, sortBy])
 
-  const previewRoutines = useMemo(() => {
-    return (visibleRoutines.length > 0 ? visibleRoutines : localRoutines).slice(0, 4)
-  }, [localRoutines, visibleRoutines])
-
   const visiblePublicRoutines = useMemo(() => {
     const filtered = localPublicRoutines.filter((routine) => {
       const category = resolveCategory(routine)
@@ -209,38 +204,6 @@ export default function TrainingAssistantClient({
       return right.likeCount - left.likeCount
     })
   }, [activeFilter, localPublicRoutines, query, sortBy])
-
-  const previewDuration = useMemo(() => {
-    return previewRoutines.reduce((acc, routine) => acc + routine.duration, 0)
-  }, [previewRoutines])
-
-  const previewVolume = useMemo(() => {
-    const estimated = previewRoutines.reduce((acc, routine) => {
-      return acc + routine.difficulty * Math.max(routine.duration, 10) * 18
-    }, 0)
-    return `${(estimated / 1000).toFixed(1)}K KG`
-  }, [previewRoutines])
-
-  const previewIntensity = useMemo(() => {
-    const avgDifficulty =
-      previewRoutines.reduce((acc, routine) => acc + routine.difficulty, 0) / Math.max(previewRoutines.length, 1)
-    if (avgDifficulty >= 4) return 'HIGH'
-    if (avgDifficulty >= 3) return 'MEDIUM'
-    return 'LOW'
-  }, [previewRoutines])
-
-  const suggestionChips = useMemo(() => {
-    const derived = [
-      'Recuperar piernas',
-      'Mejorar potencia explosiva',
-      'Cardio zona 2',
-      upcomingTrainings[0]?.tipo ? `Preparar ${upcomingTrainings[0].tipo}` : null,
-    ].filter((value): value is string => Boolean(value))
-
-    return derived.slice(0, 4)
-  }, [upcomingTrainings])
-
-  const aiCreateHref = withEquipo('/play-maker/create', equipo?.id)
 
   async function deleteRoutine(routine: RoutineSummary) {
     if (!equipo?.id) return
@@ -549,17 +512,15 @@ export default function TrainingAssistantClient({
               </h1>
             </div>
             <div className="flex items-center gap-6">
-              {activeTab !== 'AI_COACH' ? (
-                <div className="hidden items-center rounded-full border border-[#c1c6d6]/30 bg-[#f1f4f9] px-4 py-2 md:flex">
-                  <Search className="mr-2 h-4 w-4 text-[#727785]" />
-                  <input
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    className="w-48 border-none bg-transparent text-sm placeholder:text-[#727785]/60 focus:outline-none"
-                    placeholder="Buscar ejercicios..."
-                  />
-                </div>
-              ) : null}
+              <div className="hidden items-center rounded-full border border-[#c1c6d6]/30 bg-[#f1f4f9] px-4 py-2 md:flex">
+                <Search className="mr-2 h-4 w-4 text-[#727785]" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  className="w-48 border-none bg-transparent text-sm placeholder:text-[#727785]/60 focus:outline-none"
+                  placeholder="Buscar ejercicios..."
+                />
+              </div>
               <button className="text-slate-500 transition-colors hover:text-[#1A73E8]">
                 <Bell className="h-5 w-5" />
               </button>
@@ -586,13 +547,6 @@ export default function TrainingAssistantClient({
               >
                 Library
                 {activeTab === 'LIBRARY' ? <span className="absolute inset-x-0 bottom-0 h-0.5 bg-[#1A73E8]" /> : null}
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('AI_COACH')}
-                className={`h-full px-1 text-sm tracking-tight ${activeTab === 'AI_COACH' ? 'font-bold text-[#1A73E8]' : 'font-semibold text-[#44474E]/70'}`}
-              >
-                AI Coach
               </button>
               <button
                 type="button"
@@ -775,117 +729,6 @@ export default function TrainingAssistantClient({
                   )}
                 </div>
               </>
-            ) : activeTab === 'AI_COACH' ? (
-              <div className="space-y-6">
-                {/* Hero */}
-                <section className="relative overflow-hidden rounded-[32px] bg-[#0c1524] shadow-[0_30px_60px_rgba(0,0,0,0.24)]">
-                  <div className="pointer-events-none absolute -left-40 -top-40 h-[480px] w-[480px] rounded-full bg-[#1A73E8] opacity-[0.07] blur-[80px]" />
-                  <div className="pointer-events-none absolute -bottom-24 right-8 h-[300px] w-[300px] rounded-full bg-[#0056b3] opacity-[0.09] blur-[60px]" />
-                  <div className="relative z-10 grid gap-0 lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_360px]">
-                    <div className="px-8 py-10 lg:px-12 lg:py-12">
-                      <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#1A73E8]/30 bg-[#1A73E8]/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.2em] text-[#60a5fa]">
-                        <Sparkles className="h-3.5 w-3.5" />
-                        AI Coach Integrado
-                      </div>
-                      <h2 className="text-[2.4rem] font-black leading-[1.06] tracking-tight text-white [font-family:var(--font-plus-jakarta)] lg:text-5xl">
-                        Genera rutinas<br /><span className="text-[#60a5fa]">con inteligencia</span>
-                      </h2>
-                      <p className="mt-4 max-w-lg text-sm font-medium leading-relaxed text-slate-400">
-                        La IA construye una sesion completa dentro del creador de rutinas, la deja editable y mantiene el contexto para que puedas seguir refinandola antes de guardar.
-                      </p>
-                      <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                        {[
-                          { step: '01', text: 'Pide la sesion con un prompt o chip rapido' },
-                          { step: '02', text: 'Rutina con fases y bloques editables aparece en el creador' },
-                          { step: '03', text: 'Refina chateando: intensidad, duracion, ejercicios' },
-                          { step: '04', text: 'Guarda como rutina normal, marcada como hecha por IA' },
-                        ].map(({ step, text }) => (
-                          <div key={step} className="flex items-start gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.04] p-4">
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#1A73E8]/20 text-[11px] font-black text-[#60a5fa]">
-                              {step}
-                            </span>
-                            <p className="text-[13px] font-semibold leading-snug text-slate-300">{text}</p>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-8">
-                        <p className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Prompts rapidos</p>
-                        <div className="flex flex-wrap gap-2">
-                          {suggestionChips.map((chip) => (
-                            <Link
-                              key={chip}
-                              href={aiCreateHref}
-                              className="rounded-full border border-[#1A73E8]/25 bg-[#1A73E8]/10 px-4 py-2.5 text-[11px] font-bold tracking-wide text-[#60a5fa] transition-all hover:border-[#1A73E8]/55 hover:bg-[#1A73E8]/20 hover:shadow-[0_0_20px_rgba(26,115,232,0.18)]"
-                            >
-                              {chip}
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-center p-6 lg:p-8">
-                      <div className="w-full max-w-xs rounded-[28px] bg-gradient-to-br from-[#1A73E8] via-[#1258c4] to-[#0b3a8a] p-7 shadow-[0_0_50px_rgba(26,115,232,0.28),inset_0_1px_0_rgba(255,255,255,0.1)]">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-200/80">Sesion generada con IA</p>
-                        <h4 className="mt-3 text-2xl font-black leading-tight text-white [font-family:var(--font-plus-jakarta)]">Lista para generar y guardar</h4>
-                        <div className="mt-6 grid grid-cols-3 gap-3 border-y border-white/10 py-5">
-                          <AiStat label="Min" value={`${previewDuration || 0}`} />
-                          <AiStat label="Vol" value={previewVolume.split(' ')[0]} bordered />
-                          <AiStat label="Int" value={previewIntensity} />
-                        </div>
-                        <Link
-                          href={aiCreateHref}
-                          className="mt-6 flex items-center justify-center gap-2 rounded-2xl bg-white py-4 text-[11px] font-black uppercase tracking-widest text-[#1A73E8] transition hover:bg-blue-50 hover:shadow-lg"
-                        >
-                          <Sparkles className="h-4 w-4" />
-                          Abrir creador con IA
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                {/* Library panel */}
-                <section className="rounded-[28px] bg-white p-8 shadow-[0_20px_40px_rgba(0,93,182,0.06)]">
-                  <div className="mb-6 flex items-center justify-between">
-                    <div>
-                      <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Contexto para la IA</p>
-                      <h3 className="mt-1 text-2xl font-extrabold tracking-tight text-[#181c20] [font-family:var(--font-plus-jakarta)]">Biblioteca disponible</h3>
-                    </div>
-                    <Link
-                      href={withEquipo('/play-maker/create', equipo?.id)}
-                      className="flex items-center gap-2 rounded-xl border border-[#e8edf5] px-4 py-2.5 text-xs font-black uppercase tracking-widest text-[#44474E] transition hover:border-[#1A73E8]/30 hover:bg-[#f0f6ff] hover:text-[#1A73E8]"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      Nueva
-                    </Link>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    {previewRoutines.length > 0 ? (
-                      previewRoutines.map((routine) => (
-                        <div
-                          key={routine.id}
-                          className="group flex flex-col gap-3 rounded-2xl border border-[#e8edf5] bg-[#f7f9fe] p-4 transition-all hover:border-[#1A73E8]/30 hover:bg-white hover:shadow-[0_8px_24px_rgba(26,115,232,0.08)]"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#d6e3ff] text-[#005db6]">
-                              <Dumbbell className="h-5 w-5" />
-                            </div>
-                            <span className="rounded-full bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[#727785] shadow-sm ring-1 ring-[#e8edf5]">
-                              {routine.category || difficultyLabel(routine.difficulty)}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="line-clamp-2 text-sm font-bold leading-tight text-[#181c20]">{routine.title}</p>
-                            <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">{routine.blockCount} bloques · {routine.duration ?? 10} min</p>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <EmptyState title="Sin biblioteca" description="Carga rutinas para que la IA tenga mas contexto al generar nuevas sesiones." compact />
-                    )}
-                  </div>
-                </section>
-              </div>
             ) : (
               <ExercisesCommunityView
                 equipoId={equipo?.id}
@@ -1270,23 +1113,6 @@ function InfoMini({ label, value, dark = false }: { label: string; value: string
         {label}
       </span>
       <span className={`text-xs font-bold ${dark ? 'text-white' : 'text-[#181c20]'}`}>{value}</span>
-    </div>
-  )
-}
-
-function AiStat({
-  label,
-  value,
-  bordered = false,
-}: {
-  label: string
-  value: string
-  bordered?: boolean
-}) {
-  return (
-    <div className={`text-center ${bordered ? 'border-x border-white/10' : ''}`}>
-      <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-blue-200">{label}</p>
-      <p className="text-lg font-bold tracking-tight text-white">{value}</p>
     </div>
   )
 }

@@ -11,6 +11,9 @@ import {
   Trophy,
   Users,
 } from 'lucide-react'
+import { mapStatisticsToCharts } from '@/frontend/routes/estadisticas/charts/chart-mappers'
+import { StatisticsCharts } from '@/frontend/routes/estadisticas/charts/StatisticsCharts'
+import type { FatigueTrendDatum } from '@/frontend/routes/estadisticas/charts/types'
 
 type Equipo = {
   id: string
@@ -38,6 +41,7 @@ type Jugador = {
   nombre: string
   edad: number | null
   posicion: string | null
+  fotoUrl: string | null
   alturaCm: number | null
   pesoKg: number | null
   telefono: string | null
@@ -151,6 +155,195 @@ function relatedEquipo(value: RelatedEquipo | RelatedEquipo[] | null | undefined
 function matchesDate(value: string | null, dateFilter: string) {
   if (!dateFilter) return true
   return Boolean(value?.startsWith(dateFilter))
+}
+
+function toNumber(value: unknown) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  return 0
+}
+
+function formatDateKey(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function formatShortDate(value: string | null | undefined) {
+  if (!value) return 'Sesion'
+  const date = new Date(`${value}T12:00:00`)
+  if (Number.isNaN(date.getTime())) return value
+
+  return new Intl.DateTimeFormat('es-ES', {
+    day: '2-digit',
+    month: 'short',
+  }).format(date)
+}
+
+function average(values: number[]) {
+  if (values.length === 0) return null
+  const total = values.reduce((acc, value) => acc + value, 0)
+  return Number((total / values.length).toFixed(1))
+}
+
+function itemString(row: BienestarItem, key: string) {
+  const value = row[key]
+  return typeof value === 'string' && value.trim() ? value : null
+}
+
+function itemBoolean(row: BienestarItem, key: string) {
+  const value = row[key]
+  return typeof value === 'boolean' ? value : null
+}
+
+function buildClubFatigueTrend(
+  rows: BienestarItem[],
+  players: Array<{ usuarioId: string }>
+): FatigueTrendDatum[] {
+  const now = new Date()
+  const start = new Date(now)
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - 41)
+
+  const buckets = Array.from({ length: 6 }, (_, index) => {
+    const from = new Date(start)
+    from.setDate(start.getDate() + index * 7)
+    const to = new Date(from)
+    to.setDate(from.getDate() + 6)
+
+    return {
+      id: `club-week-${index + 1}`,
+      label: formatShortDate(formatDateKey(from)),
+      from: formatDateKey(from),
+      to: formatDateKey(to),
+      teamValues: [] as number[],
+      playerValues: new Map<string, number[]>(),
+    }
+  })
+
+  for (const player of players) {
+    for (const bucket of buckets) {
+      bucket.playerValues.set(player.usuarioId, [])
+    }
+  }
+
+  const playerIds = new Set(players.map((player) => player.usuarioId))
+
+  for (const row of rows) {
+    const playerId = itemString(row, 'jugador_id') ?? itemString(row, 'usuario_id')
+    const dateValue = itemString(row, 'fecha')
+    const fatigue = toNumber(row.fatiga)
+
+    if (!playerId || !playerIds.has(playerId) || !dateValue || fatigue <= 0) continue
+
+    const date = new Date(`${dateValue}T00:00:00`)
+    if (Number.isNaN(date.getTime()) || date < start || date > now) continue
+
+    const daysFromStart = Math.floor((date.getTime() - start.getTime()) / 86400000)
+    const bucketIndex = Math.min(5, Math.max(0, Math.floor(daysFromStart / 7)))
+    const bucket = buckets[bucketIndex]
+    if (!bucket) continue
+
+    bucket.teamValues.push(fatigue)
+    bucket.playerValues.get(playerId)?.push(fatigue)
+  }
+
+  return buckets.map((bucket) => {
+    const playerValues: Record<string, number | null> = {}
+    for (const player of players) {
+      playerValues[player.usuarioId] = average(bucket.playerValues.get(player.usuarioId) ?? [])
+    }
+
+    return {
+      id: bucket.id,
+      label: bucket.label,
+      from: bucket.from,
+      to: bucket.to,
+      teamAverage: average(bucket.teamValues),
+      playerValues,
+    }
+  })
+}
+
+function buildClubChartData({
+  jugadores,
+  partidos,
+  bienestar,
+}: {
+  jugadores: Jugador[]
+  partidos: Partido[]
+  bienestar: DashboardPayload['bienestar']
+}) {
+  const playersBase = jugadores
+    .map((jugador) => {
+      if (!jugador.usuarioId) return null
+      return {
+        usuarioId: jugador.usuarioId,
+        nombre: jugador.nombre,
+        fotoUrl: jugador.fotoUrl,
+        posicion: jugador.posicion,
+      }
+    })
+    .filter((player): player is NonNullable<typeof player> => player !== null)
+
+  const playerIds = new Set(playersBase.map((player) => player.usuarioId))
+  const attendanceByPlayer = new Map<string, number>()
+  const attendanceByDate = new Map<string, number>()
+  const attendanceDates = new Set<string>()
+
+  for (const row of bienestar?.home ?? []) {
+    const playerId = itemString(row, 'usuario_id')
+    const date = itemString(row, 'fecha')
+    const attendsTraining = itemBoolean(row, 'asiste_entrenamiento')
+
+    if (!playerId || !playerIds.has(playerId) || !date) continue
+
+    attendanceDates.add(date)
+    if (attendsTraining === true) {
+      attendanceByPlayer.set(playerId, (attendanceByPlayer.get(playerId) ?? 0) + 1)
+      attendanceByDate.set(date, (attendanceByDate.get(date) ?? 0) + 1)
+    }
+  }
+
+  const totalAttendanceSessions = attendanceDates.size
+  const players = playersBase.map((player) => {
+    const trainingAttendances = attendanceByPlayer.get(player.usuarioId) ?? 0
+    return {
+      ...player,
+      goles: 0,
+      asistencias: 0,
+      contribucion: 0,
+      minutos: 0,
+      asistenciasEntreno: trainingAttendances,
+      asistenciaPct:
+        totalAttendanceSessions > 0
+          ? (trainingAttendances / totalAttendanceSessions) * 100
+          : null,
+    }
+  })
+
+  const attendanceTrend = [...attendanceDates]
+    .sort((left, right) => left.localeCompare(right))
+    .slice(-12)
+    .map((date) => {
+      const attended = attendanceByDate.get(date) ?? 0
+      return {
+        id: `club-attendance-${date}`,
+        label: formatShortDate(date),
+        date,
+        attended,
+        totalPlayers: playerIds.size,
+        percentage: playerIds.size > 0 ? (attended / playerIds.size) * 100 : null,
+      }
+    })
+
+  return mapStatisticsToCharts({
+    matches: partidos,
+    players,
+    fatigueTrend: buildClubFatigueTrend([...(bienestar?.checkins ?? []), ...(bienestar?.home ?? [])], playersBase),
+    attendanceTrend,
+  })
 }
 
 function EmptyState({ text }: { text: string }) {
@@ -287,6 +480,60 @@ function ClubDashboardContent() {
     [categoria, matchDate, partidos, selectedEquipoId]
   )
 
+  const chartJugadores = useMemo(
+    () =>
+      jugadores.filter((jugador) => {
+        const byEquipo = !selectedEquipoId || jugador.equipoId === selectedEquipoId
+        const byCategoria = !categoria || jugador.categoria === categoria
+        const byAnio = !categoriaAnio || jugador.categoriaAnio === categoriaAnio
+        return byEquipo && byCategoria && byAnio
+      }),
+    [categoria, categoriaAnio, jugadores, selectedEquipoId]
+  )
+
+  const chartPartidos = useMemo(
+    () =>
+      partidos.filter((partido) => {
+        const equipo = relatedEquipo(partido.equipos)
+        return (
+          (!selectedEquipoId || equipo?.id === selectedEquipoId || partido.equipo_id === selectedEquipoId) &&
+          (!categoria || equipo?.categoria === categoria)
+        )
+      }),
+    [categoria, partidos, selectedEquipoId]
+  )
+
+  const chartBienestar = useMemo(() => {
+    const playerIds = new Set(chartJugadores.map((jugador) => jugador.usuarioId).filter(Boolean))
+    const equipoIds = new Set(chartJugadores.map((jugador) => jugador.equipoId).filter(Boolean))
+
+    const filterRows = (rows: BienestarItem[]) =>
+      rows.filter((row) => {
+        const playerId = itemString(row, 'jugador_id') ?? itemString(row, 'usuario_id')
+        const equipoId = itemString(row, 'equipo_id')
+
+        if (playerId && playerIds.has(playerId)) return true
+        if (equipoId && equipoIds.has(equipoId)) return true
+        return false
+      })
+
+    return {
+      home: filterRows(bienestar.home),
+      checkins: filterRows(bienestar.checkins),
+      actividad: filterRows(bienestar.actividad),
+    }
+  }, [bienestar.actividad, bienestar.checkins, bienestar.home, chartJugadores])
+
+  const clubCharts = useMemo(
+    () =>
+      buildClubChartData({
+        jugadores: chartJugadores,
+        partidos: chartPartidos,
+        bienestar: chartBienestar,
+      }),
+    [chartBienestar, chartJugadores, chartPartidos]
+  )
+
   const selectedEquipo = equipos.find((equipo) => equipo.id === selectedEquipoId) ?? null
   const hasBienestar = bienestar.home.length > 0 || bienestar.checkins.length > 0 || bienestar.actividad.length > 0
 
@@ -344,6 +591,21 @@ function ClubDashboardContent() {
           <StatCard icon={Users} label="Equipos" value={payload?.summary?.totalEquipos ?? equipos.length} />
           <StatCard icon={Activity} label="Jugadores" value={payload?.summary?.totalJugadores ?? jugadores.length} />
           <StatCard icon={CalendarDays} label="Temporada" value={payload?.summary?.temporadaActual ?? '-'} />
+        </section>
+
+        <section className="rounded-[28px] border border-[#dbe5f4] bg-white p-5 shadow-sm">
+          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-xl font-black text-[#121826]">Estadisticas del club</h2>
+              <p className="text-sm font-medium text-[#657086]">
+                Graficas agregadas para el entrenador con los filtros actuales del panel.
+              </p>
+            </div>
+            <span className="rounded-full bg-[#eaf2ff] px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#005db6]">
+              {chartJugadores.length} jugadores
+            </span>
+          </div>
+          <StatisticsCharts data={clubCharts} />
         </section>
 
         <section className="rounded-[28px] border border-[#dbe5f4] bg-white p-5 shadow-sm">

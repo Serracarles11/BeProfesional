@@ -3,6 +3,7 @@
 import * as React from "react"
 import { usePathname } from "next/navigation"
 import {
+  ArrowLeft,
   BarChart3,
   Bell,
   CalendarDays,
@@ -106,12 +107,13 @@ export function AppSidebar({ clubName, clubHref }: ClubSidebarProps) {
   }, [])
 
   const items: NavItem[] = [
-    { id: "home", label: "Home", href: "#home", icon: LayoutDashboard },
-    { id: "equipos", label: "Equipos", href: "#equipos", icon: Users },
-    { id: "estadisticas", label: "Estadisticas", href: "#estadisticas", icon: BarChart3 },
+    { id: "home", label: "Home", href: `${clubHref}#home`, icon: LayoutDashboard },
+    { id: "equipos", label: "Equipos", href: `${clubHref}#equipos`, icon: Users },
+    { id: "estadisticas", label: "Estadisticas", href: `${clubHref}#estadisticas`, icon: BarChart3 },
+    { id: "partidos", label: "Partidos", href: `${clubHref}#partidos`, icon: CalendarDays },
     { id: "entrenamientos", label: "Entrenamientos", href: `${clubHref}/entrenamientos`, icon: CalendarDays },
     { id: "jugadores", label: "Jugadores", href: `${clubHref}/jugadores`, icon: UserRound },
-    { id: "settings", label: "Settings", href: "#settings", icon: Settings },
+    { id: "settings", label: "Settings", href: `${clubHref}#settings`, icon: Settings },
   ]
 
   const latestNotifications = notifications.slice(0, 2)
@@ -119,16 +121,20 @@ export function AppSidebar({ clubName, clubHref }: ClubSidebarProps) {
   const handleNavigate = (item: NavItem) => {
     setActiveId(item.id)
 
-    if (item.href.startsWith("#")) {
-      if (window.location.hash === item.href) {
+    const destination = new URL(item.href, window.location.origin)
+    const currentPath = window.location.pathname.replace(/\/$/, "")
+    const destinationPath = destination.pathname.replace(/\/$/, "")
+
+    if (destination.hash && currentPath === destinationPath) {
+      if (window.location.hash === destination.hash) {
         window.dispatchEvent(new HashChangeEvent("hashchange"))
       } else {
-        window.location.hash = item.href.slice(1)
+        window.location.hash = destination.hash.slice(1)
       }
       return
     }
 
-    window.location.assign(item.href)
+    window.location.assign(destination.toString())
   }
 
   const markNotificationRead = (notification: NotificationItem) => {
@@ -209,6 +215,15 @@ export function AppSidebar({ clubName, clubHref }: ClubSidebarProps) {
           <p className="text-xs font-medium text-[#5f6776]">{clubName}</p>
         </div>
 
+        <button
+          type="button"
+          onClick={() => window.location.assign("/equipos")}
+          className="mb-3 flex w-full items-center gap-3 rounded-xl border border-[#d9e4f7] bg-white p-3 text-sm font-semibold text-[#00468c] transition hover:-translate-x-0.5 hover:border-[#b9cff3] hover:bg-[#f8fbff]"
+        >
+          <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={1.9} />
+          <span className="[font-family:var(--font-plus-jakarta)]">Volver</span>
+        </button>
+
         <nav className="space-y-1">
           {items.map((item) => {
             const Icon = item.icon
@@ -282,6 +297,15 @@ export function AppSidebar({ clubName, clubHref }: ClubSidebarProps) {
 
       <nav className="fixed bottom-3 left-3 right-3 z-40 xl:hidden">
         <div className="grid grid-cols-3 gap-1 rounded-2xl border border-[#4a79df] bg-[#07205f]/90 p-2 backdrop-blur-xl sm:grid-cols-6">
+          <button
+            type="button"
+            title="Volver"
+            onClick={() => window.location.assign("/equipos")}
+            className="flex flex-col items-center justify-center rounded-xl px-1 py-2 text-[10px] uppercase tracking-[0.12em] text-[#bcd0ff]"
+          >
+            <ArrowLeft className="mb-1 h-4 w-4" />
+            <span className="truncate">Volver</span>
+          </button>
           {items.map((item) => {
             const Icon = item.icon
             const active = activeId === item.id
